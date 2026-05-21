@@ -22,7 +22,7 @@ const notLoggedIn = ref(false)
 
 onMounted(async () => {
   try {
-    if (!window.__supabase) { loading.value = false; return }
+    if (typeof window === 'undefined' || !window.__supabase) { loading.value = false; return }
     const client = window.__supabase
 
     const { data: { session } } = await client.auth.getSession()
@@ -36,6 +36,9 @@ onMounted(async () => {
     const uid = session.user.id
     const meta = session.user.user_metadata || {}
 
+    console.log('用户数据:', session.user)
+    console.log('用户元数据:', meta)
+
     const { data: profile } = await client
       .from('profiles')
       .select('*')
@@ -43,13 +46,31 @@ onMounted(async () => {
       .single()
 
     if (profile) {
-      user.username = profile.username || meta.full_name || meta.user_name || session.user.email
-      user.avatar = profile.avatar_url || meta.avatar_url || '/images/default-avatar.svg'
+      user.username = profile.username || ''
+      if (!user.username) {
+        if (meta.full_name) user.username = meta.full_name
+        else if (meta.user_name) user.username = meta.user_name
+        else if (meta.name) user.username = meta.name
+        else if (meta.preferred_username) user.username = meta.preferred_username
+        else user.username = session.user.email
+      }
+      
+      user.avatar = profile.avatar_url || 
+                   meta.avatar_url || 
+                   meta.picture || 
+                   '/images/default-avatar.svg'
+      
       user.bio = profile.bio || ''
       user.role = profile.role || 'member'
     } else {
-      user.username = meta.full_name || meta.user_name || session.user.email
-      user.avatar = meta.avatar_url || '/images/default-avatar.svg'
+      if (meta.full_name) user.username = meta.full_name
+      else if (meta.user_name) user.username = meta.user_name
+      else if (meta.name) user.username = meta.name
+      else if (meta.preferred_username) user.username = meta.preferred_username
+      else user.username = session.user.email
+      
+      user.avatar = meta.avatar_url || meta.picture || '/images/default-avatar.svg'
+      user.role = 'member'
     }
 
     const { data: articles } = await client
@@ -103,7 +124,9 @@ function formatDate(dateStr) {
       <div class="profile-card">
         <img :src="user.avatar" :alt="user.username" class="user-avatar">
         <h2 class="username">{{ user.username }}</h2>
-        <span class="user-role">{{ user.role === 'admin' ? '管理员' : '社员' }}</span>
+        <span class="user-role" :class="user.role === 'admin' ? 'admin-role' : ''">
+          {{ user.role === 'admin' ? '👑 管理员' : '社员' }}
+        </span>
         <p class="user-bio">{{ user.bio || '这个人很懒，什么都没写' }}</p>
         <div class="user-stats">
           <div class="stat-item">
@@ -152,6 +175,11 @@ function formatDate(dateStr) {
 .user-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--vp-c-brand-1); margin-bottom: 1rem; }
 .username { margin: 0 0 0.5rem 0; font-size: 1.25rem; }
 .user-role { display: inline-block; padding: 0.2rem 0.75rem; background: var(--vp-c-brand-1); color: white; border-radius: 20px; font-size: 0.75rem; margin-bottom: 1rem; }
+.user-role.admin-role { 
+  background: linear-gradient(135deg, #f59e0b, #d97706); 
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+}
 .user-bio { margin: 0 0 1.5rem 0; font-size: 0.875rem; color: var(--vp-c-text-2); line-height: 1.5; }
 .user-stats { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--vp-c-divider); }
 .stat-item { text-align: center; }
