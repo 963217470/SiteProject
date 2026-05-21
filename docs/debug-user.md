@@ -7,7 +7,8 @@ layout: page
   <h1>🔍 用户信息调试</h1>
   <p class="desc">查看您的用户数据和角色信息</p>
   
-  <div id="loading" class="loading">加载中...</div>
+  <div id="loading" class="loading" style="display: none;">加载中...</div>
+  <div id="initial-message" class="loading">正在初始化...</div>
   
   <div id="user-info" style="display: none;">
     <h2>您的用户信息</h2>
@@ -23,8 +24,8 @@ layout: page
     </div>
     
     <div class="actions">
-      <button class="btn" onclick="refresh()">刷新</button>
-      <button class="btn btn-secondary" onclick="copyToClipboard()">复制用户ID</button>
+      <button class="btn" id="refresh-btn">刷新</button>
+      <button class="btn btn-secondary" id="copy-btn">复制用户ID</button>
     </div>
   </div>
   
@@ -32,13 +33,27 @@ layout: page
 </div>
 
 <script>
-if (typeof window !== 'undefined') {
+// 只有在客户端执行
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   let currentUserId = null;
+  let refreshButton = null;
+  let copyButton = null;
 
   function refresh() {
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('user-info').style.display = 'none';
-    document.getElementById('error').style.display = 'none';
+    const loadingEl = document.getElementById('loading');
+    const userInfoEl = document.getElementById('user-info');
+    const errorEl = document.getElementById('error');
+    const initialMsgEl = document.getElementById('initial-message');
+    
+    if (!loadingEl || !userInfoEl || !errorEl) {
+      console.error('找不到DOM元素');
+      return;
+    }
+    
+    loadingEl.style.display = 'block';
+    userInfoEl.style.display = 'none';
+    errorEl.style.display = 'none';
+    if (initialMsgEl) initialMsgEl.style.display = 'none';
     
     if (!window.__supabase) {
       showError('Supabase未加载，请刷新页面');
@@ -55,8 +70,11 @@ if (typeof window !== 'undefined') {
       currentUserId = user.id;
       
       // 显示用户基本信息
-      document.getElementById('user-data').textContent = JSON.stringify(user, null, 2);
-      document.getElementById('user-id').textContent = user.id;
+      const userDataEl = document.getElementById('user-data');
+      const userIdEl = document.getElementById('user-id');
+      
+      if (userDataEl) userDataEl.textContent = JSON.stringify(user, null, 2);
+      if (userIdEl) userIdEl.textContent = user.id;
       
       // 获取profile信息
       return window.__supabase
@@ -67,29 +85,40 @@ if (typeof window !== 'undefined') {
         
     }).then(function(result) {
       const profile = result.data;
+      const profileDataEl = document.getElementById('profile-data');
+      const userRoleEl = document.getElementById('user-role');
+      const userStatusEl = document.getElementById('user-status');
       
       if (profile) {
-        document.getElementById('profile-data').textContent = JSON.stringify(profile, null, 2);
-        document.getElementById('user-role').textContent = profile.role || '未设置';
-        document.getElementById('user-role').className = 'role-tag ' + profile.role;
+        if (profileDataEl) profileDataEl.textContent = JSON.stringify(profile, null, 2);
+        if (userRoleEl) {
+          userRoleEl.textContent = profile.role || '未设置';
+          userRoleEl.className = 'role-tag ' + (profile.role || '');
+        }
         
-        if (profile.role === 'admin') {
-          document.getElementById('user-status').textContent = '✅ 您是管理员！';
-          document.getElementById('user-status').className = 'status success';
-        } else {
-          document.getElementById('user-status').textContent = '⚠️ 您不是管理员';
-          document.getElementById('user-status').className = 'status warning';
+        if (userStatusEl) {
+          if (profile.role === 'admin') {
+            userStatusEl.textContent = '✅ 您是管理员！';
+            userStatusEl.className = 'status success';
+          } else {
+            userStatusEl.textContent = '⚠️ 您不是管理员';
+            userStatusEl.className = 'status warning';
+          }
         }
       } else {
-        document.getElementById('profile-data').textContent = '暂无profile记录，需要先设置！';
-        document.getElementById('user-role').textContent = '未设置';
-        document.getElementById('user-role').className = 'role-tag';
-        document.getElementById('user-status').textContent = '⚠️ 没有profile记录';
-        document.getElementById('user-status').className = 'status warning';
+        if (profileDataEl) profileDataEl.textContent = '暂无profile记录，需要先设置！';
+        if (userRoleEl) {
+          userRoleEl.textContent = '未设置';
+          userRoleEl.className = 'role-tag';
+        }
+        if (userStatusEl) {
+          userStatusEl.textContent = '⚠️ 没有profile记录';
+          userStatusEl.className = 'status warning';
+        }
       }
       
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('user-info').style.display = 'block';
+      loadingEl.style.display = 'none';
+      userInfoEl.style.display = 'block';
       
     }).catch(function(e) {
       console.error(e);
@@ -98,9 +127,18 @@ if (typeof window !== 'undefined') {
   }
 
   function showError(msg) {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('error').textContent = msg;
-    document.getElementById('error').style.display = 'block';
+    const loadingEl = document.getElementById('loading');
+    const errorEl = document.getElementById('error');
+    const userInfoEl = document.getElementById('user-info');
+    const initialMsgEl = document.getElementById('initial-message');
+    
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (errorEl) {
+      errorEl.textContent = msg;
+      errorEl.style.display = 'block';
+    }
+    if (userInfoEl) userInfoEl.style.display = 'none';
+    if (initialMsgEl) initialMsgEl.style.display = 'none';
   }
 
   function copyToClipboard() {
@@ -111,8 +149,35 @@ if (typeof window !== 'undefined') {
     }
   }
 
-  // 页面加载时自动刷新
-  setTimeout(refresh, 100);
+  // 等待DOM加载完成
+  document.addEventListener('DOMContentLoaded', function() {
+    refreshButton = document.getElementById('refresh-btn');
+    copyButton = document.getElementById('copy-btn');
+    
+    if (refreshButton) {
+      refreshButton.addEventListener('click', refresh);
+    }
+    
+    if (copyButton) {
+      copyButton.addEventListener('click', copyToClipboard);
+    }
+    
+    // 延迟一点执行让Supabase加载完成
+    setTimeout(refresh, 300);
+  });
+  
+  // 如果DOM已加载，立即执行
+  if (document.readyState !== 'loading') {
+    setTimeout(function() {
+      refreshButton = document.getElementById('refresh-btn');
+      copyButton = document.getElementById('copy-btn');
+      
+      if (refreshButton) refreshButton.addEventListener('click', refresh);
+      if (copyButton) copyButton.addEventListener('click', copyToClipboard);
+      
+      setTimeout(refresh, 300);
+    }, 100);
+  }
 }
 </script>
 
