@@ -4,21 +4,27 @@ layout: page
 ---
 
 <div class="debug-container">
-  <h1>🔍 您的用户信息</h1>
-  <p class="desc">查看您 GitHub 登录后在 Supabase 中的用户数据</p>
+  <h1>🔍 用户信息调试</h1>
+  <p class="desc">查看您的用户数据和角色信息</p>
   
   <div id="loading" class="loading">加载中...</div>
   
   <div id="user-info" style="display: none;">
-    <h2>您的用户信息：</h2>
+    <h2>您的用户信息</h2>
     <pre id="user-data" class="data-box"></pre>
     
-    <h2>元数据详情：</h2>
-    <pre id="meta-data" class="data-box"></pre>
+    <h2>您的Profile信息</h2>
+    <pre id="profile-data" class="data-box"></pre>
+    
+    <div class="status-box">
+      <p><strong>用户ID:</strong> <span id="user-id"></span></p>
+      <p><strong>角色:</strong> <span id="user-role"></span></p>
+      <p><strong>状态:</strong> <span id="user-status"></span></p>
+    </div>
     
     <div class="actions">
       <button class="btn" onclick="refresh()">刷新</button>
-      <button class="btn btn-secondary" onclick="copyToClipboard()">复制用户 ID</button>
+      <button class="btn btn-secondary" onclick="copyToClipboard()">复制用户ID</button>
     </div>
   </div>
   
@@ -27,32 +33,67 @@ layout: page
 
 <script>
 if (typeof window !== 'undefined') {
-  const supabase = window.__supabase;
+  let currentUserId = null;
 
   function refresh() {
     document.getElementById('loading').style.display = 'block';
     document.getElementById('user-info').style.display = 'none';
     document.getElementById('error').style.display = 'none';
     
-    if (!supabase) {
-      showError('Supabase 未加载，请刷新页面');
+    if (!window.__supabase) {
+      showError('Supabase未加载，请刷新页面');
       return;
     }
     
-    supabase.auth.getSession().then(function(r) {
+    window.__supabase.auth.getSession().then(function(r) {
       if (!r.data || !r.data.session) {
         showError('您还未登录，请先登录');
         return;
       }
       
       const user = r.data.session.user;
+      currentUserId = user.id;
+      
+      // 显示用户基本信息
       document.getElementById('user-data').textContent = JSON.stringify(user, null, 2);
-      document.getElementById('meta-data').textContent = JSON.stringify(user.user_metadata, null, 2);
+      document.getElementById('user-id').textContent = user.id;
+      
+      // 获取profile信息
+      return window.__supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+    }).then(function(result) {
+      const profile = result.data;
+      
+      if (profile) {
+        document.getElementById('profile-data').textContent = JSON.stringify(profile, null, 2);
+        document.getElementById('user-role').textContent = profile.role || '未设置';
+        document.getElementById('user-role').className = 'role-tag ' + profile.role;
+        
+        if (profile.role === 'admin') {
+          document.getElementById('user-status').textContent = '✅ 您是管理员！';
+          document.getElementById('user-status').className = 'status success';
+        } else {
+          document.getElementById('user-status').textContent = '⚠️ 您不是管理员';
+          document.getElementById('user-status').className = 'status warning';
+        }
+      } else {
+        document.getElementById('profile-data').textContent = '暂无profile记录，需要先设置！';
+        document.getElementById('user-role').textContent = '未设置';
+        document.getElementById('user-role').className = 'role-tag';
+        document.getElementById('user-status').textContent = '⚠️ 没有profile记录';
+        document.getElementById('user-status').className = 'status warning';
+      }
       
       document.getElementById('loading').style.display = 'none';
       document.getElementById('user-info').style.display = 'block';
+      
     }).catch(function(e) {
-      showError('获取用户信息失败: ' + e.message);
+      console.error(e);
+      showError('获取profile信息失败: ' + e.message);
     });
   }
 
@@ -63,20 +104,15 @@ if (typeof window !== 'undefined') {
   }
 
   function copyToClipboard() {
-    if (!supabase) return;
-    supabase.auth.getSession().then(function(r) {
-      if (r.data && r.data.session) {
-        const id = r.data.session.user.id;
-        navigator.clipboard.writeText(id).then(function() {
-          alert('用户 ID 已复制到剪贴板！\nID: ' + id);
-        });
-      }
-    });
+    if (currentUserId) {
+      navigator.clipboard.writeText(currentUserId).then(function() {
+        alert('用户ID已复制到剪贴板！');
+      });
+    }
   }
 
-  if (typeof document !== 'undefined') {
-    setTimeout(refresh, 100);
-  }
+  // 页面加载时自动刷新
+  setTimeout(refresh, 100);
 }
 </script>
 
@@ -111,6 +147,55 @@ if (typeof window !== 'undefined') {
   overflow: auto;
   font-size: 0.85rem;
   border: 1px solid #e5e7eb;
+}
+
+.status-box {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin: 1.5rem 0;
+  border: 1px solid #e5e7eb;
+}
+
+.status-box p {
+  margin: 0.75rem 0;
+}
+
+.role-tag {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.role-tag.admin {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  font-weight: 600;
+}
+
+.role-tag.member {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.role-tag.user {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.status {
+  font-weight: 600;
+}
+
+.status.success {
+  color: #059669;
+}
+
+.status.warning {
+  color: #d97706;
 }
 
 .actions {
