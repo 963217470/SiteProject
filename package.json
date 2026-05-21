@@ -1,0 +1,23 @@
+{
+  "name": "game-dev-club-site",
+  "version": "1.0.0",
+  "description": "游戏开发社团网站",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev docs",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitepress build docs",
+    "preview": "vitepress preview docs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
+    "@vueuse/core": "^14.3.0",
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.34"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
+  }
+}

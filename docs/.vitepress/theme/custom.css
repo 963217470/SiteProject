@@ -1,0 +1,210 @@
+:root {
+  /* 主题色 - 红黑配色（白天：偏黑，RD 偏红） */
+  --vp-c-brand-1: #991b1b;
+  --vp-c-brand-2: #7f1d1d;
+  --vp-c-brand-3: #450a0a;
+  --vp-c-brand-soft: rgba(153, 27, 27, 0.10);
+
+  /* RD 永远亮红，STUDIO 永远暗 */
+  --rd-color: #ef4444;
+  --studio-color: #991b1b;
+
+  /* 暗色模式 */
+  --vp-dark-bg: #0a0a0a;
+  --vp-dark-card: #1a1a1a;
+}
+
+.dark {
+  /* 主题色 - 红黑配色（黑夜：偏红） */
+  --vp-c-brand-1: #dc2626;
+  --vp-c-brand-2: #b91c1c;
+  --vp-c-brand-3: #991b1b;
+  --vp-c-brand-soft: rgba(220, 38, 38, 0.16);
+
+  /* RD 亮红，STUDIO 暗红 */
+  --rd-color: #ef4444;
+  --studio-color: #b91c1c;
+}
+
+.hero-rd, .nav-rd {
+  color: var(--rd-color) !important;
+}
+
+.hero-studio, .nav-studio {
+  color: var(--studio-color) !important;
+}
+
+/* 自定义样式 */
+.vp-doc h1 {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.vp-doc h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 2rem;
+}
+
+/* 文章卡片样式 */
+.article-card {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.article-card:hover {
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 标签样式 */
+.tag {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  margin-right: 0.5rem;
+}
+
+/* 按钮样式 */
+.btn-primary {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: var(--vp-c-brand-1);
+  color: white;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: var(--vp-c-brand-2);
+}
+
+/* 首页大图样式 */
+.hero-banner {
+  width: 100%;
+  height: 400px;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.hero-banner h1 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.hero-banner p {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* 社交链接样式 */
+.social-links {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.social-links a {
+  color: white;
+  font-size: 1.5rem;
+  transition: opacity 0.3s ease;
+}
+
+.social-links a:hover {
+  opacity: 0.8;
+}
+
+/* 用户主页样式 */
+.user-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  background: var(--vp-c-bg);
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+.user-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 1rem;
+}
+
+.user-stats {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.user-stat {
+  text-align: center;
+}
+
+.user-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.user-stat-label {
+  font-size: 0.875rem;
+  color: var(--vp-c-text-2);
+}
+
+/* 编辑器样式 */
+.editor-container {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.editor-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--vp-c-bg-soft);
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.editor-content {
+  min-height: 400px;
+  padding: 1rem;
+}
+
+/* 分栏样式 */
+.tab-container {
+  display: flex;
+  border-bottom: 1px solid var(--vp-c-divider);
+  margin-bottom: 1rem;
+}
+
+.tab-item {
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.tab-item:hover {
+  background: var(--vp-c-bg-soft);
+}
+
+.tab-item.active {
+  border-bottom-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}

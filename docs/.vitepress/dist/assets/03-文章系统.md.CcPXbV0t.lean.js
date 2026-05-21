@@ -1,0 +1,1 @@
+import{c as s,S as t,j as n,m as i}from"./chunks/framework.DOPCDQAF.js";const c=JSON.parse('{"title":"三、文章系统","description":"","frontmatter":{},"headers":[],"relativePath":"03-文章系统.md","filePath":"03-文章系统.md"}'),p={name:"03-文章系统.md"};function e(l,a,d,r,h,o){return t(),n("div",null,[...a[0]||(a[0]=[i("",26)])])}const u=s(p,[["render",e]]);export{c as __pageData,u as default};
