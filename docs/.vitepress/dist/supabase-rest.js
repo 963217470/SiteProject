@@ -145,12 +145,13 @@ window.__supabase = {
       return {
         upload: async function(path, file) {
           var sess = await ensureSession()
-          if (!sess) return { data: null, error: { message: 'Not authenticated' } }
-          var headers = { 'apikey': KEY, 'Authorization': 'Bearer ' + sess.access_token }
+          var headers = { 'apikey': KEY }
+          if (sess) {
+            headers['Authorization'] = 'Bearer ' + sess.access_token
+          }
           var formData = new FormData()
-          formData.append('upsert', 'true')
-          formData.append('', file, path)
-          var res = await fetch(URL + '/storage/v1/object/' + bucket + '/' + path, {
+          formData.append('file', file, file.name)
+          var res = await fetch(URL + '/storage/v1/object/' + bucket + '/' + encodeURIComponent(path), {
             method: 'POST',
             headers: headers,
             body: formData
@@ -216,12 +217,12 @@ QueryBuilder.prototype.selectCount = function(opts) { this._countOpts = opts; re
 
 QueryBuilder.prototype.execute = async function() {
   var sess = await ensureSession()
-  var token = sess ? sess.access_token : null
+  var token = sess ? sess.access_token : KEY
 
   if (this._countOpts) {
     var countUrl = '/rest/v1/' + this._table + '?select=*&' + this._filters.join('&')
     var countHeaders = { 'apikey': KEY, 'Prefer': 'count=' + (this._countOpts.exact || this._countOpts.planned || 'exact') }
-    if (token) countHeaders['Authorization'] = 'Bearer ' + token
+    countHeaders['Authorization'] = 'Bearer ' + token
     var countRes = await fetch(URL + countUrl, { headers: countHeaders })
     var count = countRes.headers.get('content-range')
     if (count) {
@@ -233,7 +234,7 @@ QueryBuilder.prototype.execute = async function() {
 
   if (this._method === 'POST' || this._method === 'PATCH' || this._method === 'DELETE') {
     var headers = { 'apikey': KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
-    if (token) headers['Authorization'] = 'Bearer ' + token
+    headers['Authorization'] = 'Bearer ' + token
     var path = '/rest/v1/' + this._table
     if (this._filters.length > 0 && this._method !== 'POST') path += '?' + this._filters.join('&')
     var fetchOpts = { method: this._method, headers: headers }

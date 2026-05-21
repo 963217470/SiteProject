@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, test-branch]
   workflow_dispatch:
 
 permissions:
