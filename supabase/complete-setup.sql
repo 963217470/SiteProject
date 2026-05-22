@@ -1,47 +1,84 @@
--- 完整的数据库设置脚本
--- 请在 Supabase SQL Editor 中执行此脚本
+-- ============================================================
+-- Supabase 基础设置脚本
+-- ============================================================
+-- 用途：
+--   1. 创建 profiles 表。
+--   2. 配置 profiles 的 RLS 策略。
+--   3. 为新注册用户自动创建 profile。
+--   4. 提供管理员设置示例。
+--
+-- 使用方式：
+--   在 Supabase SQL Editor 中执行本文件。
+-- ============================================================
 
--- 1. 首先检查 profiles 表是否存在，如果不存在则创建
+-- 1. 创建用户资料表
 CREATE TABLE IF NOT EXISTS profiles (
-  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT UNIQUE,
   full_name TEXT,
   avatar_url TEXT,
-  role TEXT DEFAULT 'user' CHECK (role IN ('user', 'member', 'admin')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'member', 'admin')),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
--- 2. 确保 RLS 已启用
+-- 2. 开启 profiles RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- 3. 创建 profiles 表的策略
+-- 3. 重建 profiles 策略
 DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
 DROP POLICY IF EXISTS "Anyone can view profiles" ON profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
 
-CREATE POLICY "Anyone can view profiles" ON profiles FOR SELECT USING (true);
-CREATE POLICY "Users can update their own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Admins can update all profiles" ON profiles FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+CREATE POLICY "Anyone can view profiles"
+ON profiles
+FOR SELECT
+USING (true);
+
+CREATE POLICY "Users can update their own profile"
+ON profiles
+FOR UPDATE
+USING (auth.uid() = id)
+WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Admins can update all profiles"
+ON profiles
+FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1
+    FROM profiles
+    WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM profiles
+    WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+  )
 );
 
--- 4. 将 Ce1este 用户设置为管理员
--- 注意：您需要将 'YOUR_USER_ID_HERE' 替换为 Ce1este 用户的实际 UUID
--- 可以通过 SELECT id FROM auth.users WHERE email = 'Ce1este的邮箱' 来获取
-
--- 方法1：如果您知道 Ce1este 的用户ID，直接替换下面的 'USER_ID'
+-- 4. 可选：手动设置管理员
+-- 将 USER_ID_HERE 替换成目标用户的真实 UUID 后再执行。
+/*
 INSERT INTO profiles (id, role)
-VALUES ('USER_ID', 'admin')
-ON CONFLICT (id) DO UPDATE SET role = 'admin';
+VALUES ('USER_ID_HERE', 'admin')
+ON CONFLICT (id) DO UPDATE
+SET
+  role = EXCLUDED.role,
+  updated_at = NOW();
+*/
 
--- 方法2：如果您不确定用户ID，可以先查询
--- SELECT id, email FROM auth.users WHERE email LIKE '%Ce1este%' OR email LIKE '%ce1este%';
-
--- 5. 为新注册用户自动创建 profile 的触发器
+-- 5. 自动为新注册用户创建 profile
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
   INSERT INTO public.profiles (id, username, full_name, avatar_url)
   VALUES (
@@ -49,22 +86,24 @@ BEGIN
     NEW.raw_user_meta_data->>'user_name',
     NEW.raw_user_meta_data->>'full_name',
     NEW.raw_user_meta_data->>'avatar_url'
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
--- 删除旧触发器（如果存在）
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
--- 创建新触发器
 CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+AFTER INSERT ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_new_user();
 
--- 6. 再次修复 articles 表的 RLS 策略（完全重置）
-ALTER TABLE articles DISABLE ROW LEVEL SECURITY;
+-- 6. 验证结果
+SELECT 'profiles table and trigger are ready' AS status;
 
--- 7. 验证设置
-SELECT 'Profiles table created' AS status;
-SELECT * FROM profiles ORDER BY created_at DESC LIMIT 10;
+SELECT *
+FROM profiles
+ORDER BY created_at DESC
+LIMIT 10;
