@@ -1,7 +1,7 @@
 {
   "name": "game-dev-club-site",
   "version": "1.0.0",
-  "description": "游戏开发社团网站",
+  "description": "知识库网站",
   "type": "module",
   "scripts": {
     "dev": "vitepress dev docs",

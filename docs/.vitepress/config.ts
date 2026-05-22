@@ -3,8 +3,6 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'RD STUDIO',
   description: '创造 · 学习 · 分享',
-
-  // 基础配置
   base: '/SiteProject/',
 
   head: [
@@ -22,9 +20,7 @@ export default defineConfig({
     }
   },
 
-  // 主题配置
   themeConfig: {
-    // 导航栏
     nav: [
       { text: '首页', link: '/' },
       { text: '文章', link: '/articles' },
@@ -33,7 +29,6 @@ export default defineConfig({
       { text: '关于', link: '/about' }
     ],
 
-    // 侧边栏
     sidebar: {
       '/articles/': [
         {
@@ -53,15 +48,13 @@ export default defineConfig({
       ]
     },
 
-    // 搜索
     search: {
       provider: 'local'
     },
 
-    // 页脚
     footer: {
       message: 'RD STUDIO',
-      copyright: '© 2024 RD STUDIO'
+      copyright: 'Copyright 2024 RD STUDIO'
     }
   }
 })

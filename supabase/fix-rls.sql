@@ -9,6 +9,7 @@
 --   - 任何人可以提交文章。
 --   - 作者可以查看、更新、删除自己的文章。
 --   - member/admin 可以查看内部文章。
+--   - admin 可以查看所有文章。
 --   - admin 可以更新、删除所有文章。
 -- ============================================================
 
@@ -27,6 +28,7 @@ DROP POLICY IF EXISTS "Authors can delete own articles" ON articles;
 DROP POLICY IF EXISTS "Admins can delete all articles" ON articles;
 DROP POLICY IF EXISTS "Users can view own articles" ON articles;
 DROP POLICY IF EXISTS "Members can view internal articles" ON articles;
+DROP POLICY IF EXISTS "Admins can view all articles" ON articles;
 
 -- 3. 读取策略
 CREATE POLICY "Public articles viewable by everyone"
@@ -52,6 +54,18 @@ USING (
     FROM profiles
     WHERE profiles.id = auth.uid()
       AND profiles.role IN ('member', 'admin')
+  )
+);
+
+CREATE POLICY "Admins can view all articles"
+ON articles
+FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1
+    FROM profiles
+    WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
   )
 );
 
