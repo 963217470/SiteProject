@@ -208,6 +208,11 @@ async function updateArticleStatus(id, status, rejectReason) {
       return false
     }
 
+    if (!result.data || result.data.length === 0) {
+      alert('操作失败：数据库没有更新任何文章，请确认当前账号有管理员权限')
+      return false
+    }
+
     return true
   } catch (error) {
     alert('操作失败：' + (error.message || '未知错误'))
@@ -260,6 +265,11 @@ async function deleteArticle(id) {
 
     if (result.error) {
       alert('删除失败：' + result.error.message)
+      return
+    }
+
+    if (!result.data || result.data.length === 0) {
+      alert('删除失败：数据库没有删除任何文章，请确认当前账号有管理员权限')
       return
     }
 

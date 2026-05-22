@@ -11,6 +11,7 @@ layout: page
       <button id="filter-published" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('published')">已发布</button>
       <button id="filter-pending" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('pending')">待审核</button>
       <button id="filter-draft" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('draft')">草稿</button>
+      <button id="filter-rejected" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('rejected')">已拒绝</button>
     </div>
   </div>
 

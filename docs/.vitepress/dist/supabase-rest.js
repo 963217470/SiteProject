@@ -234,7 +234,7 @@ QueryBuilder.prototype.execute = async function() {
 
   if (this._method === 'POST' || this._method === 'PATCH' || this._method === 'DELETE') {
     var headers = { 'apikey': KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
-    headers['Authorization'] = 'Bearer ' + token
+    headers['Authorization'] = 'Bearer ' + KEY
     var path = '/rest/v1/' + this._table
     var params = []
     if (this._selectCols) params.push('select=' + encodeURIComponent(this._selectCols))
