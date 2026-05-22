@@ -108,6 +108,16 @@ async function waitForSupabase(maxAttempts) {
   return null
 }
 
+function withTimeout(promise, fallback, timeoutMs) {
+  timeoutMs = timeoutMs || 5000
+  return Promise.race([
+    promise,
+    new Promise(function(resolve) {
+      setTimeout(function() { resolve(fallback) }, timeoutMs)
+    })
+  ])
+}
+
 function getUserName(userId) {
   var profile = articleState.profiles[userId]
   return (profile && (profile.username || profile.full_name)) || '社团成员'
@@ -222,10 +232,13 @@ async function loadProfiles(supabase, userIds) {
   var ids = Array.from(new Set(userIds.filter(Boolean)))
   if (!ids.length) return
 
-  var result = await supabase
-    .from('profiles')
-    .select('id, username, full_name, avatar_url')
-    .in('id', ids)
+  var result = await withTimeout(
+    supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url')
+      .in('id', ids),
+    { data: [], error: { message: 'profiles timeout' } }
+  )
 
   if (!result.error && result.data) {
     result.data.forEach(function(profile) {
@@ -235,7 +248,10 @@ async function loadProfiles(supabase, userIds) {
 }
 
 async function loadInteractionState(supabase) {
-  var sessionResult = await supabase.auth.getSession()
+  var sessionResult = await withTimeout(
+    supabase.auth.getSession(),
+    { data: { session: null }, error: { message: 'session timeout' } }
+  )
   articleState.session = sessionResult.data.session
   var user = articleState.session && articleState.session.user
 
@@ -244,20 +260,26 @@ async function loadInteractionState(supabase) {
     return
   }
 
-  var likeResult = await supabase
-    .from('article_likes')
-    .select('article_id, user_id')
-    .eq('article_id', articleState.id)
-    .eq('user_id', user.id)
-    .limit(1)
+  var likeResult = await withTimeout(
+    supabase
+      .from('article_likes')
+      .select('article_id, user_id')
+      .eq('article_id', articleState.id)
+      .eq('user_id', user.id)
+      .limit(1),
+    { data: [], error: { message: 'likes timeout' } }
+  )
   articleState.liked = !!(likeResult.data && likeResult.data.length)
 
-  var favoriteResult = await supabase
-    .from('article_favorites')
-    .select('article_id, user_id')
-    .eq('article_id', articleState.id)
-    .eq('user_id', user.id)
-    .limit(1)
+  var favoriteResult = await withTimeout(
+    supabase
+      .from('article_favorites')
+      .select('article_id, user_id')
+      .eq('article_id', articleState.id)
+      .eq('user_id', user.id)
+      .limit(1),
+    { data: [], error: { message: 'favorites timeout' } }
+  )
 
   if (favoriteResult.error) {
     articleState.favoriteTableReady = false
@@ -269,11 +291,14 @@ async function loadInteractionState(supabase) {
 }
 
 async function loadComments(supabase) {
-  var result = await supabase
-    .from('comments')
-    .select('id, article_id, user_id, content, created_at, updated_at')
-    .eq('article_id', articleState.id)
-    .order('created_at', { ascending: true })
+  var result = await withTimeout(
+    supabase
+      .from('comments')
+      .select('id, article_id, user_id, content, created_at, updated_at')
+      .eq('article_id', articleState.id)
+      .order('created_at', { ascending: true }),
+    { data: [], error: { message: 'comments timeout' } }
+  )
 
   if (!result.error) {
     articleState.comments = result.data || []
@@ -411,13 +436,20 @@ async function loadArticle() {
     articleState.article = result.data
     document.title = articleState.article.title + ' | RD STUDIO'
 
-    await loadInteractionState(supabase)
-    await loadComments(supabase)
-    await loadProfiles(supabase, [articleState.article.author_id].concat(articleState.comments.map(function(comment) { return comment.user_id })))
-
     setVisible('loading', false)
     setVisible('article-shell', true)
     renderArticle()
+
+    Promise.all([
+      loadInteractionState(supabase),
+      loadComments(supabase)
+    ]).then(function() {
+      return loadProfiles(supabase, [articleState.article.author_id].concat(articleState.comments.map(function(comment) { return comment.user_id })))
+    }).then(function() {
+      renderArticle()
+    }).catch(function(error) {
+      console.warn('Article interaction load skipped:', error)
+    })
   } catch (error) {
     setVisible('loading', false)
     setVisible('error', true)
