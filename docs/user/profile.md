@@ -108,6 +108,15 @@ function handleCoverError(e) { e.target.src = '/SiteProject/images/default-cover
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }
+function isAdminRole(role) {
+  return role === 'admin'
+}
+function getRoleText(role) {
+  return isAdminRole(role) ? '管理员' : '社员'
+}
+function getRoleDescription(role) {
+  return isAdminRole(role) ? '拥有文章审核与后台管理权限' : '可发布文章并参与社团内容'
+}
 </script>
 
 <div class="profile-root">
@@ -122,11 +131,16 @@ function formatDate(dateStr) {
   <div v-show="!loading && !notLoggedIn" class="profile-layout">
     <aside class="profile-sidebar">
       <div class="profile-card">
-        <img :src="user.avatar" :alt="user.username" class="user-avatar">
-        <h2 class="username">{{ user.username }}</h2>
-        <span class="user-role" :class="user.role === 'admin' ? 'admin-role' : ''">
-          {{ user.role === 'admin' ? '👑 管理员' : '社员' }}
-        </span>
+        <div class="profile-identity">
+          <div class="avatar-frame" :class="isAdminRole(user.role) ? 'admin-frame' : 'member-frame'">
+            <img :src="user.avatar" :alt="user.username" class="user-avatar">
+          </div>
+          <h2 class="username">{{ user.username }}</h2>
+          <div class="role-block" :class="isAdminRole(user.role) ? 'admin-role' : 'member-role'">
+            <span class="role-label">{{ getRoleText(user.role) }}</span>
+            <span class="role-desc">{{ getRoleDescription(user.role) }}</span>
+          </div>
+        </div>
         <p class="user-bio">{{ user.bio || '这个人很懒，什么都没写' }}</p>
         <div class="user-stats">
           <div class="stat-item">
@@ -170,17 +184,20 @@ function formatDate(dateStr) {
 .not-logged-in, .loading-state { text-align: center; padding: 4rem 2rem; color: var(--vp-c-text-2); }
 .not-logged-in a { color: var(--vp-c-brand-1); }
 .profile-layout { display: flex; gap: 2rem; max-width: 1100px; margin: 0 auto; padding: 2rem; align-items: flex-start; }
-.profile-sidebar { flex: 0 0 280px; position: sticky; top: 80px; }
-.profile-card { padding: 2rem; background: var(--vp-c-bg-soft); border-radius: 12px; text-align: center; }
-.user-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--vp-c-brand-1); margin-bottom: 1rem; }
-.username { margin: 0 0 0.5rem 0; font-size: 1.25rem; }
-.user-role { display: inline-block; padding: 0.2rem 0.75rem; background: var(--vp-c-brand-1); color: white; border-radius: 20px; font-size: 0.75rem; margin-bottom: 1rem; }
-.user-role.admin-role { 
-  background: linear-gradient(135deg, #f59e0b, #d97706); 
-  font-weight: 600;
-  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
-}
-.user-bio { margin: 0 0 1.5rem 0; font-size: 0.875rem; color: var(--vp-c-text-2); line-height: 1.5; }
+.profile-sidebar { flex: 0 0 300px; position: sticky; top: 80px; }
+.profile-card { display: flex; flex-direction: column; align-items: center; padding: 2rem; background: var(--vp-c-bg-soft); border: 1px solid var(--vp-c-divider); border-radius: 12px; text-align: center; }
+.profile-identity { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.avatar-frame { display: grid; place-items: center; width: 118px; height: 118px; margin: 0 auto 1rem; border-radius: 999px; }
+.avatar-frame.member-frame { background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(34, 197, 94, 0.14)); }
+.avatar-frame.admin-frame { background: linear-gradient(135deg, rgba(245, 158, 11, 0.28), rgba(220, 38, 38, 0.12)); }
+.user-avatar { display: block; width: 104px; height: 104px; border-radius: 50%; object-fit: cover; border: 4px solid var(--vp-c-bg); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
+.username { margin: 0 0 0.75rem 0; font-size: 1.25rem; line-height: 1.35; word-break: break-word; }
+.role-block { display: grid; gap: 0.25rem; width: 100%; margin-bottom: 1rem; padding: 0.75rem 0.9rem; border: 1px solid var(--vp-c-divider); border-radius: 8px; }
+.role-block.admin-role { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.45); color: #92400e; }
+.role-block.member-role { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.35); color: #1d4ed8; }
+.role-label { font-size: 0.9rem; font-weight: 700; }
+.role-desc { font-size: 0.75rem; line-height: 1.4; opacity: 0.86; }
+.user-bio { width: 100%; margin: 0 0 1.5rem 0; font-size: 0.875rem; color: var(--vp-c-text-2); line-height: 1.5; }
 .user-stats { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--vp-c-divider); }
 .stat-item { text-align: center; }
 .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--vp-c-brand-1); }
@@ -199,5 +216,5 @@ function formatDate(dateStr) {
 .article-summary { margin: 0 0 0.5rem 0; font-size: 0.85rem; color: var(--vp-c-text-2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .article-meta { margin-top: auto; display: flex; gap: 1rem; font-size: 0.8rem; color: var(--vp-c-text-2); }
 .no-articles { text-align: center; padding: 3rem; color: var(--vp-c-text-2); background: var(--vp-c-bg-soft); border-radius: 8px; }
-@media (max-width: 768px) { .profile-layout { flex-direction: column; } .profile-sidebar { flex: none; position: static; width: 100%; } .article-cover { width: 120px; height: 80px; } }
+@media (max-width: 768px) { .profile-layout { flex-direction: column; padding: 1rem; } .profile-sidebar { flex: none; position: static; width: 100%; } .profile-card { padding: 1.5rem; } .article-cover { width: 120px; height: 80px; } }
 </style>
