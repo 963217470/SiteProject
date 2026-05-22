@@ -128,6 +128,10 @@ function getUserAvatar(userId) {
   return (profile && profile.avatar_url) || '/SiteProject/images/default-avatar.svg'
 }
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''))
+}
+
 function renderActionButton(type, label, count, active) {
   return [
     '<button class="action-btn ' + (active ? 'active' : '') + '" onclick="' + type + '()">',
@@ -323,7 +327,7 @@ async function toggleLike() {
   var supabase = window.__supabase
   var sessionResult = await supabase.auth.getSession()
   var session = sessionResult.data.session
-  if (!session) {
+  if (!session || !isUuid(session.user.id)) {
     alert('请先登录后再点赞')
     return
   }
@@ -351,7 +355,7 @@ async function toggleFavorite() {
   var sessionResult = await supabase.auth.getSession()
   var session = sessionResult.data.session
 
-  if (!session || !articleState.favoriteTableReady) {
+  if (!session || !isUuid(session.user.id) || !articleState.favoriteTableReady) {
     articleState.favorited = !articleState.favorited
     setLocalFavorite(articleState.id, articleState.favorited)
     renderArticle()
@@ -381,8 +385,8 @@ async function submitComment() {
   var supabase = window.__supabase
   var sessionResult = await supabase.auth.getSession()
   var session = sessionResult.data.session
-  if (!session) {
-    alert('请先登录后再评论')
+  if (!session || !isUuid(session.user.id)) {
+    alert('登录状态异常，请退出后重新使用 GitHub 登录')
     return
   }
 

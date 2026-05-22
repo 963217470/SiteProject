@@ -26,7 +26,11 @@ function parseJwt(token) {
   try {
     var parts = token.split('.')
     if (parts.length !== 3) return {}
-    return JSON.parse(atob(parts[1]))
+    var payload = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    while (payload.length % 4) payload += '='
+    return JSON.parse(decodeURIComponent(Array.prototype.map.call(atob(payload), function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    }).join('')))
   } catch (e) { return {} }
 }
 
