@@ -197,7 +197,9 @@ async function submitArticle() {
       return
     }
 
-    if (!data?.id) {
+    const insertedArticle = Array.isArray(data) ? data[0] : data
+
+    if (!insertedArticle?.id) {
       showStatus('提交失败：数据库没有返回文章 ID', 'error')
       return
     }

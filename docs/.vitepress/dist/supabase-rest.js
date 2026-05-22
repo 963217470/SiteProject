@@ -236,7 +236,11 @@ QueryBuilder.prototype.execute = async function() {
     var headers = { 'apikey': KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
     headers['Authorization'] = 'Bearer ' + token
     var path = '/rest/v1/' + this._table
-    if (this._filters.length > 0 && this._method !== 'POST') path += '?' + this._filters.join('&')
+    var params = []
+    if (this._selectCols) params.push('select=' + encodeURIComponent(this._selectCols))
+    if (this._filters.length > 0 && this._method !== 'POST') params = params.concat(this._filters)
+    if (params.length > 0) path += '?' + params.join('&')
+    if (this._single || this._maybeSingle) headers['Accept'] = 'application/vnd.pgrst.object+json'
     var fetchOpts = { method: this._method, headers: headers }
     if (this._body) fetchOpts.body = JSON.stringify(this._body)
     var res = await fetch(URL + path, fetchOpts)
@@ -244,6 +248,10 @@ QueryBuilder.prototype.execute = async function() {
     var json = null
     try { json = JSON.parse(text) } catch (e) {}
     if (!res.ok) return { data: null, error: { message: (json && json.message) || text || 'Request failed' }, count: null }
+    if (this._single || this._maybeSingle) {
+      if (Array.isArray(json)) return { data: json.length > 0 ? json[0] : null, error: null, count: null }
+      return { data: json || null, error: null, count: null }
+    }
     return { data: json, error: null, count: null }
   }
 
