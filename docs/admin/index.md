@@ -294,6 +294,17 @@ async function testConnection() {
   alert('连接正常，当前可读取 ' + (result.data || []).length + ' 篇文章')
 }
 
+if (typeof window !== 'undefined') {
+  window.loadArticles = loadArticles
+  window.publishArticle = publishArticle
+  window.unpublishArticle = unpublishArticle
+  window.showRejectModal = showRejectModal
+  window.rejectArticle = rejectArticle
+  window.deleteArticle = deleteArticle
+  window.viewArticle = viewArticle
+  window.testConnection = testConnection
+}
+
 if (typeof document !== 'undefined') {
   setTimeout(loadArticles, 100)
 }

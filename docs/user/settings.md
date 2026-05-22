@@ -15,7 +15,7 @@ const uploading = ref(false)
 
 const currentProfile = reactive({
   username: '',
-  avatar: '/images/default-avatar.svg',
+  avatar: '/SiteProject/images/default-avatar.svg',
   bio: ''
 })
 
@@ -50,11 +50,11 @@ onMounted(async () => {
 
     if (profile) {
       currentProfile.username = profile.username || ''
-      currentProfile.avatar = profile.avatar_url || '/images/default-avatar.svg'
+      currentProfile.avatar = profile.avatar_url || '/SiteProject/images/default-avatar.svg'
       currentProfile.bio = profile.bio || ''
     } else {
       currentProfile.username = meta.full_name || meta.user_name || session.user.email
-      currentProfile.avatar = meta.avatar_url || '/images/default-avatar.svg'
+      currentProfile.avatar = meta.avatar_url || '/SiteProject/images/default-avatar.svg'
     }
 
     newUsername.value = currentProfile.username

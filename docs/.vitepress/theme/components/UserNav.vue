@@ -40,7 +40,7 @@ const loading = ref(true)
 const isLoggedIn = ref(false)
 const isAdmin = ref(false)
 const displayName = ref('')
-const avatar = ref('/images/default-avatar.svg')
+const avatar = ref('/SiteProject/images/default-avatar.svg')
 const showMenu = ref(false)
 
 let supabase = null
@@ -77,7 +77,7 @@ onMounted(() => {
       
       avatar.value = (user.user_metadata && user.user_metadata.avatar_url) || 
                     (user.user_metadata && user.user_metadata.picture) || 
-                    '/images/default-avatar.svg';
+                    '/SiteProject/images/default-avatar.svg';
       
       return supabase.from('profiles').select('role').eq('id', user.id).single();
     }

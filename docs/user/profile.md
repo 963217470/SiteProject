@@ -8,7 +8,7 @@ import { ref, reactive, onMounted } from 'vue'
 
 const user = reactive({
   username: '',
-  avatar: '/images/default-avatar.svg',
+  avatar: '/SiteProject/images/default-avatar.svg',
   bio: '',
   role: '',
   articleCount: 0,
@@ -58,7 +58,7 @@ onMounted(async () => {
       user.avatar = profile.avatar_url || 
                    meta.avatar_url || 
                    meta.picture || 
-                   '/images/default-avatar.svg'
+                   '/SiteProject/images/default-avatar.svg'
       
       user.bio = profile.bio || ''
       user.role = profile.role || 'member'
@@ -69,7 +69,7 @@ onMounted(async () => {
       else if (meta.preferred_username) user.username = meta.preferred_username
       else user.username = session.user.email
       
-      user.avatar = meta.avatar_url || meta.picture || '/images/default-avatar.svg'
+      user.avatar = meta.avatar_url || meta.picture || '/SiteProject/images/default-avatar.svg'
       user.role = 'member'
     }
 

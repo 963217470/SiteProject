@@ -232,6 +232,13 @@ async function withdrawArticle(id) {
   setActiveTab('draft')
 }
 
+if (typeof window !== 'undefined') {
+  window.setActiveTab = setActiveTab
+  window.deleteArticle = deleteArticle
+  window.resubmitArticle = resubmitArticle
+  window.withdrawArticle = withdrawArticle
+}
+
 if (typeof document !== 'undefined') {
   setTimeout(loadArticles, 100)
 }
