@@ -143,6 +143,35 @@ async function waitForSupabase(maxAttempts) {
   return null
 }
 
+async function requireAdmin(supabase) {
+  var sessionResult = await supabase.auth.getSession()
+  var user = sessionResult && sessionResult.data && sessionResult.data.session && sessionResult.data.session.user
+
+  if (!user || !user.id) {
+    showError('请先登录管理员账号')
+    return false
+  }
+
+  var profileResult = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .useServiceRole()
+    .maybeSingle()
+
+  if (profileResult.error) {
+    showError('读取用户权限失败：' + profileResult.error.message)
+    return false
+  }
+
+  if (!profileResult.data || profileResult.data.role !== 'admin') {
+    showError('当前账号没有管理员权限')
+    return false
+  }
+
+  return true
+}
+
 async function loadArticles() {
   setVisible('loading', true)
   setVisible('error', false)
@@ -155,6 +184,8 @@ async function loadArticles() {
       showError('Supabase 未加载，请刷新页面后重试')
       return
     }
+
+    if (!await requireAdmin(supabase)) return
 
     var result = await supabase
       .from('articles')
@@ -179,6 +210,8 @@ async function updateArticleStatus(id, status, rejectReason) {
       alert('Supabase 未加载，请刷新页面后重试')
       return false
     }
+
+    if (!await requireAdmin(supabase)) return false
 
     var updateData = {
       status: status,
@@ -258,6 +291,8 @@ async function deleteArticle(id) {
       return
     }
 
+    if (!await requireAdmin(supabase)) return
+
     var result = await supabase
       .from('articles')
       .delete()
@@ -290,6 +325,8 @@ async function testConnection() {
     alert('Supabase 未加载，请刷新页面后重试')
     return
   }
+
+  if (!await requireAdmin(supabase)) return
 
   var result = await supabase
     .from('articles')

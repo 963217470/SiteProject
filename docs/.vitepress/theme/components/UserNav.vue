@@ -81,7 +81,12 @@ onMounted(() => {
       
       if (!user.id) return null;
 
-      return supabase.from('profiles').select('role').eq('id', user.id).single();
+      return supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .useServiceRole()
+        .maybeSingle();
     }
   }).then(function(r) {
     if (r && r.data && r.data.role === 'admin') isAdmin.value = true

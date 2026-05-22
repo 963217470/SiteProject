@@ -194,6 +194,7 @@ function QueryBuilder(table) {
   this._maybeSingle = false
   this._countOpts = null
   this._body = null
+  this._useServiceRole = false
 }
 
 QueryBuilder.prototype.select = function(cols) { this._selectCols = cols || '*'; return this }
@@ -214,10 +215,11 @@ QueryBuilder.prototype.offset = function(n) { this._offsetVal = n; return this }
 QueryBuilder.prototype.single = function() { this._single = true; return this }
 QueryBuilder.prototype.maybeSingle = function() { this._maybeSingle = true; return this }
 QueryBuilder.prototype.selectCount = function(opts) { this._countOpts = opts; return this }
+QueryBuilder.prototype.useServiceRole = function() { this._useServiceRole = true; return this }
 
 QueryBuilder.prototype.execute = async function() {
   var sess = await ensureSession()
-  var token = sess ? sess.access_token : KEY
+  var token = this._useServiceRole ? KEY : (sess ? sess.access_token : KEY)
 
   if (this._countOpts) {
     var countUrl = '/rest/v1/' + this._table + '?select=*&' + this._filters.join('&')
