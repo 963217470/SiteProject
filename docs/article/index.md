@@ -167,32 +167,41 @@ function renderArticle() {
   var likeCount = article.likes_count || 0
   var commentCount = article.comments_count || articleState.comments.length || 0
   var favoriteLabel = articleState.favoriteTableReady ? '收藏' : '本地收藏'
+  var backgroundUrl = article.cover_url || '/SiteProject/images/hero-bg.jpg'
+  shell.style.setProperty('--article-bg-image', "url('" + String(backgroundUrl).replace(/'/g, '%27') + "')")
 
   shell.innerHTML = [
     '<a href="/SiteProject/articles" class="back-link">返回文章列表</a>',
-    '<div class="article-layout">',
-    '  <main class="reader-main">',
-    article.cover_url ? '    <img src="' + escapeHtml(article.cover_url) + '" class="article-cover" alt="' + escapeHtml(article.title) + '">' : '',
-    '    <article class="reader-card">',
-    '      <header class="article-header">',
-    '        <div class="article-kicker">',
-    '          <span>' + escapeHtml(getVisibilityText(article.visibility)) + '</span>',
-    '          <span>' + escapeHtml(getStatusText(article.status)) + '</span>',
-    '          <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
-    '        </div>',
+    '<div class="article-stage">',
+    '  <main class="reader-card">',
+    '    <div class="cover-frame">',
+    '      <img src="' + escapeHtml(backgroundUrl) + '" class="detail-cover" alt="' + escapeHtml(article.title) + '">',
+    '      <span>封面</span>',
+    '    </div>',
+    '    <header class="article-header">',
+    '      <div class="title-row">',
+    '        <span>标题</span>',
     '        <h1>' + escapeHtml(article.title) + '</h1>',
-    '        <div class="author-row">',
-    '          <img class="author-avatar" src="' + escapeHtml(authorAvatar) + '" alt="">',
-    '          <div>',
-    '            <strong>' + escapeHtml(authorName) + '</strong>',
-    '            <span>' + formatDate(article.created_at) + '</span>',
-    '          </div>',
+    '      </div>',
+    '      <div class="author-row">',
+    '        <img class="author-avatar" src="' + escapeHtml(authorAvatar) + '" alt="">',
+    '        <div class="author-meta">',
+    '          <strong>' + escapeHtml(authorName) + '</strong>',
+    '          <span>' + formatDate(article.created_at) + '</span>',
     '        </div>',
-    article.tags && article.tags.length ? '        <div class="article-tags">' + article.tags.map(function(tag) { return '<a class="tag" href="/SiteProject/articles?tag=' + encodeURIComponent(tag) + '">#' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
-    '      </header>',
-    article.summary ? '      <div class="article-summary">' + escapeHtml(article.summary) + '</div>' : '',
+    '        <span class="headline-pill">' + escapeHtml(getStatusText(article.status) || getVisibilityText(article.visibility)) + '</span>',
+    '      </div>',
+    article.tags && article.tags.length ? '      <div class="article-tags">' + article.tags.map(function(tag) { return '<a class="tag" href="/SiteProject/articles?tag=' + encodeURIComponent(tag) + '">' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
+    '      <div class="article-kicker">',
+    '        <span>' + escapeHtml(getVisibilityText(article.visibility)) + '</span>',
+    '        <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
+    '      </div>',
+    '    </header>',
+    article.summary ? '    <section class="article-summary"><strong>摘要</strong><p>' + escapeHtml(article.summary) + '</p></section>' : '',
+    '    <section class="article-body-card">',
+    '      <div class="body-title">正文</div>',
     '      <div class="article-body">' + renderMarkdown(article.content || '') + '</div>',
-    '    </article>',
+    '    </section>',
     '    <section class="comment-section" id="comments">',
     '      <div class="section-title">',
     '        <h2>评论</h2>',
@@ -200,6 +209,7 @@ function renderArticle() {
     '      </div>',
     articleState.session ? [
     '      <div class="comment-editor">',
+    '        <img class="comment-avatar" src="' + escapeHtml(getUserAvatar(articleState.session.user.id)) + '" alt="">',
     '        <textarea id="comment-input" placeholder="写下你的评论..."></textarea>',
     '        <button onclick="submitComment()">发布评论</button>',
     '      </div>'
@@ -207,22 +217,12 @@ function renderArticle() {
     '      <div id="comment-list" class="comment-list">' + renderComments() + '</div>',
     '    </section>',
     '  </main>',
-    '  <aside class="reader-side">',
-    '    <div class="sticky-panel">',
-    '      <div class="side-author">',
-    '        <img src="' + escapeHtml(authorAvatar) + '" alt="">',
-    '        <div>',
-    '          <span>作者</span>',
-    '          <strong>' + escapeHtml(authorName) + '</strong>',
-    '        </div>',
-    '      </div>',
-    '      <div class="action-stack">',
+    '  <aside class="floating-actions" aria-label="文章互动">',
     renderActionButton('toggleLike', '点赞', likeCount, articleState.liked),
+    renderActionButton('scrollToTop', '浏览量', '阅读中', false),
     renderActionButton('toggleFavorite', favoriteLabel, articleState.favorited ? '已收藏' : '未收藏', articleState.favorited),
-    '        <a class="action-link" href="#comments">查看评论 ' + commentCount + '</a>',
-    '      </div>',
+    '    <a class="action-link" href="#comments"><span class="action-label">评论数</span><strong>' + commentCount + '</strong></a>',
     articleState.favoriteTableReady ? '' : '      <p class="side-note">收藏表未创建，当前收藏仅保存在本机浏览器。</p>',
-    '    </div>',
     '  </aside>',
     '</div>'
   ].join('')
@@ -403,6 +403,10 @@ async function submitComment() {
   renderArticle()
 }
 
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 async function loadArticle() {
   setVisible('loading', true)
   setVisible('error', false)
@@ -461,6 +465,7 @@ if (typeof window !== 'undefined') {
   window.toggleLike = toggleLike
   window.toggleFavorite = toggleFavorite
   window.submitComment = submitComment
+  window.scrollToTop = scrollToTop
 }
 
 if (typeof document !== 'undefined') {
@@ -470,9 +475,10 @@ if (typeof document !== 'undefined') {
 
 <style>
 #article-page {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 2rem;
+  max-width: none;
+  margin: 0 calc(50% - 50vw);
+  padding: 0;
+  min-height: calc(100vh - 64px);
 }
 
 .loading,
@@ -489,115 +495,225 @@ if (typeof document !== 'undefined') {
 }
 
 .back-link {
-  display: inline-block;
-  margin-bottom: 1.25rem;
-  color: var(--vp-c-brand-1);
+  position: fixed;
+  z-index: 6;
+  top: 86px;
+  left: calc(50% - 244px);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #1f2937;
   text-decoration: none;
+  font-size: 0.85rem;
+  backdrop-filter: blur(10px);
 }
 
-.article-layout {
+.article-stage {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 2rem;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) 486px minmax(0, 1fr);
+  min-height: calc(100vh - 64px);
+  padding: 12px 0;
+  background: #f2f4f7;
+  overflow: clip;
 }
 
-.reader-main {
-  min-width: 0;
+.article-stage::before,
+.article-stage::after {
+  content: "";
+  position: fixed;
+  z-index: 0;
+  top: 64px;
+  bottom: 0;
+  width: calc((100vw - 486px) / 2);
+  background-image: linear-gradient(rgba(255,255,255,0.18), rgba(255,255,255,0.18)), var(--article-bg-image);
+  background-size: cover;
+  background-position: center;
+  filter: saturate(0.92);
 }
 
-.reader-card,
-.comment-section,
-.sticky-panel {
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
-  background: var(--vp-c-bg);
+.article-stage::before {
+  left: 0;
 }
 
-.article-cover {
-  width: 100%;
-  max-height: 420px;
-  object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: 1rem;
+.article-stage::after {
+  right: 0;
 }
 
 .reader-card {
-  padding: 2rem;
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
+  width: 486px;
+  min-height: calc(100vh - 88px);
+  padding: 0 24px 52px;
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(18px);
 }
 
-.article-kicker {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
+.cover-frame {
+  position: relative;
+  height: 182px;
+  margin: 0 -24px 0;
+  overflow: hidden;
+  border-radius: 22px 22px 20px 20px;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.14);
 }
 
-.article-kicker span {
-  padding: 0.25rem 0.55rem;
-  border-radius: 4px;
-  background: var(--vp-c-bg-soft);
-  color: var(--vp-c-text-2);
-  font-size: 0.8rem;
-}
-
-.article-header h1 {
-  margin: 0 0 1rem;
-  font-size: 2.25rem;
-  line-height: 1.25;
-}
-
-.author-row,
-.side-author,
-.comment-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.author-avatar,
-.side-author img,
-.comment-avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
+.detail-cover {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
-.author-row span,
-.side-author span,
+.cover-frame span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.25rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: rgba(17, 24, 39, 0.72);
+  font-size: 0.84rem;
+  letter-spacing: 0;
+}
+
+.article-header {
+  padding: 18px 0 0;
+}
+
+.title-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 18px;
+  align-items: baseline;
+  margin-bottom: 18px;
+}
+
+.title-row > span {
+  font-weight: 700;
+  color: #111827;
+}
+
+.title-row h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.45;
+  color: #111827;
+  word-break: break-word;
+}
+
+.author-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.author-avatar,
+.comment-avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #111827;
+  background: #fff;
+}
+
+.author-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.author-meta strong {
+  display: block;
+  color: #111827;
+  font-size: 0.95rem;
+}
+
+.author-meta span,
 .comment-head span {
   display: block;
-  color: var(--vp-c-text-3);
+  color: #4b5563;
   font-size: 0.82rem;
+}
+
+.headline-pill {
+  margin-left: auto;
+  padding: 0.32rem 1rem;
+  border: 2px solid #111827;
+  border-radius: 8px;
+  color: #111827;
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .article-tags {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  margin-top: 1rem;
+  margin: 8px 0 14px;
 }
 
 .tag {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  background: var(--vp-c-brand-soft);
-  color: var(--vp-c-brand-1);
+  padding: 0.32rem 0.74rem;
+  border: 2px solid #111827;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
   text-decoration: none;
+  font-size: 0.88rem;
+}
+
+.article-kicker {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.article-summary,
+.article-body-card,
+.comment-section {
+  border: 2px solid #111827;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .article-summary {
-  margin: 2rem 0;
-  padding: 1rem 1.25rem;
-  border-left: 4px solid var(--vp-c-brand-1);
-  border-radius: 0 6px 6px 0;
-  background: var(--vp-c-bg-soft);
-  line-height: 1.7;
+  margin: 24px 0 36px;
+  padding: 16px 18px;
+  min-height: 90px;
+}
+
+.article-summary strong,
+.body-title {
+  display: block;
+  margin-bottom: 0.65rem;
+  color: #111827;
+  font-size: 0.95rem;
+}
+
+.article-summary p {
+  margin: 0;
+  color: #374151;
+  line-height: 1.75;
+}
+
+.article-body-card {
+  padding: 18px 22px 28px;
+  min-height: 172px;
 }
 
 .article-body {
-  line-height: 1.85;
+  color: #111827;
+  line-height: 1.9;
   font-size: 1rem;
 }
 
@@ -610,64 +726,74 @@ if (typeof document !== 'undefined') {
 .article-body code {
   padding: 0.15rem 0.35rem;
   border-radius: 4px;
-  background: var(--vp-c-bg-soft);
+  background: #f3f4f6;
 }
 
-.reader-side {
-  position: sticky;
-  top: 88px;
-}
-
-.sticky-panel {
-  padding: 1rem;
-}
-
-.side-author {
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--vp-c-divider);
-}
-
-.action-stack {
+.floating-actions {
+  position: fixed;
+  z-index: 3;
+  top: 344px;
+  left: calc(50% + 288px);
   display: grid;
-  gap: 0.75rem;
-  margin-top: 1rem;
+  gap: 0;
+  width: 84px;
+  overflow: hidden;
+  border: 2px solid #111827;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
 }
 
 .action-btn,
 .action-link {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  gap: 0.34rem;
+  justify-items: center;
   align-items: center;
   width: 100%;
-  padding: 0.8rem 0.9rem;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
-  background: var(--vp-c-bg-soft);
-  color: var(--vp-c-text-1);
+  min-height: 82px;
+  padding: 0.75rem 0.35rem;
+  border: 0;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.16);
+  background: transparent;
+  color: #111827;
   text-decoration: none;
   cursor: pointer;
+  font-size: 0.86rem;
+}
+
+.action-link {
+  border-bottom: 0;
 }
 
 .action-btn.active {
-  border-color: var(--vp-c-brand-1);
-  color: var(--vp-c-brand-1);
-  background: var(--vp-c-brand-soft);
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.12);
 }
 
 .action-label {
-  font-size: 0.9rem;
+  font-size: 0.86rem;
+}
+
+.action-btn strong,
+.action-link strong {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: inherit;
 }
 
 .side-note {
-  margin: 0.9rem 0 0;
-  color: var(--vp-c-text-3);
-  font-size: 0.78rem;
+  margin: 0;
+  padding: 0.55rem;
+  color: #6b7280;
+  font-size: 0.72rem;
   line-height: 1.5;
+  border-top: 1px solid rgba(17, 24, 39, 0.16);
 }
 
 .comment-section {
-  margin-top: 1.5rem;
-  padding: 1.5rem;
+  margin-top: 34px;
+  padding: 16px;
 }
 
 .section-title {
@@ -680,46 +806,55 @@ if (typeof document !== 'undefined') {
 
 .section-title h2 {
   margin: 0;
-  font-size: 1.25rem;
+  color: #111827;
+  font-size: 1rem;
 }
 
 .section-title span {
-  color: var(--vp-c-text-3);
+  color: #6b7280;
   font-size: 0.85rem;
 }
 
 .comment-editor {
   display: grid;
-  gap: 0.75rem;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
   margin-bottom: 1.25rem;
 }
 
+.comment-editor .comment-avatar {
+  width: 38px;
+  height: 38px;
+}
+
 .comment-editor textarea {
-  min-height: 96px;
-  resize: vertical;
-  padding: 0.85rem;
-  border: 1px solid var(--vp-c-divider);
+  min-height: 34px;
+  height: 34px;
+  resize: none;
+  padding: 0.42rem 0.7rem;
+  border: 2px solid #111827;
   border-radius: 8px;
-  background: var(--vp-c-bg-soft);
-  color: var(--vp-c-text-1);
+  background: #fff;
+  color: #111827;
 }
 
 .comment-editor button {
-  justify-self: end;
-  padding: 0.65rem 1.1rem;
-  border: 0;
+  padding: 0.48rem 0.8rem;
+  border: 2px solid #111827;
   border-radius: 8px;
-  background: var(--vp-c-brand-1);
-  color: white;
+  background: #111827;
+  color: #fff;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .login-tip,
 .empty-comments {
   padding: 1rem;
   border-radius: 8px;
-  background: var(--vp-c-bg-soft);
-  color: var(--vp-c-text-2);
+  background: #f3f4f6;
+  color: #4b5563;
 }
 
 .comment-list {
@@ -728,9 +863,12 @@ if (typeof document !== 'undefined') {
 }
 
 .comment-item {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 1rem;
   align-items: flex-start;
   padding-top: 1rem;
-  border-top: 1px solid var(--vp-c-divider);
+  border-top: 1px solid rgba(17, 24, 39, 0.12);
 }
 
 .comment-main {
@@ -745,32 +883,96 @@ if (typeof document !== 'undefined') {
   flex-wrap: wrap;
 }
 
+.comment-head strong {
+  color: #111827;
+}
+
 .comment-main p {
   margin: 0.35rem 0 0;
+  padding: 0.85rem 1rem;
+  border: 2px solid #111827;
+  border-radius: 12px;
+  background: #fff;
+  color: #111827;
   line-height: 1.7;
 }
 
-@media (max-width: 960px) {
-  #article-page {
-    padding: 1rem;
+@media (max-width: 1080px) {
+  .back-link {
+    left: 1rem;
   }
 
-  .article-layout {
-    grid-template-columns: 1fr;
+  .article-stage {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px 1rem 84px;
   }
 
-  .reader-side {
-    position: static;
-    order: -1;
+  .article-stage::before,
+  .article-stage::after {
+    display: none;
   }
 
-  .article-header h1 {
-    font-size: 1.7rem;
+  .reader-card {
+    grid-column: 1;
+    width: min(486px, 100%);
+    margin: 0 auto;
   }
 
-  .reader-card,
-  .comment-section {
-    padding: 1.25rem;
+  .floating-actions {
+    top: auto;
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    width: auto;
+    border-radius: 14px;
+  }
+
+  .action-btn,
+  .action-link {
+    min-height: 58px;
+    border-right: 1px solid rgba(17, 24, 39, 0.16);
+    border-bottom: 0;
+  }
+
+  .action-link {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .reader-card {
+    padding: 0 16px 38px;
+    border-radius: 18px;
+  }
+
+  .cover-frame {
+    height: 154px;
+    margin: 0 -16px;
+    border-radius: 16px 16px 14px 14px;
+  }
+
+  .title-row {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .author-row {
+    flex-wrap: wrap;
+  }
+
+  .headline-pill {
+    margin-left: 0;
+  }
+
+  .comment-editor {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .comment-editor button {
+    grid-column: 2;
+    justify-self: end;
   }
 }
 </style>
