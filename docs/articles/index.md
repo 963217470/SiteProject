@@ -191,6 +191,11 @@ function filterArticles(filter) {
   loadArticles()
 }
 
+if (typeof window !== 'undefined') {
+  window.filterArticles = filterArticles
+  window.loadArticles = loadArticles
+}
+
 if (typeof document !== 'undefined') {
   setTimeout(() => {
     loadArticles()

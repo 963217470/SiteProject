@@ -79,6 +79,8 @@ onMounted(() => {
                     (user.user_metadata && user.user_metadata.picture) || 
                     '/SiteProject/images/default-avatar.svg';
       
+      if (!user.id) return null;
+
       return supabase.from('profiles').select('role').eq('id', user.id).single();
     }
   }).then(function(r) {
