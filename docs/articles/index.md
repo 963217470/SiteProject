@@ -119,12 +119,15 @@ function showArticles(data) {
           <span class="meta-item">❤️ ${article.likes_count || 0}</span>
           <span class="meta-item">💬 ${article.comments_count || 0}</span>
         </div>
-        ${article.tags && article.tags.length > 0 ? `
-          <div class="article-tags">
-            ${article.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
+        <div class="article-footer">
+          ${article.tags && article.tags.length > 0 ? `
+            <div class="article-tags">
+              ${article.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
+            </div>
+          ` : '<div></div>'}
+          <a class="view-article-btn" href="/SiteProject/article?id=${article.id}">查看文章</a>
+        </div>
           </div>
-        ` : ''}
-      </div>
     </div>
   `).join('')
 }
@@ -359,12 +362,35 @@ if (typeof document !== 'undefined') {
   flex-wrap: wrap;
 }
 
+.article-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
 .tag {
   padding: 0.25rem 0.5rem;
   background: var(--vp-c-brand-soft);
   color: var(--vp-c-brand-1);
   border-radius: 4px;
   font-size: 0.8rem;
+}
+
+.view-article-btn {
+  flex-shrink: 0;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--vp-c-brand-1);
+  border-radius: 8px;
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.view-article-btn:hover {
+  background: var(--vp-c-brand-1);
+  color: white;
 }
 
 @media (max-width: 768px) {
@@ -375,6 +401,11 @@ if (typeof document !== 'undefined') {
   .article-cover {
     width: 100%;
     height: 200px;
+  }
+
+  .article-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>
