@@ -116,27 +116,6 @@ window.__supabase = {
       window.location.href = url
       return { data: { url: url }, error: null }
     },
-    signInWithPassword: async function(credentials) {
-      var r = await api('/auth/v1/token?grant_type=password', {
-        method: 'POST',
-        body: {
-          email: credentials.email,
-          password: credentials.password
-        }
-      })
-      if (r.error || !r.data) return { data: null, error: r.error }
-      var sess = {
-        access_token: r.data.access_token,
-        refresh_token: r.data.refresh_token,
-        expires_in: r.data.expires_in,
-        expires_at: r.data.expires_at || Math.floor(Date.now() / 1000 + (r.data.expires_in || 3600)),
-        token_type: r.data.token_type
-      }
-      session = sess
-      saveLocalSession(sess)
-      notifyListeners('SIGNED_IN', sess)
-      return { data: { session: { user: makeUser(sess), access_token: sess.access_token }, user: makeUser(sess) }, error: null }
-    },
     exchangeCodeForSession: async function(code) {
       var r = await api('/auth/v1/token?grant_type=pbkdf_token', { method: 'POST', body: { auth_code: code } })
       if (r.error || !r.data) {
