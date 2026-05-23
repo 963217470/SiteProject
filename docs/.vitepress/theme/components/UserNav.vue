@@ -15,8 +15,8 @@
       </div>
       <div v-if="showMenu" class="user-dropdown">
         <a href="/SiteProject/user/profile" class="dropdown-item" @click.prevent="go('/SiteProject/user/profile')">个人主页</a>
-        <a href="/SiteProject/user/articles" class="dropdown-item" @click.prevent="go('/SiteProject/user/articles')">我的文章</a>
-        <a href="/SiteProject/user/settings" class="dropdown-item" @click.prevent="go('/SiteProject/user/settings')">个人设置</a>
+        <a href="/SiteProject/user/profile?tab=articles" class="dropdown-item" @click.prevent="go('/SiteProject/user/profile?tab=articles')">我的文章</a>
+        <a href="/SiteProject/user/profile?tab=favorites" class="dropdown-item" @click.prevent="go('/SiteProject/user/profile?tab=favorites')">我的收藏</a>
         <template v-if="isAdmin">
           <div class="dropdown-divider"></div>
           <a href="/SiteProject/admin" class="dropdown-item admin-item" @click.prevent="go('/SiteProject/admin')">
