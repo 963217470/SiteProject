@@ -362,31 +362,31 @@ function renderArticle() {
   shell.style.setProperty('--article-bg-image', "url('" + String(backgroundUrl).replace(/'/g, '%27') + "')")
 
   shell.innerHTML = [
-    '<a href="/SiteProject/articles" class="back-link">返回文章列表</a>',
+    '<a href="/SiteProject/articles" class="back-link" aria-label="返回文章列表" title="返回文章列表">',
+    '  <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M137.195012 473.012753l343.015525-236.983218-0.308863 468.654345z"></path><path d="M480.667511 706.240841l-1.146949-0.774868L135.66695 473.021784 480.978181 234.452705v1.578636l-0.31067 470.2095zM138.723073 473.003722L479.135837 703.125112l0.308863-465.518748L138.723073 473.003722z"></path><path d="M807.983377 647.341831s-7.347701-39.173288-31.538398-63.073184c-18.555293-18.331321-30.10426-28.670122-57.340243-34.404868-70.879664-14.921179-394.378989 0.050574-394.378989 0.050574V413.73263s214.893154-3.375824 285.431443 11.417113c20.932277 4.389113 57.967001 10.044386 83.143895 22.935375 27.143866 13.900665 53.628462 34.040012 67.375598 50.173164 46.838883 54.974096 47.306694 149.083548 47.306694 149.083549z"></path></svg>',
+    '</a>',
     '<div class="article-stage">',
     '  <main class="reader-card">',
     '    <div class="cover-frame">',
     '      <img src="' + escapeHtml(coverUrl) + '" class="detail-cover" alt="' + escapeHtml(article.title) + '">',
-    '      <span>封面</span>',
     '    </div>',
     '    <header class="article-header">',
-    '      <div class="title-row">',
-    '        <span>标题</span>',
-    '        <h1>' + escapeHtml(article.title) + '</h1>',
-    '      </div>',
-    '      <div class="author-row">',
-    '        <img class="author-avatar" src="' + escapeHtml(authorAvatar) + '" alt="">',
-    '        <div class="author-meta">',
-    '          <strong>' + escapeHtml(authorName) + '</strong>',
-    '          <span>' + formatDate(article.created_at) + '</span>',
+    '      <h1 class="article-title-main">' + escapeHtml(article.title) + '</h1>',
+    '      <div class="article-meta-row">',
+    '        <div class="author-row">',
+    '          <img class="author-avatar" src="' + escapeHtml(authorAvatar) + '" alt="">',
+    '          <div class="author-meta">',
+    '            <strong>' + escapeHtml(authorName) + '</strong>',
+    '            <span>' + formatDate(article.created_at) + '</span>',
+    '          </div>',
     '        </div>',
-    '        <span class="headline-pill">' + escapeHtml(getStatusText(article.status) || getVisibilityText(article.visibility)) + '</span>',
+    '        <div class="article-status-row">',
+    '          <span class="headline-pill">' + escapeHtml(getStatusText(article.status) || getVisibilityText(article.visibility)) + '</span>',
+    '          <span>' + escapeHtml(getVisibilityText(article.visibility)) + '</span>',
+    '          <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
+    '        </div>',
     '      </div>',
     article.tags && article.tags.length ? '      <div class="article-tags">' + article.tags.map(function(tag) { return '<a class="tag" href="/SiteProject/articles?tag=' + encodeURIComponent(tag) + '">' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
-    '      <div class="article-kicker">',
-    '        <span>' + escapeHtml(getVisibilityText(article.visibility)) + '</span>',
-    '        <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
-    '      </div>',
     '    </header>',
     article.summary ? '    <section class="article-summary"><strong>摘要</strong><p>' + escapeHtml(article.summary) + '</p></section>' : '',
     '    <section class="article-body-card">',
@@ -690,14 +690,29 @@ if (typeof document !== 'undefined') {
   z-index: 6;
   top: 86px;
   left: max(24px, calc(20vw + 16px));
-  padding: 0.5rem 0.75rem;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.42);
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.78);
-  color: #1f2937;
+  color: #d81e06;
   text-decoration: none;
-  font-size: 0.85rem;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
   backdrop-filter: blur(10px);
+}
+
+.back-link svg {
+  width: 28px;
+  height: 28px;
+  fill: currentColor;
+}
+
+.back-link:hover {
+  background: rgba(255, 255, 255, 0.92);
+  color: #d81e06;
 }
 
 .article-stage {
@@ -743,42 +758,27 @@ if (typeof document !== 'undefined') {
   object-fit: cover;
 }
 
-.cover-frame span {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  color: rgba(51, 65, 85, 0.78);
-  font-size: 0.84rem;
-  letter-spacing: 0;
-}
-
 .article-header {
-  padding: 18px 0 0;
+  padding: 28px 0 0;
 }
 
-.title-row {
+.article-title-main {
+  display: block;
+  width: 100%;
+  margin: 0 0 20px;
+  font-size: clamp(1.85rem, 2.8vw, 2.8rem);
+  line-height: 1.28;
+  color: var(--vp-c-text-1);
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.article-meta-row {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 18px;
-  align-items: baseline;
-  margin-bottom: 18px;
-}
-
-.title-row > span {
-  font-weight: 700;
-  color: var(--vp-c-text-1);
-}
-
-.title-row h1 {
-  margin: 0;
-  font-size: 1.65rem;
-  line-height: 1.45;
-  color: var(--vp-c-text-1);
-  word-break: break-word;
+  align-items: center;
+  padding-bottom: 4px;
 }
 
 .author-row {
@@ -818,7 +818,6 @@ if (typeof document !== 'undefined') {
 }
 
 .headline-pill {
-  margin-left: auto;
   padding: 0.32rem 1rem;
   border: 1px solid rgba(148, 163, 184, 0.42);
   border-radius: 999px;
@@ -828,11 +827,21 @@ if (typeof document !== 'undefined') {
   white-space: nowrap;
 }
 
+.article-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  color: #6b7280;
+  font-size: 0.88rem;
+}
+
 .article-tags {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  margin: 8px 0 14px;
+  margin: 10px 0 0;
 }
 
 .tag {
@@ -843,14 +852,6 @@ if (typeof document !== 'undefined') {
   color: var(--vp-c-brand-1);
   text-decoration: none;
   font-size: 0.88rem;
-}
-
-.article-kicker {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  color: #6b7280;
-  font-size: 0.8rem;
 }
 
 .article-summary,
@@ -1261,6 +1262,12 @@ if (typeof document !== 'undefined') {
 }
 
 @media (max-width: 560px) {
+  .back-link {
+    top: 76px;
+    width: 42px;
+    height: 42px;
+  }
+
   .reader-card {
     padding: 0 16px 38px;
     border-radius: 18px;
@@ -1272,17 +1279,17 @@ if (typeof document !== 'undefined') {
     border-radius: 16px 16px 14px 14px;
   }
 
-  .title-row {
-    grid-template-columns: 44px minmax(0, 1fr);
-    gap: 12px;
+  .article-title-main {
+    font-size: 1.65rem;
   }
 
-  .author-row {
-    flex-wrap: wrap;
+  .article-meta-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
   }
 
-  .headline-pill {
-    margin-left: 0;
+  .article-status-row {
+    justify-content: flex-start;
   }
 
   .comment-editor {
