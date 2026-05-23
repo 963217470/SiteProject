@@ -15,6 +15,11 @@ layout: page
     </div>
   </div>
 
+  <nav class="admin-section-nav" aria-label="审核类型">
+    <a class="active" href="/SiteProject/admin">文章审核</a>
+    <a href="/SiteProject/admin/profile-review">个人信息审核</a>
+  </nav>
+
   <section class="review-summary" aria-label="审核统计">
     <div class="summary-card urgent">
       <strong id="stat-pending">0</strong>
@@ -494,6 +499,31 @@ if (typeof document !== 'undefined') {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.admin-section-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin: -0.75rem 0 1.25rem;
+  padding: 0.35rem;
+  width: fit-content;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+}
+
+.admin-section-nav a {
+  padding: 0.45rem 0.8rem;
+  border-radius: 6px;
+  color: var(--vp-c-text-2);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.admin-section-nav a.active {
+  background: var(--vp-c-bg);
+  color: var(--vp-c-brand-1);
+  font-weight: 700;
 }
 
 .review-summary {

@@ -430,6 +430,25 @@ layout: page
   font-size: 0.86rem;
 }
 
+.pending-review-box {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+}
+
+.pending-review-box strong,
+.pending-review-box p {
+  margin: 0;
+}
+
+.pending-review-box p {
+  margin-top: 0.25rem;
+  font-size: 0.86rem;
+}
+
 .submit-button {
   width: fit-content;
   min-height: 40px;

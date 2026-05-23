@@ -1,7 +1,7 @@
 ;(function() {
 var RECENT_KEY = 'rd_recent_articles'
 var FAVORITE_KEY = 'rd_article_favorites'
-var state = { tab: 'articles', sb: null, uid: '', profile: {}, articles: [], favorites: [], recent: [], favoriteTableReady: true }
+var state = { tab: 'articles', sb: null, uid: '', profile: {}, articles: [], favorites: [], recent: [], profileChanges: [], favoriteTableReady: true }
 
 function $(id) { return document.getElementById(id) }
 function show(id, ok) { var el = $(id); if (el) el.style.display = ok ? 'block' : 'none' }
@@ -104,6 +104,11 @@ async function loadRecent() {
   state.recent = await fetchByIds(rows.map(function(row) { return row.id }), rows, 'id')
 }
 
+async function loadProfileChanges() {
+  var r = await state.sb.from('profile_changes').select('id, username, avatar_url, bio, status, created_at').eq('user_id', state.uid).eq('status', 'pending').order('created_at', { ascending: false })
+  state.profileChanges = r.error ? [] : (r.data || [])
+}
+
 function renderStats() {
   var likes = state.articles.reduce(function(sum, a) { return sum + Number(a.likes_count || 0) }, 0)
   var published = state.articles.filter(function(a) { return a.status === 'published' }).length
@@ -128,7 +133,8 @@ function renderCards(id, title, subtitle, items, emptyText, label, key) {
 }
 
 function renderSettings() {
-  $('panel-settings').innerHTML = '<div class="settings-card"><div id="settings-success" class="success-message" style="display:none"></div><div id="settings-error" class="error-message" style="display:none"></div><div class="settings-avatar-row"><img id="settings-avatar" src="' + esc(state.profile.avatar) + '" alt="头像预览"><label id="upload-button" class="upload-button">点击或拖拽上传头像<input id="avatar-input" type="file" accept="image/*"></label></div><div class="settings-form"><label><span>修改昵称</span><input id="settings-username" type="text" maxlength="40" value="' + esc(state.profile.username) + '"></label><label><span>个人简介</span><textarea id="settings-bio" rows="4" maxlength="160">' + esc(state.profile.bio) + '</textarea></label><p class="form-note">资料修改会提交给管理员审核，通过后才会在站内生效。</p><button id="settings-submit" class="submit-button" type="button" onclick="saveProfileSettings()">提交审核</button></div></div>'
+  var pending = state.profileChanges.length ? '<div class="pending-review-box"><strong>待审核资料</strong><p>你有 ' + state.profileChanges.length + ' 条个人信息修改正在等待管理员审核。新的提交会继续进入审核队列。</p></div>' : ''
+  $('panel-settings').innerHTML = '<div class="settings-card"><div id="settings-success" class="success-message" style="display:none"></div><div id="settings-error" class="error-message" style="display:none"></div>' + pending + '<div class="settings-avatar-row"><img id="settings-avatar" src="' + esc(state.profile.avatar) + '" alt="头像预览"><label id="upload-button" class="upload-button">点击或拖拽上传头像<input id="avatar-input" type="file" accept="image/*"></label></div><div class="settings-form"><label><span>修改昵称</span><input id="settings-username" type="text" maxlength="40" value="' + esc(state.profile.username) + '"></label><label><span>个人简介</span><textarea id="settings-bio" rows="4" maxlength="160">' + esc(state.profile.bio) + '</textarea></label><p class="form-note">头像、昵称和简介修改都会提交给管理员审核，通过后才会在站内生效。</p><button id="settings-submit" class="submit-button" type="button" onclick="saveProfileSettings()">提交审核</button></div></div>'
   $('avatar-input').addEventListener('change', uploadAvatar)
   var uploadButton = $('upload-button')
   if (uploadButton) {
@@ -171,8 +177,8 @@ async function uploadAvatar(e) {
   } catch (err) {
     settingError('头像上传失败：' + (err.message || '未知错误'))
   } finally {
-    if (button) button.childNodes[0].nodeValue = '上传头像'
-    e.target.value = ''
+    if (button) button.childNodes[0].nodeValue = '点击或拖拽上传头像'
+    if (e.target) e.target.value = ''
   }
 }
 
@@ -184,15 +190,18 @@ async function saveSettings() {
   button.textContent = '提交中...'
   try {
     var avatar = $('settings-avatar')
-    var payload = { user_id: state.uid, username: $('settings-username').value.trim(), avatar_url: avatar.dataset.uploadedUrl || null, bio: $('settings-bio').value.trim() }
+    var username = $('settings-username').value.trim()
+    if (!username) throw new Error('昵称不能为空')
+    var payload = { user_id: state.uid, username: username, avatar_url: avatar.dataset.uploadedUrl || null, bio: $('settings-bio').value.trim(), status: 'pending' }
     var r = await state.sb.from('profile_changes').insert(payload)
     if (r.error) throw r.error
+    state.profileChanges.unshift(payload)
     settingSuccess('资料修改已提交，等待管理员审核后生效')
   } catch (err) {
     settingError('提交失败：' + (err.message || '未知错误'))
   } finally {
     button.disabled = false
-    button.textContent = '提交修改'
+    button.textContent = '提交审核'
   }
 }
 
@@ -214,7 +223,7 @@ async function init() {
     }
     state.uid = session.user.id
     setProfile(session, await loadProfile())
-    await Promise.all([loadArticles(), loadFavorites(), loadRecent()])
+    await Promise.all([loadArticles(), loadFavorites(), loadRecent(), loadProfileChanges()])
     renderAll()
     show('loading', false)
     show('profile-app', true)
