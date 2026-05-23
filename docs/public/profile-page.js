@@ -18,7 +18,7 @@ function renderShell() {
   var root = $('profile-page')
   if (!root || root.dataset.ready) return
   root.dataset.ready = '1'
-  root.innerHTML = '<div id="not-logged-in" class="state-panel" style="display:none"><p>请先 <a href="/SiteProject/login">登录</a></p></div><div id="loading" class="state-panel"><p>加载中...</p></div><div id="profile-app" class="profile-layout" style="display:none"><aside class="profile-sidebar"><section class="profile-card"><div id="avatar-frame" class="avatar-frame member-frame"><img id="profile-avatar" class="user-avatar" src="/SiteProject/images/default-avatar.svg" alt="头像"></div><h1 id="profile-name"></h1><p id="profile-email" class="email"></p><div id="role-block" class="role-block member-role"><strong id="role-label"></strong><span id="role-desc"></span></div><p id="profile-bio" class="bio"></p></section><section class="stats-card"><div><strong id="stat-articles">0</strong><span>文章</span></div><div><strong id="stat-views">0</strong><span>浏览</span></div><div><strong id="stat-likes">0</strong><span>点赞</span></div><div><strong id="stat-comments">0</strong><span>评论</span></div></section></aside><main class="profile-main"><div id="profile-error" class="error-message" style="display:none"></div><nav class="profile-tabs" aria-label="个人中心功能"><button id="tab-articles" type="button" onclick="setProfileTab(\'articles\')"><span>我的文章</span><strong id="count-articles">0</strong></button><button id="tab-favorites" type="button" onclick="setProfileTab(\'favorites\')"><span>我的收藏</span><strong id="count-favorites">0</strong></button><button id="tab-recent" type="button" onclick="setProfileTab(\'recent\')"><span>最近观看</span><strong id="count-recent">0</strong></button><button id="tab-settings" type="button" onclick="setProfileTab(\'settings\')"><span>个人设置</span></button></nav><section id="panel-articles" class="panel"></section><section id="panel-favorites" class="panel" style="display:none"></section><section id="panel-recent" class="panel" style="display:none"></section><section id="panel-settings" class="panel" style="display:none"></section></main></div>'
+  root.innerHTML = '<div id="not-logged-in" class="state-panel" style="display:none"><p>请先 <a href="/SiteProject/login">登录</a></p></div><div id="loading" class="state-panel"><p>加载中...</p></div><div id="profile-app" class="profile-layout" style="display:none"><section class="profile-hero"><div id="avatar-frame" class="avatar-frame member-frame"><img id="profile-avatar" class="user-avatar" src="/SiteProject/images/default-avatar.svg" alt="头像"></div><div class="profile-identity"><h1 id="profile-name"></h1><div id="role-block" class="role-block member-role"><strong id="role-label"></strong><span id="role-desc"></span></div><p id="profile-email" class="email"></p><p id="profile-bio" class="bio"></p></div><section class="stats-card" aria-label="个人统计"><div><strong id="stat-likes">0</strong><span>收到的赞</span></div><div><strong id="stat-articles">0</strong><span>发布文章数</span></div><div><strong id="stat-favorites">0</strong><span>收藏的文章</span></div></section></section><section class="profile-body"><aside class="profile-sidebar"><nav class="profile-tabs" aria-label="个人中心功能"><button id="tab-articles" type="button" onclick="setProfileTab(\'articles\')">我的文章</button><button id="tab-favorites" type="button" onclick="setProfileTab(\'favorites\')">我的收藏</button><button id="tab-recent" type="button" onclick="setProfileTab(\'recent\')">历史记录</button><button id="tab-settings" type="button" onclick="setProfileTab(\'settings\')">个人信息</button></nav></aside><main class="profile-main"><div id="profile-error" class="error-message" style="display:none"></div><section id="panel-articles" class="panel"></section><section id="panel-favorites" class="panel" style="display:none"></section><section id="panel-recent" class="panel" style="display:none"></section><section id="panel-settings" class="panel" style="display:none"></section></main></section></div>'
 }
 
 async function waitSupabase() {
@@ -106,15 +106,10 @@ async function loadRecent() {
 
 function renderStats() {
   var likes = state.articles.reduce(function(sum, a) { return sum + Number(a.likes_count || 0) }, 0)
-  var comments = state.articles.reduce(function(sum, a) { return sum + Number(a.comments_count || 0) }, 0)
-  var viewTotal = state.articles.reduce(function(sum, a) { return sum + views(a) }, 0)
-  $('stat-articles').textContent = state.articles.length
-  $('stat-views').textContent = viewTotal
-  $('stat-likes').textContent = likes
-  $('stat-comments').textContent = comments
-  $('count-articles').textContent = state.articles.length
-  $('count-favorites').textContent = state.favorites.length
-  $('count-recent').textContent = state.recent.length
+  var published = state.articles.filter(function(a) { return a.status === 'published' }).length
+  if ($('stat-articles')) $('stat-articles').textContent = published
+  if ($('stat-likes')) $('stat-likes').textContent = likes
+  if ($('stat-favorites')) $('stat-favorites').textContent = state.favorites.length
 }
 
 function renderArticles() {
@@ -133,8 +128,18 @@ function renderCards(id, title, subtitle, items, emptyText, label, key) {
 }
 
 function renderSettings() {
-  $('panel-settings').innerHTML = '<div class="panel-head"><div><h2>个人设置</h2><p>修改头像、名称和个人简介</p></div></div><div id="settings-success" class="success-message" style="display:none"></div><div id="settings-error" class="error-message" style="display:none"></div><div class="settings-form"><label><span>头像</span><div class="avatar-upload"><img id="settings-avatar" src="' + esc(state.profile.avatar) + '" alt="头像预览"><label id="upload-button" class="upload-button">上传头像<input id="avatar-input" type="file" accept="image/*"></label></div></label><label><span>名称</span><input id="settings-username" type="text" maxlength="40" value="' + esc(state.profile.username) + '"></label><label><span>个人简介</span><textarea id="settings-bio" rows="4" maxlength="160">' + esc(state.profile.bio) + '</textarea></label><p class="form-note">资料修改会提交给管理员审核，通过后才会在站内生效。</p><button id="settings-submit" class="submit-button" type="button" onclick="saveProfileSettings()">提交修改</button></div>'
+  $('panel-settings').innerHTML = '<div class="settings-card"><div id="settings-success" class="success-message" style="display:none"></div><div id="settings-error" class="error-message" style="display:none"></div><div class="settings-avatar-row"><img id="settings-avatar" src="' + esc(state.profile.avatar) + '" alt="头像预览"><label id="upload-button" class="upload-button">点击或拖拽上传头像<input id="avatar-input" type="file" accept="image/*"></label></div><div class="settings-form"><label><span>修改昵称</span><input id="settings-username" type="text" maxlength="40" value="' + esc(state.profile.username) + '"></label><label><span>个人简介</span><textarea id="settings-bio" rows="4" maxlength="160">' + esc(state.profile.bio) + '</textarea></label><p class="form-note">资料修改会提交给管理员审核，通过后才会在站内生效。</p><button id="settings-submit" class="submit-button" type="button" onclick="saveProfileSettings()">提交审核</button></div></div>'
   $('avatar-input').addEventListener('change', uploadAvatar)
+  var uploadButton = $('upload-button')
+  if (uploadButton) {
+    uploadButton.addEventListener('dragover', function(e) { e.preventDefault(); uploadButton.classList.add('dragging') })
+    uploadButton.addEventListener('dragleave', function() { uploadButton.classList.remove('dragging') })
+    uploadButton.addEventListener('drop', function(e) {
+      e.preventDefault()
+      uploadButton.classList.remove('dragging')
+      uploadAvatar(e)
+    })
+  }
 }
 
 function renderAll() {
@@ -149,7 +154,7 @@ function settingError(msg) { var el = $('settings-error'); if (el) { el.textCont
 function settingSuccess(msg) { var el = $('settings-success'); if (el) { el.textContent = msg; el.style.display = 'block' } }
 
 async function uploadAvatar(e) {
-  var file = e.target.files && e.target.files[0]
+  var file = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files[0] : e.target.files && e.target.files[0]
   if (!file) return
   if (!file.type.startsWith('image/')) return settingError('请选择图片文件')
   if (file.size > 2 * 1024 * 1024) return settingError('头像图片不能超过 2MB')

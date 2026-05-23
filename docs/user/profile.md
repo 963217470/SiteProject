@@ -7,7 +7,7 @@ layout: page
 
 <style>
 #profile-page {
-  width: min(1180px, calc(100vw - 32px));
+  width: min(1120px, calc(100vw - 32px));
   margin: 0 auto;
 }
 
@@ -23,40 +23,45 @@ layout: page
 
 .profile-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 1.5rem;
-  padding: 1.75rem 0 3rem;
-}
-
-.profile-sidebar {
-  display: grid;
-  gap: 1rem;
-  align-content: start;
-  position: sticky;
-  top: 86px;
-}
-
-.profile-card,
-.stats-card,
-.panel {
+  padding: 1.75rem 0 3.5rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
   background: var(--vp-c-bg);
+  overflow: hidden;
 }
 
-.profile-card {
+.profile-hero {
   display: grid;
-  justify-items: center;
-  padding: 1.5rem;
-  text-align: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1.5rem;
+  align-items: center;
+  min-height: 180px;
+  padding: 2rem 2.25rem;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.profile-body {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  min-height: 520px;
+}
+
+.profile-sidebar {
+  border-right: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-alt);
+}
+
+.profile-tabs {
+  display: grid;
+  position: sticky;
+  top: 86px;
 }
 
 .avatar-frame {
   display: grid;
   place-items: center;
-  width: 124px;
-  height: 124px;
-  margin-bottom: 1rem;
+  width: 116px;
+  height: 116px;
   border-radius: 999px;
 }
 
@@ -69,32 +74,43 @@ layout: page
 }
 
 .user-avatar {
-  width: 108px;
-  height: 108px;
+  width: 100px;
+  height: 100px;
   border: 4px solid var(--vp-c-bg);
   border-radius: 999px;
   object-fit: cover;
 }
 
-.profile-card h1 {
+.profile-identity {
+  min-width: 0;
+}
+
+.profile-identity h1 {
   margin: 0;
   font-size: 1.25rem;
+  line-height: 1.35;
 }
 
 .email {
-  margin: 0.35rem 0 1rem;
+  margin: 0.5rem 0 0;
   color: var(--vp-c-text-2);
   font-size: 0.82rem;
   word-break: break-all;
 }
 
 .role-block {
-  display: grid;
-  gap: 0.25rem;
-  width: 100%;
-  padding: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding: 0.35rem 0.65rem;
   border-radius: 8px;
   font-size: 0.82rem;
+}
+
+.role-block span {
+  color: inherit;
+  opacity: 0.75;
 }
 
 .admin-role {
@@ -108,8 +124,8 @@ layout: page
 }
 
 .bio {
-  width: 100%;
-  margin: 1rem 0 0;
+  max-width: 520px;
+  margin: 0.75rem 0 0;
   color: var(--vp-c-text-2);
   font-size: 0.88rem;
   line-height: 1.7;
@@ -117,29 +133,29 @@ layout: page
 
 .stats-card {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, minmax(112px, 1fr));
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
   overflow: hidden;
+  background: var(--vp-c-bg);
 }
 
 .stats-card div {
   display: grid;
-  gap: 0.25rem;
-  padding: 1rem;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.75rem 0.95rem;
+  text-align: center;
   border-right: 1px solid var(--vp-c-divider);
-  border-bottom: 1px solid var(--vp-c-divider);
 }
 
-.stats-card div:nth-child(2n) {
+.stats-card div:last-child {
   border-right: 0;
-}
-
-.stats-card div:nth-last-child(-n + 2) {
-  border-bottom: 0;
 }
 
 .stats-card strong {
   color: var(--vp-c-text-1);
-  font-size: 1.25rem;
+  font-size: 1.1rem;
 }
 
 .stats-card span {
@@ -149,37 +165,31 @@ layout: page
 
 .profile-main {
   min-width: 0;
-}
-
-.profile-tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  overflow-x: auto;
+  padding: 1.75rem 2rem 2rem;
 }
 
 .profile-tabs button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 38px;
-  padding: 0 0.85rem;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
-  background: var(--vp-c-bg);
-  color: var(--vp-c-text-2);
+  display: grid;
+  place-items: center;
+  min-height: 92px;
+  padding: 0 1rem;
+  border: 0;
+  border-bottom: 1px solid var(--vp-c-divider);
+  background: transparent;
+  color: var(--vp-c-text-1);
   cursor: pointer;
-  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 650;
 }
 
 .profile-tabs button.active {
-  border-color: var(--vp-c-brand-1);
-  background: rgba(20, 184, 166, 0.1);
+  background: var(--vp-c-bg);
   color: var(--vp-c-brand-1);
+  box-shadow: inset 3px 0 0 var(--vp-c-brand-1);
 }
 
 .panel {
-  padding: 1.25rem;
+  min-height: 100%;
 }
 
 .panel-head {
@@ -187,7 +197,7 @@ layout: page
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
 }
 
 .panel-head h2 {
@@ -215,7 +225,7 @@ layout: page
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.2rem;
 }
 
 .status-grid div {
@@ -245,12 +255,14 @@ layout: page
 
 .article-row {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) 74px 92px 78px 78px 78px auto;
+  grid-template-columns: minmax(180px, 1fr) 74px 92px 78px 78px 78px auto;
   gap: 0.75rem;
   align-items: center;
-  padding: 0.85rem;
+  min-height: 92px;
+  padding: 1rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
+  background: var(--vp-c-bg);
 }
 
 .article-title {
@@ -304,16 +316,18 @@ layout: page
 .card-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 1.1rem;
 }
 
 .article-card {
   display: grid;
-  grid-template-columns: 116px minmax(0, 1fr);
+  grid-template-columns: 118px minmax(0, 1fr);
   gap: 0.85rem;
-  padding: 0.85rem;
+  min-height: 118px;
+  padding: 1rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
+  background: var(--vp-c-bg);
   color: inherit;
   text-decoration: none;
 }
@@ -346,6 +360,11 @@ layout: page
   gap: 1rem;
 }
 
+.settings-card {
+  width: min(620px, 100%);
+  margin: 1.5rem auto 0;
+}
+
 .settings-form label {
   display: grid;
   gap: 0.45rem;
@@ -365,15 +384,17 @@ layout: page
   font-weight: 400;
 }
 
-.avatar-upload {
-  display: flex;
+.settings-avatar-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
   align-items: center;
-  gap: 1rem;
+  gap: 1.25rem;
+  margin-bottom: 1.4rem;
 }
 
-.avatar-upload img {
-  width: 86px;
-  height: 86px;
+.settings-avatar-row img {
+  width: 96px;
+  height: 96px;
   border-radius: 999px;
   object-fit: cover;
 }
@@ -381,12 +402,19 @@ layout: page
 .upload-button {
   display: inline-grid;
   place-items: center;
-  min-height: 38px;
-  padding: 0 0.85rem;
+  min-height: 58px;
+  padding: 0 1rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
+  background: var(--vp-c-bg);
   cursor: pointer;
   font-weight: 500;
+}
+
+.upload-button.dragging {
+  border-color: var(--vp-c-brand-1);
+  background: rgba(20, 184, 166, 0.1);
+  color: var(--vp-c-brand-1);
 }
 
 .upload-button input {
@@ -448,12 +476,47 @@ layout: page
     width: min(100%, calc(100vw - 24px));
   }
 
-  .profile-layout {
+  .profile-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .stats-card {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .profile-body {
     grid-template-columns: 1fr;
   }
 
   .profile-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--vp-c-divider);
+  }
+
+  .profile-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     position: static;
+  }
+
+  .profile-tabs button {
+    min-height: 58px;
+    border-right: 1px solid var(--vp-c-divider);
+    border-bottom: 0;
+    font-size: 0.92rem;
+  }
+
+  .profile-tabs button:last-child {
+    border-right: 0;
+  }
+
+  .profile-tabs button.active {
+    box-shadow: inset 0 -3px 0 var(--vp-c-brand-1);
+  }
+
+  .profile-main {
+    padding: 1.25rem;
   }
 
   .article-row {
@@ -467,9 +530,42 @@ layout: page
 }
 
 @media (max-width: 640px) {
+  .profile-layout {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .profile-hero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding: 1.5rem 1rem;
+    text-align: center;
+  }
+
+  .role-block {
+    justify-content: center;
+  }
+
+  .stats-card,
   .status-grid,
   .card-grid {
     grid-template-columns: 1fr;
+  }
+
+  .stats-card div {
+    border-right: 0;
+    border-bottom: 1px solid var(--vp-c-divider);
+  }
+
+  .stats-card div:last-child {
+    border-bottom: 0;
+  }
+
+  .profile-tabs button {
+    min-height: 52px;
+    padding: 0 0.4rem;
+    font-size: 0.86rem;
   }
 
   .panel-head {
@@ -484,6 +580,11 @@ layout: page
   .article-card img {
     width: 96px;
     height: 72px;
+  }
+
+  .settings-avatar-row {
+    grid-template-columns: 1fr;
+    justify-items: center;
   }
 }
 </style>
