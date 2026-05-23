@@ -124,21 +124,140 @@ async function updateViewCountIfAvailable(supabase) {
     .eq('id', articleState.id)
 }
 
-function renderMarkdown(content) {
-  var html = escapeHtml(content)
+function renderInlineMarkdown(value) {
+  return escapeHtml(value)
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="article-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
     .replace(/&lt;span style=&quot;color:\s*(#[0-9a-fA-F]{3,8}|[a-zA-Z]+);?&quot;&gt;/g, '<span style="color: $1;">')
     .replace(/&lt;\/span&gt;/g, '</span>')
-    .replace(/^### (.*)$/gim, '<h3>$1</h3>')
-    .replace(/^## (.*)$/gim, '<h2>$1</h2>')
-    .replace(/^# (.*)$/gim, '<h1>$1</h1>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\n\n+/g, '</p><p>')
-    .replace(/\n/g, '<br>')
+}
 
-  return '<p>' + html + '</p>'
+function isTableSeparator(line) {
+  return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line)
+}
+
+function isTableRow(line) {
+  return /^\s*\|.*\|\s*$/.test(line)
+}
+
+function splitTableRow(line) {
+  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(function(cell) {
+    return cell.trim()
+  })
+}
+
+function renderTable(headerLine, rowLines) {
+  var headers = splitTableRow(headerLine)
+  var rows = rowLines.map(splitTableRow)
+  return [
+    '<div class="article-table-wrap"><table class="article-table">',
+    '<thead><tr>' + headers.map(function(cell) { return '<th>' + renderInlineMarkdown(cell) + '</th>' }).join('') + '</tr></thead>',
+    '<tbody>' + rows.map(function(row) {
+      return '<tr>' + headers.map(function(_, index) {
+        return '<td>' + renderInlineMarkdown(row[index] || '') + '</td>'
+      }).join('') + '</tr>'
+    }).join('') + '</tbody>',
+    '</table></div>'
+  ].join('')
+}
+
+function renderMarkdown(content) {
+  var lines = String(content || '').replace(/\r\n/g, '\n').split('\n')
+  var blocks = []
+  var i = 0
+
+  while (i < lines.length) {
+    var line = lines[i]
+    var trimmed = line.trim()
+
+    if (!trimmed) {
+      i += 1
+      continue
+    }
+
+    if (isTableRow(trimmed) && isTableSeparator((lines[i + 1] || '').trim())) {
+      var tableRows = []
+      i += 2
+      while (i < lines.length && isTableRow(lines[i].trim())) {
+        tableRows.push(lines[i])
+        i += 1
+      }
+      blocks.push(renderTable(trimmed, tableRows))
+      continue
+    }
+
+    if (/^---+$/.test(trimmed)) {
+      blocks.push('<hr>')
+      i += 1
+      continue
+    }
+
+    if (/^###\s+/.test(trimmed)) {
+      blocks.push('<h3>' + renderInlineMarkdown(trimmed.replace(/^###\s+/, '')) + '</h3>')
+      i += 1
+      continue
+    }
+
+    if (/^##\s+/.test(trimmed)) {
+      blocks.push('<h2>' + renderInlineMarkdown(trimmed.replace(/^##\s+/, '')) + '</h2>')
+      i += 1
+      continue
+    }
+
+    if (/^#\s+/.test(trimmed)) {
+      blocks.push('<h1>' + renderInlineMarkdown(trimmed.replace(/^#\s+/, '')) + '</h1>')
+      i += 1
+      continue
+    }
+
+    if (/^>\s?/.test(trimmed)) {
+      var quoteLines = []
+      while (i < lines.length && /^>\s?/.test(lines[i].trim())) {
+        quoteLines.push(lines[i].trim().replace(/^>\s?/, ''))
+        i += 1
+      }
+      blocks.push('<blockquote><p>' + quoteLines.map(renderInlineMarkdown).join('<br>') + '</p></blockquote>')
+      continue
+    }
+
+    if (/^[-*+]\s+/.test(trimmed)) {
+      var items = []
+      while (i < lines.length && /^[-*+]\s+/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^[-*+]\s+/, ''))
+        i += 1
+      }
+      blocks.push('<ul>' + items.map(function(item) { return '<li>' + renderInlineMarkdown(item) + '</li>' }).join('') + '</ul>')
+      continue
+    }
+
+    if (/^\d+\.\s+/.test(trimmed)) {
+      var orderedItems = []
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
+        orderedItems.push(lines[i].trim().replace(/^\d+\.\s+/, ''))
+        i += 1
+      }
+      blocks.push('<ol>' + orderedItems.map(function(item) { return '<li>' + renderInlineMarkdown(item) + '</li>' }).join('') + '</ol>')
+      continue
+    }
+
+    if (/^!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)$/.test(trimmed)) {
+      blocks.push(renderInlineMarkdown(trimmed))
+      i += 1
+      continue
+    }
+
+    var paragraph = [trimmed]
+    i += 1
+    while (i < lines.length && lines[i].trim() && !/^#{1,3}\s+/.test(lines[i].trim()) && !/^---+$/.test(lines[i].trim()) && !/^>\s?/.test(lines[i].trim()) && !/^[-*+]\s+/.test(lines[i].trim()) && !/^\d+\.\s+/.test(lines[i].trim()) && !(isTableRow(lines[i].trim()) && isTableSeparator((lines[i + 1] || '').trim()))) {
+      paragraph.push(lines[i].trim())
+      i += 1
+    }
+    blocks.push('<p>' + paragraph.map(renderInlineMarkdown).join('<br>') + '</p>')
+  }
+
+  return blocks.join('')
 }
 
 function setVisible(id, visible) {
@@ -784,6 +903,73 @@ if (typeof document !== 'undefined') {
   padding: 0.15rem 0.35rem;
   border-radius: 4px;
   background: #f3f4f6;
+}
+
+.article-body blockquote {
+  margin: 1.25rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 4px solid #8b1f1f;
+  border-radius: 8px;
+  background: rgba(139, 31, 31, 0.06);
+  color: #475569;
+}
+
+.article-body blockquote p {
+  margin: 0;
+}
+
+.article-body ul,
+.article-body ol {
+  margin: 0.9rem 0 1.2rem;
+  padding-left: 1.45rem;
+}
+
+.article-body li {
+  margin: 0.35rem 0;
+}
+
+.article-body hr {
+  margin: 1.7rem 0;
+  border: 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.38);
+}
+
+.article-table-wrap {
+  margin: 1.2rem 0 1.6rem;
+  overflow-x: auto;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.article-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 560px;
+}
+
+.article-table th,
+.article-table td {
+  padding: 0.78rem 0.9rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+  border-right: 1px solid rgba(226, 232, 240, 0.72);
+  text-align: left;
+  vertical-align: top;
+}
+
+.article-table th {
+  background: rgba(248, 250, 252, 0.92);
+  color: #334155;
+  font-weight: 700;
+}
+
+.article-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.article-table th:last-child,
+.article-table td:last-child {
+  border-right: 0;
 }
 
 .article-image {
