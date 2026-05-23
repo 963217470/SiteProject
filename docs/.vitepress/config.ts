@@ -6,7 +6,8 @@ export default defineConfig({
   base: '/SiteProject/',
 
   head: [
-    ['script', { src: '/SiteProject/supabase-rest.js' }]
+    ['script', { src: '/SiteProject/supabase-rest.js' }],
+    ['script', { src: '/SiteProject/profile-page.js' }]
   ],
 
   vite: {

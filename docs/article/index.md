@@ -80,6 +80,50 @@ function setLocalFavorite(id, enabled) {
   localStorage.setItem('rd_article_favorites', JSON.stringify(list))
 }
 
+function saveRecentArticle(article) {
+  if (!article || !article.id) return
+  try {
+    var key = 'rd_recent_articles'
+    var list = JSON.parse(localStorage.getItem(key) || '[]')
+    if (!Array.isArray(list)) list = []
+    list = list.filter(function(item) { return item && item.id !== article.id })
+    list.unshift({
+      id: article.id,
+      title: article.title,
+      cover_url: article.cover_url || '',
+      summary: article.summary || '',
+      viewed_at: new Date().toISOString()
+    })
+    localStorage.setItem(key, JSON.stringify(list.slice(0, 30)))
+  } catch (e) {}
+}
+
+async function loadArticleRecord(supabase, id) {
+  var result = await supabase
+    .from('articles')
+    .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count, views_count')
+    .eq('id', id)
+    .single()
+
+  if (!result.error) return result
+
+  return supabase
+    .from('articles')
+    .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count')
+    .eq('id', id)
+    .single()
+}
+
+async function updateViewCountIfAvailable(supabase) {
+  if (!articleState.article || typeof articleState.article.views_count === 'undefined') return
+  var nextCount = Number(articleState.article.views_count || 0) + 1
+  articleState.article.views_count = nextCount
+  await supabase
+    .from('articles')
+    .update({ views_count: nextCount })
+    .eq('id', articleState.id)
+}
+
 function renderMarkdown(content) {
   var html = escapeHtml(content)
     .replace(/^### (.*)$/gim, '<h3>$1</h3>')
@@ -451,11 +495,7 @@ async function loadArticle() {
     var supabase = await waitForSupabase()
     if (!supabase) throw new Error('Supabase 未加载，请刷新页面后重试')
 
-    var result = await supabase
-      .from('articles')
-      .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count')
-      .eq('id', articleState.id)
-      .single()
+    var result = await loadArticleRecord(supabase, articleState.id)
 
     if (result.error) throw new Error(result.error.message)
     if (!result.data) {
@@ -465,6 +505,10 @@ async function loadArticle() {
     }
 
     articleState.article = result.data
+    saveRecentArticle(articleState.article)
+    updateViewCountIfAvailable(supabase).catch(function(error) {
+      console.warn('Article view count update skipped:', error)
+    })
     document.title = articleState.article.title + ' | RD STUDIO'
 
     setVisible('loading', false)
