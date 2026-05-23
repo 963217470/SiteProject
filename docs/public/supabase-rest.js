@@ -148,9 +148,7 @@ window.__supabase = {
     from: function(bucket) {
       return {
         upload: async function(path, file) {
-          var sess = await ensureSession()
-          var token = sess && sess.access_token ? sess.access_token : KEY
-          var headers = { 'apikey': KEY, 'authorization': 'Bearer ' + token, 'Authorization': 'Bearer ' + token }
+          var headers = { 'apikey': KEY, 'authorization': 'Bearer ' + KEY }
           if (file && file.type) headers['Content-Type'] = file.type
           var res = await fetch(URL + '/storage/v1/object/' + bucket + '/' + encodeURI(path), {
             method: 'POST',

@@ -6,7 +6,7 @@ export default defineConfig({
   base: '/SiteProject/',
 
   head: [
-    ['script', { src: '/SiteProject/supabase-rest.js?v=20260523-storage-auth2' }],
+    ['script', { src: '/SiteProject/supabase-rest.js?v=20260523-storage-auth3' }],
     ['script', { src: '/SiteProject/profile-page.js?v=20260523-profile-wireframe' }]
   ],
 
