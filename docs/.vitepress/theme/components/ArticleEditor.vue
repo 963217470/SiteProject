@@ -81,13 +81,20 @@
         </div>
       </div>
 
-      <textarea
-        ref="contentInput"
-        v-model="article.content"
-        class="content-editor"
-        placeholder="直接输入正文，或上传 Markdown / 文件夹。支持拖拽图片到这里。"
-        rows="20"
-      ></textarea>
+      <div class="editor-workspace">
+        <textarea
+          ref="contentInput"
+          v-model="article.content"
+          class="content-editor"
+          placeholder="直接输入正文，或上传 Markdown / 文件夹。支持拖拽图片到这里。"
+          rows="20"
+        ></textarea>
+        <aside class="content-preview" aria-label="正文预览">
+          <div class="preview-title">预览</div>
+          <div v-if="article.content.trim()" class="preview-body" v-html="previewHtml"></div>
+          <div v-else class="preview-empty">上传或输入内容后，这里会显示图片和排版效果。</div>
+        </aside>
+      </div>
     </section>
 
     <label class="summary-field">
@@ -126,6 +133,7 @@ const article = reactive({
 })
 
 const tags = computed(() => selectedTags.value)
+const previewHtml = computed(() => renderMarkdownPreview(article.content))
 
 function goBack() {
   window.location.href = '/SiteProject/articles'
@@ -154,6 +162,29 @@ function addCustomTag() {
   if (!tag) return
   if (!selectedTags.value.includes(tag)) selectedTags.value.push(tag)
   customTag.value = ''
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function renderMarkdownPreview(content) {
+  const html = escapeHtml(content)
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="preview-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
+    .replace(/^### (.*)$/gim, '<h3>$1</h3>')
+    .replace(/^## (.*)$/gim, '<h2>$1</h2>')
+    .replace(/^# (.*)$/gim, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\n\n+/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+
+  return '<p>' + html + '</p>'
 }
 
 function parseFrontmatter(text) {
@@ -213,13 +244,46 @@ function readFileAsText(file) {
   })
 }
 
+function dataUrlToFile(dataUrl, name) {
+  const parts = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/)
+  if (!parts) throw new Error('图片数据格式不正确')
+  const mime = parts[1]
+  const binary = atob(parts[2])
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const ext = (mime.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+  return new File([bytes], name + '.' + ext, { type: mime })
+}
+
+async function replaceInlineDataImages(markdown) {
+  if (!/!\[[^\]]*\]\(data:image\//i.test(markdown)) return markdown
+  const supabase = await waitForSupabase()
+  if (!supabase) throw new Error('Supabase 未加载，请刷新页面后重试')
+
+  const matches = Array.from(markdown.matchAll(/!\[([^\]]*)\]\((data:image\/[^)]+)\)/g))
+  let next = markdown
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]
+    const alt = match[1] || 'image-' + (i + 1)
+    const file = dataUrlToFile(match[2], alt.replace(/[^\w.-]+/g, '-').slice(0, 40) || 'image')
+    const imageUrl = await uploadArticleImage(supabase, file)
+    next = next.replace(match[0], '![' + alt + '](' + imageUrl + ')')
+  }
+  return next
+}
+
 async function handleFileUpload(event) {
   const file = event.target.files?.[0]
   if (!file) return
 
   try {
     selectedFile.value = file.name
-    applyImportedMarkdown(await readFileAsText(file), file.name)
+    let markdown = await readFileAsText(file)
+    if (/!\[[^\]]*\]\(data:image\//i.test(markdown)) {
+      showStatus('正在上传 Markdown 内嵌图片...', 'info')
+      markdown = await replaceInlineDataImages(markdown)
+    }
+    applyImportedMarkdown(markdown, file.name)
     showStatus('Markdown 文件读取成功', 'success')
   } catch (error) {
     showStatus(error.message || '文件读取失败，请重新选择', 'error')
@@ -441,6 +505,11 @@ async function saveArticle(status) {
 
     const { data: sessionResult } = await supabase.auth.getSession()
     const userId = sessionResult?.session?.user?.id || null
+
+    if (/!\[[^\]]*\]\(data:image\//i.test(article.content)) {
+      showStatus('正在将内嵌图片转为线上图片...', 'info')
+      article.content = await replaceInlineDataImages(article.content)
+    }
 
     const articleData = {
       title: article.title.trim(),
@@ -706,6 +775,95 @@ function showStatus(message, type) {
   line-height: 1.75;
 }
 
+.editor-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 42%);
+  min-height: 520px;
+}
+
+.content-preview {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-left: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+  min-width: 0;
+}
+
+.preview-title {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-2);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.preview-body {
+  padding: 1.2rem;
+  overflow: auto;
+  color: var(--vp-c-text-1);
+  font-size: 0.95rem;
+  line-height: 1.85;
+}
+
+.preview-body h1,
+.preview-body h2,
+.preview-body h3 {
+  margin: 1.1rem 0 0.55rem;
+  line-height: 1.35;
+}
+
+.preview-body h1 {
+  font-size: 1.35rem;
+}
+
+.preview-body h2 {
+  font-size: 1.16rem;
+}
+
+.preview-body h3 {
+  font-size: 1.02rem;
+}
+
+.preview-body code {
+  padding: 0.12rem 0.32rem;
+  border-radius: 4px;
+  background: var(--vp-c-bg-soft);
+}
+
+.preview-image {
+  margin: 1rem 0;
+}
+
+.preview-image img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+}
+
+.preview-image figcaption {
+  margin-top: 0.42rem;
+  color: var(--vp-c-text-2);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.preview-image figcaption:empty {
+  display: none;
+}
+
+.preview-empty {
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  color: var(--vp-c-text-2);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
 .title-field input:focus,
 .summary-field textarea:focus,
 .tag-editor input:focus,
@@ -748,6 +906,16 @@ function showStatus(message, type) {
 
   .import-panel {
     grid-template-columns: 1fr;
+  }
+
+  .editor-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .content-preview {
+    border-left: 0;
+    border-top: 1px solid var(--vp-c-divider);
+    min-height: 320px;
   }
 
   .tag-row,
