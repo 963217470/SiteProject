@@ -127,6 +127,8 @@ async function updateViewCountIfAvailable(supabase) {
 function renderMarkdown(content) {
   var html = escapeHtml(content)
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="article-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
+    .replace(/&lt;span style=&quot;color:\s*(#[0-9a-fA-F]{3,8}|[a-zA-Z]+);?&quot;&gt;/g, '<span style="color: $1;">')
+    .replace(/&lt;\/span&gt;/g, '</span>')
     .replace(/^### (.*)$/gim, '<h3>$1</h3>')
     .replace(/^## (.*)$/gim, '<h2>$1</h2>')
     .replace(/^# (.*)$/gim, '<h1>$1</h1>')

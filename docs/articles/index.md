@@ -62,6 +62,7 @@ function renderArticlePreview(content) {
   const preview = content
     .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
     .replace(/https?:\/\/\S+\.(png|jpe?g|gif|webp)(\?\S*)?/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
     .replace(/[#>*_`~\[\]()]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()

@@ -235,13 +235,22 @@ function applyImportedMarkdown(text, sourceName) {
   article.content = content.trim()
 }
 
-function readFileAsText(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = event => resolve(String(event.target?.result || ''))
-    reader.onerror = () => reject(new Error('文件读取失败'))
-    reader.readAsText(file)
-  })
+async function readFileAsText(file) {
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder('utf-16le').decode(buffer)
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder('utf-16be').decode(buffer)
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return new TextDecoder('utf-8').decode(buffer)
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch (error) {
+    try {
+      return new TextDecoder('gb18030').decode(buffer)
+    } catch (fallbackError) {
+      throw new Error('文件编码无法识别，请将 Markdown 保存为 UTF-8 后重试')
+    }
+  }
 }
 
 function dataUrlToFile(dataUrl, name) {
@@ -559,6 +568,7 @@ async function saveArticle(status) {
 function buildSummary(content) {
   return content
     .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    .replace(/<[^>]+>/g, '')
     .replace(/[#>*_`-]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
