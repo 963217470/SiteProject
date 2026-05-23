@@ -8,10 +8,8 @@ layout: page
     <h1>📚 文章列表</h1>
     <div class="filter-bar">
       <button id="filter-all" class="filter-btn active" onclick="if(typeof document !== 'undefined') filterArticles('all')">全部</button>
-      <button id="filter-published" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('published')">已发布</button>
-      <button id="filter-pending" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('pending')">待审核</button>
-      <button id="filter-draft" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('draft')">草稿</button>
-      <button id="filter-rejected" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('rejected')">已拒绝</button>
+      <button id="filter-public" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('public')">公开</button>
+      <button id="filter-internal" class="filter-btn" onclick="if(typeof document !== 'undefined') filterArticles('internal')">内部</button>
     </div>
   </div>
 
@@ -50,15 +48,12 @@ function getVisibilityText(v) {
 }
 
 function getStatusText(s) {
-  return { draft: '📝 草稿', pending: '⏳ 待审核', published: '✅ 已发布', rejected: '❌ 已拒绝' }[s] || s
+  return { published: '✅ 已发布' }[s] || s
 }
 
 function getStatusBadgeClass(s) {
   return {
-    draft: 'badge-draft',
-    pending: 'badge-pending',
-    published: 'badge-published',
-    rejected: 'badge-rejected'
+    published: 'badge-published'
   }[s] || 'badge-draft'
 }
 
@@ -162,10 +157,11 @@ async function loadArticles() {
     let query = supabase
       .from('articles')
       .select('id, title, summary, content, cover_url, tags, visibility, status, created_at, likes_count, comments_count')
+      .eq('status', 'published')
       .order('created_at', { ascending: false })
 
     if (currentFilter !== 'all') {
-      query = query.eq('status', currentFilter)
+      query = query.eq('visibility', currentFilter)
     }
 
     const { data, error } = await query

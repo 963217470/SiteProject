@@ -5,11 +5,43 @@ layout: page
 
 <div id="admin-page">
   <div class="page-header">
-    <h1>文章审核</h1>
+    <div>
+      <p class="eyebrow">管理后台</p>
+      <h1>文章审核</h1>
+    </div>
     <div class="header-actions">
       <button class="btn-secondary" type="button" onclick="testConnection()">测试连接</button>
       <a href="/SiteProject/articles" class="btn-secondary">返回文章列表</a>
     </div>
+  </div>
+
+  <section class="review-summary" aria-label="审核统计">
+    <div class="summary-card urgent">
+      <strong id="stat-pending">0</strong>
+      <span>待审核</span>
+    </div>
+    <div class="summary-card">
+      <strong id="stat-published">0</strong>
+      <span>已发布</span>
+    </div>
+    <div class="summary-card">
+      <strong id="stat-rejected">0</strong>
+      <span>已拒绝</span>
+    </div>
+    <div class="summary-card">
+      <strong id="stat-total">0</strong>
+      <span>全部文章</span>
+    </div>
+  </section>
+
+  <div class="review-toolbar">
+    <div class="filter-bar" aria-label="审核筛选">
+      <button id="filter-pending" class="filter-btn active" type="button" onclick="filterAdminArticles('pending')">待审核</button>
+      <button id="filter-published" class="filter-btn" type="button" onclick="filterAdminArticles('published')">已发布</button>
+      <button id="filter-rejected" class="filter-btn" type="button" onclick="filterAdminArticles('rejected')">已拒绝</button>
+      <button id="filter-all" class="filter-btn" type="button" onclick="filterAdminArticles('all')">全部</button>
+    </div>
+    <p id="review-hint" class="review-hint">优先处理待审核文章；通过后才会出现在文章列表。</p>
   </div>
 
   <div id="loading" class="loading">
@@ -28,6 +60,8 @@ layout: page
 </div>
 
 <script>
+var adminState = { filter: 'pending', articles: [], busyId: '' }
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -71,6 +105,37 @@ function setVisible(id, visible) {
   if (el) el.style.display = visible ? 'block' : 'none'
 }
 
+function getVisibilityText(value) {
+  return { public: '公开', internal: '内部' }[value] || value || '公开'
+}
+
+function countStatus(status) {
+  return adminState.articles.filter(function(article) { return article.status === status }).length
+}
+
+function updateStats() {
+  var pending = document.getElementById('stat-pending')
+  var published = document.getElementById('stat-published')
+  var rejected = document.getElementById('stat-rejected')
+  var total = document.getElementById('stat-total')
+  if (pending) pending.textContent = countStatus('pending')
+  if (published) published.textContent = countStatus('published')
+  if (rejected) rejected.textContent = countStatus('rejected')
+  if (total) total.textContent = adminState.articles.length
+}
+
+function getFilteredArticles() {
+  if (adminState.filter === 'all') return adminState.articles
+  return adminState.articles.filter(function(article) { return article.status === adminState.filter })
+}
+
+function setActionBusy(id, busy) {
+  adminState.busyId = busy ? id : ''
+  Array.prototype.forEach.call(document.querySelectorAll('.article-actions button'), function(button) {
+    button.disabled = !!busy
+  })
+}
+
 function showError(message) {
   setVisible('loading', false)
   setVisible('articles-list', false)
@@ -86,6 +151,15 @@ function showNoArticles() {
   setVisible('error', false)
   setVisible('articles-list', false)
   setVisible('no-articles', true)
+  var panel = document.getElementById('no-articles')
+  if (panel) {
+    panel.innerHTML = '<p>' + ({
+      pending: '暂无待审核文章',
+      published: '暂无已发布文章',
+      rejected: '暂无已拒绝文章',
+      all: '暂无文章'
+    }[adminState.filter] || '暂无文章') + '</p>'
+  }
 }
 
 function renderArticles(articles) {
@@ -96,42 +170,68 @@ function renderArticles(articles) {
   setVisible('error', false)
   setVisible('no-articles', false)
 
-  if (!articles || articles.length === 0) {
+  updateStats()
+
+  var filteredArticles = getFilteredArticles()
+  var hint = document.getElementById('review-hint')
+  if (hint) {
+    hint.textContent = adminState.filter === 'pending'
+      ? '优先处理待审核文章；通过后才会出现在文章列表。'
+      : '当前显示：' + ({ published: '已发布文章', rejected: '已拒绝文章', all: '全部文章' }[adminState.filter] || '文章')
+  }
+
+  if (!filteredArticles || filteredArticles.length === 0) {
     showNoArticles()
     return
   }
 
   list.style.display = 'grid'
-  list.innerHTML = articles.map(function(article) {
+  list.innerHTML = filteredArticles.map(function(article) {
     var title = escapeHtml(article.title)
     var summary = escapeHtml(article.summary)
     var reason = escapeHtml(article.reject_reason)
     var status = escapeHtml(getStatusText(article.status))
     var badgeClass = getStatusBadgeClass(article.status)
+    var visibility = escapeHtml(getVisibilityText(article.visibility))
+    var updatedAt = article.updated_at ? formatDate(article.updated_at) : ''
+    var isBusy = adminState.busyId === article.id
 
     return [
       '<article class="article-card">',
-      '  <div class="article-header">',
-      '    <h2>' + title + '</h2>',
-      '    <span class="badge ' + badgeClass + '">' + status + '</span>',
+      '  <div class="article-main">',
+      '    <div class="article-header">',
+      '      <div>',
+      '        <h2>' + title + '</h2>',
+      '        <div class="article-meta">',
+      '          <span>提交：' + formatDate(article.created_at) + '</span>',
+      updatedAt ? '          <span>更新：' + updatedAt + '</span>' : '',
+      '          <span>' + visibility + '</span>',
+      '        </div>',
+      '      </div>',
+      '      <span class="badge ' + badgeClass + '">' + status + '</span>',
+      '    </div>',
+      summary ? '    <p class="article-summary">' + summary + '</p>' : '    <p class="article-summary muted">暂无摘要</p>',
+      reason ? '    <p class="reject-reason">拒绝原因：' + reason + '</p>' : '',
       '  </div>',
-      '  <div class="article-meta">',
-      '    <span>' + formatDate(article.created_at) + '</span>',
-      article.visibility ? '    <span>' + escapeHtml(article.visibility) + '</span>' : '',
-      '  </div>',
-      summary ? '  <p class="article-summary">' + summary + '</p>' : '',
-      reason ? '  <p class="reject-reason">拒绝原因：' + reason + '</p>' : '',
       '  <div class="article-actions">',
-      article.status === 'pending' ? '    <button class="btn-success" type="button" onclick="publishArticle(\'' + article.id + '\')">通过</button>' : '',
-      article.status === 'pending' ? '    <button class="btn-danger" type="button" onclick="showRejectModal(\'' + article.id + '\')">拒绝</button>' : '',
-      article.status === 'published' ? '    <button class="btn-warning" type="button" onclick="unpublishArticle(\'' + article.id + '\')">撤回发布</button>' : '',
-      article.status === 'draft' || article.status === 'rejected' ? '    <button class="btn-success" type="button" onclick="publishArticle(\'' + article.id + '\')">直接发布</button>' : '',
+      article.status === 'pending' ? '    <button class="btn-success" type="button" onclick="publishArticle(\'' + article.id + '\')" ' + (isBusy ? 'disabled' : '') + '>通过</button>' : '',
+      article.status === 'pending' ? '    <button class="btn-danger" type="button" onclick="showRejectModal(\'' + article.id + '\')" ' + (isBusy ? 'disabled' : '') + '>拒绝</button>' : '',
+      article.status === 'published' ? '    <button class="btn-warning" type="button" onclick="unpublishArticle(\'' + article.id + '\')" ' + (isBusy ? 'disabled' : '') + '>撤回</button>' : '',
+      article.status === 'draft' || article.status === 'rejected' ? '    <button class="btn-success" type="button" onclick="publishArticle(\'' + article.id + '\')" ' + (isBusy ? 'disabled' : '') + '>直接发布</button>' : '',
       '    <button class="btn-secondary" type="button" onclick="viewArticle(\'' + article.id + '\')">查看</button>',
-      '    <button class="btn-danger" type="button" onclick="deleteArticle(\'' + article.id + '\')">删除</button>',
+      '    <button class="btn-danger ghost-danger" type="button" onclick="deleteArticle(\'' + article.id + '\')" ' + (isBusy ? 'disabled' : '') + '>删除</button>',
       '  </div>',
       '</article>'
     ].join('')
   }).join('')
+}
+
+function filterAdminArticles(filter) {
+  adminState.filter = filter
+  Array.prototype.forEach.call(document.querySelectorAll('.filter-btn'), function(button) { button.classList.remove('active') })
+  var active = document.getElementById('filter-' + filter)
+  if (active) active.classList.add('active')
+  renderArticles(adminState.articles)
 }
 
 async function waitForSupabase(maxAttempts) {
@@ -197,7 +297,8 @@ async function loadArticles() {
       return
     }
 
-    renderArticles(result.data || [])
+    adminState.articles = result.data || []
+    renderArticles(adminState.articles)
   } catch (error) {
     showError('加载失败：' + (error.message || '未知错误'))
   }
@@ -205,6 +306,7 @@ async function loadArticles() {
 
 async function updateArticleStatus(id, status, rejectReason) {
   try {
+    setActionBusy(id, true)
     var supabase = await waitForSupabase()
     if (!supabase) {
       alert('Supabase 未加载，请刷新页面后重试')
@@ -235,6 +337,7 @@ async function updateArticleStatus(id, status, rejectReason) {
       .from('articles')
       .update(updateData)
       .eq('id', id)
+      .select('id')
 
     if (result.error) {
       alert('操作失败：' + result.error.message)
@@ -250,6 +353,8 @@ async function updateArticleStatus(id, status, rejectReason) {
   } catch (error) {
     alert('操作失败：' + (error.message || '未知错误'))
     return false
+  } finally {
+    setActionBusy(id, false)
   }
 }
 
@@ -297,6 +402,7 @@ async function deleteArticle(id) {
       .from('articles')
       .delete()
       .eq('id', id)
+      .select('id')
 
     if (result.error) {
       alert('删除失败：' + result.error.message)
@@ -350,6 +456,7 @@ if (typeof window !== 'undefined') {
   window.deleteArticle = deleteArticle
   window.viewArticle = viewArticle
   window.testConnection = testConnection
+  window.filterAdminArticles = filterAdminArticles
 }
 
 if (typeof document !== 'undefined') {
@@ -359,7 +466,7 @@ if (typeof document !== 'undefined') {
 
 <style>
 #admin-page {
-  max-width: 1000px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 2rem;
 }
@@ -376,10 +483,88 @@ if (typeof document !== 'undefined') {
   margin: 0;
 }
 
+.eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--vp-c-brand-1);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .header-actions {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.review-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.summary-card {
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg);
+}
+
+.summary-card.urgent {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.09);
+}
+
+.summary-card strong {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.summary-card span {
+  color: var(--vp-c-text-2);
+  font-size: 0.86rem;
+}
+
+.review-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding: 0.85rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+}
+
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  min-height: 34px;
+  padding: 0 0.8rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-2);
+  cursor: pointer;
+}
+
+.filter-btn.active {
+  border-color: var(--vp-c-brand-1);
+  background: var(--vp-c-brand-1);
+  color: #fff;
+}
+
+.review-hint {
+  margin: 0;
+  color: var(--vp-c-text-2);
+  font-size: 0.86rem;
 }
 
 .loading,
@@ -401,10 +586,22 @@ if (typeof document !== 'undefined') {
 }
 
 .article-card {
-  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.25rem;
+  align-items: start;
+  padding: 1.2rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
   background: var(--vp-c-bg);
+}
+
+.article-card:hover {
+  border-color: rgba(100, 108, 255, 0.45);
+}
+
+.article-main {
+  min-width: 0;
 }
 
 .article-header {
@@ -418,25 +615,34 @@ if (typeof document !== 'undefined') {
 .article-header h2 {
   margin: 0;
   font-size: 1.2rem;
+  line-height: 1.45;
 }
 
 .article-meta {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
-  margin-bottom: 0.75rem;
+  margin-top: 0.35rem;
   color: var(--vp-c-text-3);
-  font-size: 0.9rem;
+  font-size: 0.84rem;
 }
 
 .article-summary {
-  margin: 0 0 1rem;
+  display: -webkit-box;
+  margin: 0.85rem 0 0;
+  overflow: hidden;
   color: var(--vp-c-text-2);
   line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.article-summary.muted {
+  color: var(--vp-c-text-3);
 }
 
 .reject-reason {
-  margin: 0 0 1rem;
+  margin: 0.85rem 0 0;
   padding: 0.75rem;
   border-radius: 6px;
   background: #fef3c7;
@@ -444,9 +650,10 @@ if (typeof document !== 'undefined') {
 }
 
 .article-actions {
-  display: flex;
+  display: grid;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  justify-items: stretch;
+  min-width: 116px;
 }
 
 .btn-secondary,
@@ -465,6 +672,22 @@ if (typeof document !== 'undefined') {
   text-decoration: none;
 }
 
+.btn-secondary:hover,
+.btn-success:hover,
+.btn-danger:hover,
+.btn-warning:hover,
+.filter-btn:hover {
+  filter: brightness(0.98);
+}
+
+.btn-secondary:disabled,
+.btn-success:disabled,
+.btn-danger:disabled,
+.btn-warning:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-secondary {
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-text-1);
@@ -479,6 +702,12 @@ if (typeof document !== 'undefined') {
 .btn-danger {
   background: #dc2626;
   color: white;
+}
+
+.ghost-danger {
+  background: transparent;
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.35);
 }
 
 .btn-warning {
@@ -518,10 +747,24 @@ if (typeof document !== 'undefined') {
     padding: 1rem;
   }
 
+  .review-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .review-toolbar,
   .page-header,
   .article-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .article-card {
+    grid-template-columns: 1fr;
+  }
+
+  .article-actions {
+    display: flex;
+    flex-wrap: wrap;
   }
 }
 </style>
