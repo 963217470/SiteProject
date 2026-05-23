@@ -348,6 +348,11 @@ function renderComments() {
   }).join('')
 }
 
+function getFirstArticleImage(content) {
+  var match = String(content || '').match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/i)
+  return match ? match[1] : ''
+}
+
 function renderArticle() {
   var article = articleState.article
   if (!article) return
@@ -358,7 +363,7 @@ function renderArticle() {
   var commentCount = article.comments_count || articleState.comments.length || 0
   var favoriteLabel = articleState.favoriteTableReady ? '收藏' : '本地收藏'
   var backgroundUrl = '/SiteProject/images/hero-bg.jpg'
-  var coverUrl = article.cover_url || backgroundUrl
+  var coverUrl = article.cover_url || getFirstArticleImage(article.content) || backgroundUrl
   shell.style.setProperty('--article-bg-image', "url('" + String(backgroundUrl).replace(/'/g, '%27') + "')")
 
   shell.innerHTML = [
@@ -380,11 +385,11 @@ function renderArticle() {
     '            <span>' + formatDate(article.created_at) + '</span>',
     '          </div>',
     '        </div>',
-    '        <div class="article-status-row">',
-    '          <span class="headline-pill">' + escapeHtml(getStatusText(article.status) || getVisibilityText(article.visibility)) + '</span>',
-    '          <span>' + escapeHtml(getVisibilityText(article.visibility)) + '</span>',
-    '          <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
-    '        </div>',
+    '      </div>',
+    '      <div class="article-status-row">',
+    '        <span class="headline-pill">' + escapeHtml(getStatusText(article.status) || getVisibilityText(article.visibility)) + '</span>',
+    '        <span>' + escapeHtml(getVisibilityText(article.visibility)) + '</span>',
+    '        <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
     '      </div>',
     article.tags && article.tags.length ? '      <div class="article-tags">' + article.tags.map(function(tag) { return '<a class="tag" href="/SiteProject/articles?tag=' + encodeURIComponent(tag) + '">' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
     '    </header>',
@@ -765,26 +770,26 @@ if (typeof document !== 'undefined') {
 .article-title-main {
   display: block;
   width: 100%;
-  margin: 0 0 20px;
-  font-size: clamp(1.85rem, 2.8vw, 2.8rem);
-  line-height: 1.28;
+  max-width: 100%;
+  margin: 0 0 22px;
+  font-size: clamp(1.7rem, 2.15vw, 2.25rem);
+  line-height: 1.38;
   color: var(--vp-c-text-1);
   letter-spacing: 0;
   overflow-wrap: anywhere;
 }
 
 .article-meta-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
+  display: block;
   align-items: center;
-  padding-bottom: 4px;
+  padding-bottom: 0;
 }
 
 .author-row {
   display: flex;
   align-items: center;
   gap: 14px;
+  max-width: 100%;
   margin-bottom: 12px;
 }
 
@@ -830,9 +835,10 @@ if (typeof document !== 'undefined') {
 .article-status-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 0.7rem;
   flex-wrap: wrap;
+  margin: 8px 0 0 68px;
   color: #6b7280;
   font-size: 0.88rem;
 }
@@ -841,7 +847,7 @@ if (typeof document !== 'undefined') {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  margin: 10px 0 0;
+  margin: 14px 0 0 68px;
 }
 
 .tag {
@@ -1280,16 +1286,19 @@ if (typeof document !== 'undefined') {
   }
 
   .article-title-main {
-    font-size: 1.65rem;
+    font-size: 1.55rem;
   }
 
   .article-meta-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
+    display: block;
   }
 
   .article-status-row {
-    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .article-tags {
+    margin-left: 0;
   }
 
   .comment-editor {
