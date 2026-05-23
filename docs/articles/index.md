@@ -59,8 +59,20 @@ function getStatusBadgeClass(s) {
 
 function renderArticlePreview(content) {
   if (!content) return ''
-  const preview = content.substring(0, 200)
+  const preview = content
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+    .replace(/https?:\/\/\S+\.(png|jpe?g|gif|webp)(\?\S*)?/gi, ' ')
+    .replace(/[#>*_`~\[\]()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 140)
   return preview + (content.length > 200 ? '...' : '')
+}
+
+function getArticleCover(article) {
+  if (article.cover_url) return article.cover_url
+  const match = String(article.content || '').match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/i)
+  return match ? match[1] : ''
 }
 
 function showError(message) {
@@ -99,9 +111,11 @@ function showArticles(data) {
     return
   }
 
-  list.innerHTML = data.map(article => `
+  list.innerHTML = data.map(article => {
+    const cover = getArticleCover(article)
+    return `
     <div class="article-card">
-      ${article.cover_url ? `<img src="${article.cover_url}" class="article-cover" alt="${article.title}" onerror="this.style.display='none'">` : ''}
+      ${cover ? `<img src="${cover}" class="article-cover" alt="${article.title}" onerror="this.style.display='none'">` : ''}
       <div class="article-content">
         <div class="article-header">
           <h2><a href="/SiteProject/article?id=${article.id}">${article.title}</a></h2>
@@ -124,7 +138,7 @@ function showArticles(data) {
         </div>
           </div>
     </div>
-  `).join('')
+  `}).join('')
 }
 
 async function waitForSupabase(maxAttempts = 30) {
@@ -205,17 +219,22 @@ if (typeof document !== 'undefined') {
 
 <style>
 #articles-page {
-  max-width: 1000px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 2rem;
 }
 
 .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 2rem;
 }
 
 .page-header h1 {
-  margin: 0 0 1rem 0;
+  margin: 0;
+  font-size: 1.55rem;
 }
 
 .filter-bar {
@@ -271,17 +290,18 @@ if (typeof document !== 'undefined') {
 
 .articles-list {
   display: grid;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .article-card {
   display: flex;
-  gap: 1.5rem;
-  padding: 1.5rem;
+  gap: 1.25rem;
+  padding: 1.15rem;
   border: 1px solid var(--vp-c-divider);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--vp-c-bg);
   transition: all 0.2s;
+  min-height: 180px;
 }
 
 .article-card:hover {
@@ -290,8 +310,8 @@ if (typeof document !== 'undefined') {
 }
 
 .article-cover {
-  width: 200px;
-  height: 150px;
+  width: 220px;
+  height: 156px;
   object-fit: cover;
   border-radius: 8px;
   flex-shrink: 0;
@@ -300,6 +320,8 @@ if (typeof document !== 'undefined') {
 .article-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .article-header {
@@ -312,13 +334,21 @@ if (typeof document !== 'undefined') {
 
 .article-content h2 {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 1.25rem;
+  line-height: 1.35;
 }
 
 .article-content h2 a {
   color: var(--vp-c-text-1);
   text-decoration: none;
   transition: color 0.2s;
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .article-content h2 a:hover {
@@ -326,6 +356,7 @@ if (typeof document !== 'undefined') {
 }
 
 .badge {
+  flex-shrink: 0;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-size: 0.75rem;
@@ -341,6 +372,10 @@ if (typeof document !== 'undefined') {
   margin: 0 0 1rem 0;
   color: var(--vp-c-text-2);
   line-height: 1.6;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .article-meta {
@@ -363,6 +398,7 @@ if (typeof document !== 'undefined') {
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
+  margin-top: auto;
 }
 
 .tag {
@@ -390,6 +426,11 @@ if (typeof document !== 'undefined') {
 }
 
 @media (max-width: 768px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .article-card {
     flex-direction: column;
   }

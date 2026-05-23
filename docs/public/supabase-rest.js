@@ -243,7 +243,14 @@ QueryBuilder.prototype.execute = async function() {
     if (params.length > 0) path += '?' + params.join('&')
     if (this._single || this._maybeSingle) headers['Accept'] = 'application/vnd.pgrst.object+json'
     var fetchOpts = { method: this._method, headers: headers }
-    if (this._body) fetchOpts.body = JSON.stringify(this._body)
+    var requestBody = this._body
+    if (this._table === 'articles' && this._method === 'POST') {
+      if (!sess) return { data: null, error: { message: '请先登录后再提交文章' }, count: null }
+      requestBody = Object.assign({}, requestBody || {})
+      requestBody.author_id = makeUser(sess).id
+      requestBody.status = requestBody.status === 'draft' ? 'draft' : 'pending'
+    }
+    if (requestBody) fetchOpts.body = JSON.stringify(requestBody)
     var res = await fetch(URL + path, fetchOpts)
     var text = await res.text()
     var json = null

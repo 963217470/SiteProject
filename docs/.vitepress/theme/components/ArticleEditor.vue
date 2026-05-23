@@ -505,6 +505,10 @@ async function saveArticle(status) {
 
     const { data: sessionResult } = await supabase.auth.getSession()
     const userId = sessionResult?.session?.user?.id || null
+    if (!userId) {
+      showStatus('请先使用 GitHub 登录后再提交文章', 'error')
+      return
+    }
 
     if (/!\[[^\]]*\]\(data:image\//i.test(article.content)) {
       showStatus('正在将内嵌图片转为线上图片...', 'info')
@@ -517,7 +521,7 @@ async function saveArticle(status) {
       content: article.content,
       tags: tags.value,
       visibility: article.visibility,
-      status,
+      status: status === 'draft' ? 'draft' : 'pending',
       author_id: userId
     }
 
