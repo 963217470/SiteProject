@@ -253,8 +253,12 @@ async function handleFolderUpload(event) {
 
     for (const file of files) {
       if (!file.type.startsWith('image/')) continue
-      imageMap.set(normalizePath(file.webkitRelativePath), await readFileAsDataUrl(file))
-      imageMap.set(normalizePath(file.name), await readFileAsDataUrl(file))
+      const dataUrl = await readFileAsDataUrl(file)
+      const fullPath = normalizePath(file.webkitRelativePath)
+      const relativePath = fullPath.split('/').slice(1).join('/')
+      imageMap.set(fullPath, dataUrl)
+      imageMap.set(relativePath, dataUrl)
+      imageMap.set(normalizePath(file.name), dataUrl)
     }
 
     let markdown = await readFileAsText(markdownFile)
@@ -271,17 +275,59 @@ async function handleFolderUpload(event) {
 }
 
 function normalizePath(path) {
-  return String(path || '').replace(/\\/g, '/').replace(/^\.\//, '')
+  return String(path || '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/\\/g, '/')
+    .replace(/^\.\//, '')
+    .replace(/\/+/g, '/')
+}
+
+function isImagePath(path) {
+  return /\.(png|jpe?g|gif|webp|svg)([?#].*)?$/i.test(normalizePath(path))
+}
+
+function imageAltFromPath(path) {
+  const name = normalizePath(path).split('/').pop() || 'image'
+  return name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'image'
+}
+
+function findImageData(src, baseDir, imageMap) {
+  if (/^(https?:|data:|\/)/i.test(src)) return ''
+  const normalizedSrc = normalizePath(src).replace(/[?#].*$/, '')
+  const withBase = normalizePath((baseDir ? baseDir + '/' : '') + normalizedSrc)
+  const fileName = normalizedSrc.split('/').pop()
+  if (imageMap.get(withBase)) return imageMap.get(withBase)
+  if (imageMap.get(normalizedSrc)) return imageMap.get(normalizedSrc)
+  if (imageMap.get(fileName)) return imageMap.get(fileName)
+
+  for (const [key, value] of imageMap.entries()) {
+    if (key.endsWith('/' + normalizedSrc) || (fileName && key.endsWith('/' + fileName))) return value
+  }
+  return ''
 }
 
 function replaceRelativeImages(markdown, baseDir, imageMap) {
-  return markdown.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, src) {
-    if (/^(https?:|data:|\/)/i.test(src)) return match
-    const normalizedSrc = normalizePath(src)
-    const withBase = normalizePath((baseDir ? baseDir + '/' : '') + normalizedSrc)
-    const dataUrl = imageMap.get(withBase) || imageMap.get(normalizedSrc) || imageMap.get(normalizedSrc.split('/').pop())
-    return dataUrl ? '![' + alt + '](' + dataUrl + ')' : match
-  })
+  return markdown
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, src) {
+      const dataUrl = findImageData(src, baseDir, imageMap)
+      return dataUrl ? '![' + (alt || imageAltFromPath(src)) + '](' + dataUrl + ')' : match
+    })
+    .split('\n')
+    .map(function(line) {
+      const trimmed = line.trim()
+      const brokenImage = trimmed.match(/^!\[([^\]\n]*)\]?[^()\n]*\(([^)\n]+\.(?:png|jpe?g|gif|webp|svg)(?:[?#][^)]+)?)\)\s*$/i)
+      if (brokenImage) {
+        const dataUrl = findImageData(brokenImage[2], baseDir, imageMap)
+        return dataUrl ? '![' + (brokenImage[1] || imageAltFromPath(brokenImage[2])) + '](' + dataUrl + ')' : line
+      }
+      if (isImagePath(trimmed) && !/^\s*!\[/.test(line)) {
+        const dataUrl = findImageData(trimmed, baseDir, imageMap)
+        return dataUrl ? '![' + imageAltFromPath(trimmed) + '](' + dataUrl + ')' : line
+      }
+      return line
+    })
+    .join('\n')
 }
 
 async function handleImageUpload(event) {
