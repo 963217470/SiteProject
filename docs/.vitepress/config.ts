@@ -7,7 +7,7 @@ export default defineConfig({
 
   head: [
     ['script', { src: '/SiteProject/supabase-rest.js' }],
-    ['script', { src: '/SiteProject/profile-page.js' }]
+    ['script', { src: '/SiteProject/profile-page.js?v=20260523-profile-dashboard' }]
   ],
 
   vite: {
