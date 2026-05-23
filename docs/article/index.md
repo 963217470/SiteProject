@@ -376,8 +376,10 @@ function renderArticle() {
     '      <img src="' + escapeHtml(coverUrl) + '" class="detail-cover" alt="' + escapeHtml(article.title) + '">',
     '    </div>',
     '    <header class="article-header">',
-    '      <h1 class="article-title-main">' + escapeHtml(article.title) + '</h1>',
-    '      <div class="article-meta-row">',
+    '      <div class="article-title-block">',
+    '        <h1 class="article-title-main">' + escapeHtml(article.title) + '</h1>',
+    '      </div>',
+    '      <div class="article-info-panel">',
     '        <div class="author-row">',
     '          <img class="author-avatar" src="' + escapeHtml(authorAvatar) + '" alt="">',
     '          <div class="author-meta">',
@@ -385,11 +387,11 @@ function renderArticle() {
     '            <span>' + formatDate(article.created_at) + '</span>',
     '          </div>',
     '        </div>',
-    '      </div>',
-    '      <div class="article-status-row">',
-    '        <span class="headline-pill">' + escapeHtml(getStatusText(article.status) || getVisibilityText(article.visibility)) + '</span>',
-    '        <span>' + escapeHtml(getVisibilityText(article.visibility)) + '</span>',
-    '        <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
+    '        <div class="article-status-row">',
+    '          <span class="headline-pill">' + escapeHtml(getStatusText(article.status) || getVisibilityText(article.visibility)) + '</span>',
+    '          <span>' + escapeHtml(getVisibilityText(article.visibility)) + '</span>',
+    '          <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
+    '        </div>',
     '      </div>',
     article.tags && article.tags.length ? '      <div class="article-tags">' + article.tags.map(function(tag) { return '<a class="tag" href="/SiteProject/articles?tag=' + encodeURIComponent(tag) + '">' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
     '    </header>',
@@ -764,25 +766,39 @@ if (typeof document !== 'undefined') {
 }
 
 .article-header {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   padding: 28px 0 0;
+}
+
+.article-title-block {
+  display: block;
+  width: 100%;
+  clear: both;
 }
 
 .article-title-main {
   display: block;
   width: 100%;
   max-width: 100%;
-  margin: 0 0 22px;
-  font-size: clamp(1.7rem, 2.15vw, 2.25rem);
+  margin: 0;
+  font-size: clamp(1.6rem, 2vw, 2.05rem);
   line-height: 1.38;
   color: var(--vp-c-text-1);
   letter-spacing: 0;
   overflow-wrap: anywhere;
 }
 
-.article-meta-row {
-  display: block;
+.article-info-panel {
+  display: flex;
   align-items: center;
-  padding-bottom: 0;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(226, 232, 240, 0.78);
 }
 
 .author-row {
@@ -790,7 +806,8 @@ if (typeof document !== 'undefined') {
   align-items: center;
   gap: 14px;
   max-width: 100%;
-  margin-bottom: 12px;
+  min-width: 0;
+  margin-bottom: 0;
 }
 
 .author-avatar,
@@ -835,10 +852,11 @@ if (typeof document !== 'undefined') {
 .article-status-row {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-end;
   gap: 0.7rem;
   flex-wrap: wrap;
-  margin: 8px 0 0 68px;
+  min-width: min(100%, 260px);
+  margin: 0;
   color: #6b7280;
   font-size: 0.88rem;
 }
@@ -847,7 +865,7 @@ if (typeof document !== 'undefined') {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  margin: 14px 0 0 68px;
+  margin: 14px 0 0;
 }
 
 .tag {
@@ -1286,15 +1304,18 @@ if (typeof document !== 'undefined') {
   }
 
   .article-title-main {
-    font-size: 1.55rem;
+    font-size: 1.48rem;
   }
 
-  .article-meta-row {
-    display: block;
+  .article-info-panel {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
   }
 
   .article-status-row {
-    margin-left: 0;
+    justify-content: flex-start;
+    min-width: 0;
   }
 
   .article-tags {
