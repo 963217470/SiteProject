@@ -318,11 +318,13 @@ function getActionIcon(type, active) {
 
 function renderActionButton(type, label, count, active) {
   var icon = getActionIcon(type, active)
+  var showLabel = !(type === 'toggleLike' || type === 'toggleFavorite')
+  var showCount = type !== 'toggleFavorite'
   return [
-    '<button class="action-btn ' + (active ? 'active' : '') + '" onclick="' + type + '()">',
+    '<button class="action-btn ' + (active ? 'active' : '') + '" onclick="' + type + '()" title="' + label + '" aria-label="' + label + '">',
     icon,
-    '  <span class="action-label">' + label + '</span>',
-    '  <strong>' + count + '</strong>',
+    showLabel ? '  <span class="action-label">' + label + '</span>' : '',
+    showCount ? '  <strong>' + count + '</strong>' : '',
     '</button>'
   ].join('')
 }
@@ -418,7 +420,7 @@ function renderArticle() {
     '  <aside class="floating-actions" aria-label="文章互动">',
     renderActionButton('toggleLike', '点赞', likeCount, articleState.liked),
     renderActionButton('scrollToTop', '浏览量', '阅读中', false),
-    renderActionButton('toggleFavorite', favoriteLabel, articleState.favorited ? '已收藏' : '未收藏', articleState.favorited),
+    renderActionButton('toggleFavorite', favoriteLabel, '', articleState.favorited),
     '    <a class="action-link" href="#comments"><span class="action-label">评论数</span><strong>' + commentCount + '</strong></a>',
     articleState.favoriteTableReady ? '' : '      <p class="side-note">收藏表未创建，当前收藏仅保存在本机浏览器。</p>',
     '  </aside>',
@@ -454,7 +456,6 @@ async function loadInteractionState(supabase) {
   var user = articleState.session && articleState.session.user
 
   if (!user) {
-    articleState.favorited = getLocalFavorites().includes(articleState.id)
     return
   }
 
@@ -549,10 +550,13 @@ async function toggleFavorite() {
   var sessionResult = await supabase.auth.getSession()
   var session = sessionResult.data.session
 
-  if (!session || !isUuid(session.user.id) || !articleState.favoriteTableReady) {
-    articleState.favorited = !articleState.favorited
-    setLocalFavorite(articleState.id, articleState.favorited)
-    renderArticle()
+  if (!session || !isUuid(session.user.id)) {
+    alert('请先登录后再收藏')
+    return
+  }
+
+  if (!articleState.favoriteTableReady) {
+    alert('收藏功能暂不可用，请稍后再试')
     return
   }
 
@@ -622,6 +626,18 @@ async function loadArticle() {
     var supabase = await waitForSupabase()
     if (!supabase) throw new Error('Supabase 未加载，请刷新页面后重试')
 
+    var sessionResult = await withTimeout(
+      supabase.auth.getSession(),
+      { data: { session: null }, error: { message: 'session timeout' } }
+    )
+    if (!sessionResult.data.session || !isUuid(sessionResult.data.session.user.id)) {
+      setVisible('loading', false)
+      setVisible('error', true)
+      document.getElementById('error-message').innerHTML = '请先使用 GitHub 登录后查看文章详情。<br><a class="login-link" href="/SiteProject/login">去登录</a>'
+      return
+    }
+    articleState.session = sessionResult.data.session
+
     var result = await loadArticleRecord(supabase, articleState.id)
 
     if (result.error) throw new Error(result.error.message)
@@ -690,6 +706,16 @@ if (typeof document !== 'undefined') {
 .error p:first-child {
   color: #dc2626;
   font-weight: 600;
+}
+
+.login-link {
+  display: inline-flex;
+  margin-top: 0.8rem;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  background: #8b1f1f;
+  color: #fff;
+  text-decoration: none;
 }
 
 .back-link {
@@ -1042,7 +1068,7 @@ if (typeof document !== 'undefined') {
 .action-btn,
 .action-link {
   display: grid;
-  gap: 0.28rem;
+  gap: 0.22rem;
   justify-items: center;
   align-items: center;
   width: 100%;
@@ -1068,8 +1094,8 @@ if (typeof document !== 'undefined') {
 
 .action-icon {
   display: block;
-  width: 15px;
-  height: 15px;
+  width: 22px;
+  height: 22px;
   color: #434c4f;
   transition: color 0.18s ease, transform 0.18s ease;
 }
@@ -1077,17 +1103,13 @@ if (typeof document !== 'undefined') {
 .favorite-icon-wrap {
   position: relative;
   display: block;
-  width: 15px;
-  height: 15px;
-}
-
-.favorite-icon {
-  color: #d81e06;
+  width: 22px;
+  height: 22px;
 }
 
 .favorite-icon-wrap.solid::before {
   position: absolute;
-  inset: 3px;
+  inset: 4px;
   content: '';
   border-radius: 999px;
   background: #d81e06;
@@ -1271,13 +1293,13 @@ if (typeof document !== 'undefined') {
   }
 
   .action-icon {
-    width: 14px;
-    height: 14px;
+    width: 19px;
+    height: 19px;
   }
 
   .favorite-icon-wrap {
-    width: 14px;
-    height: 14px;
+    width: 19px;
+    height: 19px;
   }
 
   .action-link {

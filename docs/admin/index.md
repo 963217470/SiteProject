@@ -18,6 +18,7 @@ layout: page
   <nav class="admin-section-nav" aria-label="审核类型">
     <a class="active" href="/SiteProject/admin">文章审核</a>
     <a href="/SiteProject/admin/profile-review">个人信息审核</a>
+    <a href="/SiteProject/admin/kb">知识库管理</a>
   </nav>
 
   <section class="review-summary" aria-label="审核统计">

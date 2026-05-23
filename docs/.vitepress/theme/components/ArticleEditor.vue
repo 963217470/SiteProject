@@ -47,6 +47,21 @@
           <span>内部成员</span>
         </label>
       </div>
+
+      <div class="knowledge-row">
+        <label class="kb-toggle">
+          <input v-model="article.kbEnabled" type="checkbox">
+          <span>投入知识库</span>
+        </label>
+        <select v-model="article.kbBranchId" :disabled="!article.kbEnabled || kbLoading || kbBranches.length === 0">
+          <option value="">选择知识库分支</option>
+          <option v-for="branch in flatBranches" :key="branch.id" :value="branch.id">
+            {{ branch.label }}
+          </option>
+        </select>
+        <small v-if="kbError">{{ kbError }}</small>
+        <small v-else>投入知识库的文章必须选择一个固定分支，提交后仍会进入审核。</small>
+      </div>
     </section>
 
     <section class="import-panel">
@@ -109,7 +124,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 const fileInput = ref(null)
 const folderInput = ref(null)
@@ -121,6 +136,9 @@ const submitting = ref(false)
 const statusMessage = ref('')
 const statusType = ref('success')
 const customTag = ref('')
+const kbBranches = ref([])
+const kbLoading = ref(false)
+const kbError = ref('')
 
 const presetTags = ['Unity', 'Godot', 'Unreal Engine', 'C#', '教程', '入门', '进阶', '2D游戏', '3D游戏', '团队合作']
 const selectedTags = ref([])
@@ -129,11 +147,16 @@ const article = reactive({
   title: '',
   summary: '',
   visibility: 'public',
-  content: ''
+  content: '',
+  kbEnabled: false,
+  kbBranchId: ''
 })
 
 const tags = computed(() => selectedTags.value)
 const previewHtml = computed(() => renderMarkdownPreview(article.content))
+const flatBranches = computed(() => flattenBranches(kbBranches.value))
+
+onMounted(loadKnowledgeBranches)
 
 function goBack() {
   window.location.href = '/SiteProject/articles'
@@ -162,6 +185,19 @@ function addCustomTag() {
   if (!tag) return
   if (!selectedTags.value.includes(tag)) selectedTags.value.push(tag)
   customTag.value = ''
+}
+
+function flattenBranches(branches, parentId = null, depth = 0) {
+  return branches
+    .filter(branch => (branch.parent_id || null) === parentId)
+    .sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN'))
+    .flatMap(branch => {
+      const prefix = depth > 0 ? '　'.repeat(depth) + '└ ' : ''
+      return [
+        { ...branch, label: prefix + branch.name },
+        ...flattenBranches(branches, branch.id, depth + 1)
+      ]
+    })
 }
 
 function escapeHtml(value) {
@@ -479,6 +515,36 @@ async function waitForSupabase(maxAttempts = 30) {
   return null
 }
 
+async function loadKnowledgeBranches() {
+  kbLoading.value = true
+  kbError.value = ''
+
+  try {
+    const supabase = await waitForSupabase()
+    if (!supabase) {
+      kbError.value = 'Supabase 未加载，知识库分支暂不可选'
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('knowledge_branches')
+      .select('id, parent_id, name, sort_order')
+      .order('sort_order', { ascending: true })
+
+    if (error) {
+      kbError.value = '请先执行 supabase/knowledge-base.sql'
+      kbBranches.value = []
+      return
+    }
+
+    kbBranches.value = data || []
+  } catch (error) {
+    kbError.value = '知识库分支加载失败'
+  } finally {
+    kbLoading.value = false
+  }
+}
+
 async function saveDraft() {
   await saveArticle('draft')
 }
@@ -499,6 +565,11 @@ async function saveArticle(status) {
 
   if (!article.content.trim()) {
     showStatus('请输入内容', 'error')
+    return
+  }
+
+  if (article.kbEnabled && !article.kbBranchId) {
+    showStatus('请选择要投入的知识库分支', 'error')
     return
   }
 
@@ -532,6 +603,11 @@ async function saveArticle(status) {
       visibility: article.visibility,
       status: status === 'draft' ? 'draft' : 'pending',
       author_id: userId
+    }
+
+    if (article.kbEnabled || kbBranches.value.length > 0) {
+      articleData.kb_enabled = !!article.kbEnabled
+      articleData.kb_branch_id = article.kbEnabled ? article.kbBranchId : null
     }
 
     const { data, error } = await supabase
@@ -611,6 +687,7 @@ function showStatus(message, type) {
 
 .editor-actions,
 .visibility-row,
+.knowledge-row,
 .block-toolbar {
   display: flex;
   align-items: center;
@@ -733,6 +810,33 @@ function showStatus(message, type) {
   border: 1px solid var(--vp-c-divider);
   border-radius: 6px;
   background: var(--vp-c-bg-soft);
+}
+
+.knowledge-row {
+  padding: 0.75rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+}
+
+.kb-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+
+.knowledge-row select {
+  min-width: min(100%, 280px);
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+}
+
+.knowledge-row small {
+  color: var(--vp-c-text-2);
 }
 
 .import-panel {
@@ -933,8 +1037,10 @@ function showStatus(message, type) {
   }
 
   .tag-row,
-  .visibility-row {
+  .visibility-row,
+  .knowledge-row {
     flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>
