@@ -153,12 +153,11 @@ window.__supabase = {
           if (sess) {
             headers['Authorization'] = 'Bearer ' + sess.access_token
           }
-          var formData = new FormData()
-          formData.append('file', file, file.name)
-          var res = await fetch(URL + '/storage/v1/object/' + bucket + '/' + encodeURIComponent(path), {
+          if (file && file.type) headers['Content-Type'] = file.type
+          var res = await fetch(URL + '/storage/v1/object/' + bucket + '/' + encodeURI(path), {
             method: 'POST',
             headers: headers,
-            body: formData
+            body: file
           })
           if (!res.ok) {
             var errText = await res.text()

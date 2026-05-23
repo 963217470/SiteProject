@@ -213,15 +213,6 @@ function readFileAsText(file) {
   })
 }
 
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = event => resolve(String(event.target?.result || ''))
-    reader.onerror = () => reject(new Error('图片读取失败'))
-    reader.readAsDataURL(file)
-  })
-}
-
 async function handleFileUpload(event) {
   const file = event.target.files?.[0]
   if (!file) return
@@ -249,16 +240,20 @@ async function handleFolderUpload(event) {
     }
 
     selectedFolder.value = markdownFile.webkitRelativePath.split('/')[0] || '已选择文件夹'
+    showStatus('正在上传文件夹中的图片...', 'info')
+    const supabase = await waitForSupabase()
+    if (!supabase) throw new Error('Supabase 未加载，请刷新页面后重试')
+
     const imageMap = new Map()
 
     for (const file of files) {
       if (!file.type.startsWith('image/')) continue
-      const dataUrl = await readFileAsDataUrl(file)
+      const imageUrl = await uploadArticleImage(supabase, file)
       const fullPath = normalizePath(file.webkitRelativePath)
       const relativePath = fullPath.split('/').slice(1).join('/')
-      imageMap.set(fullPath, dataUrl)
-      imageMap.set(relativePath, dataUrl)
-      imageMap.set(normalizePath(file.name), dataUrl)
+      imageMap.set(fullPath, imageUrl)
+      imageMap.set(relativePath, imageUrl)
+      imageMap.set(normalizePath(file.name), imageUrl)
     }
 
     let markdown = await readFileAsText(markdownFile)
@@ -266,7 +261,7 @@ async function handleFolderUpload(event) {
     markdown = replaceRelativeImages(markdown, baseDir, imageMap)
 
     applyImportedMarkdown(markdown, markdownFile.name)
-    showStatus('文件夹读取成功，图片已嵌入正文', 'success')
+    showStatus('文件夹读取成功，图片已上传并插入正文', 'success')
   } catch (error) {
     showStatus(error.message || '文件夹读取失败，请重新选择', 'error')
   } finally {
@@ -292,7 +287,26 @@ function imageAltFromPath(path) {
   return name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'image'
 }
 
-function findImageData(src, baseDir, imageMap) {
+function safeFileName(name) {
+  const ext = (String(name || '').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const base = String(name || 'image')
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^\w.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'image'
+  return base + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
+}
+
+async function uploadArticleImage(supabase, file) {
+  const sessionResult = await supabase.auth.getSession()
+  const userId = sessionResult?.data?.session?.user?.id || 'anonymous'
+  const path = 'article-images/' + userId + '/' + safeFileName(file.name)
+  const upload = await supabase.storage.from('avatars').upload(path, file)
+  if (upload.error) throw new Error('图片上传失败：' + upload.error.message)
+  return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
+}
+
+function findImageUrl(src, baseDir, imageMap) {
   if (/^(https?:|data:|\/)/i.test(src)) return ''
   const normalizedSrc = normalizePath(src).replace(/[?#].*$/, '')
   const withBase = normalizePath((baseDir ? baseDir + '/' : '') + normalizedSrc)
@@ -310,20 +324,20 @@ function findImageData(src, baseDir, imageMap) {
 function replaceRelativeImages(markdown, baseDir, imageMap) {
   return markdown
     .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, src) {
-      const dataUrl = findImageData(src, baseDir, imageMap)
-      return dataUrl ? '![' + (alt || imageAltFromPath(src)) + '](' + dataUrl + ')' : match
+      const imageUrl = findImageUrl(src, baseDir, imageMap)
+      return imageUrl ? '![' + (alt || imageAltFromPath(src)) + '](' + imageUrl + ')' : match
     })
     .split('\n')
     .map(function(line) {
       const trimmed = line.trim()
       const brokenImage = trimmed.match(/^!\[([^\]\n]*)\]?[^()\n]*\(([^)\n]+\.(?:png|jpe?g|gif|webp|svg)(?:[?#][^)]+)?)\)\s*$/i)
       if (brokenImage) {
-        const dataUrl = findImageData(brokenImage[2], baseDir, imageMap)
-        return dataUrl ? '![' + (brokenImage[1] || imageAltFromPath(brokenImage[2])) + '](' + dataUrl + ')' : line
+        const imageUrl = findImageUrl(brokenImage[2], baseDir, imageMap)
+        return imageUrl ? '![' + (brokenImage[1] || imageAltFromPath(brokenImage[2])) + '](' + imageUrl + ')' : line
       }
       if (isImagePath(trimmed) && !/^\s*!\[/.test(line)) {
-        const dataUrl = findImageData(trimmed, baseDir, imageMap)
-        return dataUrl ? '![' + imageAltFromPath(trimmed) + '](' + dataUrl + ')' : line
+        const imageUrl = findImageUrl(trimmed, baseDir, imageMap)
+        return imageUrl ? '![' + imageAltFromPath(trimmed) + '](' + imageUrl + ')' : line
       }
       return line
     })
@@ -345,8 +359,10 @@ async function handleDrop(event) {
 
 async function insertImageFile(file) {
   try {
-    const dataUrl = await readFileAsDataUrl(file)
-    insertAtCursor('\n\n![' + file.name.replace(/\.[^.]+$/, '') + '](' + dataUrl + ')\n\n')
+    const supabase = await waitForSupabase()
+    if (!supabase) throw new Error('Supabase 未加载，请刷新页面后重试')
+    const imageUrl = await uploadArticleImage(supabase, file)
+    insertAtCursor('\n\n![' + file.name.replace(/\.[^.]+$/, '') + '](' + imageUrl + ')\n\n')
     showStatus('图片已插入正文', 'success')
   } catch (error) {
     showStatus(error.message || '图片插入失败', 'error')

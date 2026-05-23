@@ -126,6 +126,7 @@ async function updateViewCountIfAvailable(supabase) {
 
 function renderMarkdown(content) {
   var html = escapeHtml(content)
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="article-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
     .replace(/^### (.*)$/gim, '<h3>$1</h3>')
     .replace(/^## (.*)$/gim, '<h2>$1</h2>')
     .replace(/^# (.*)$/gim, '<h1>$1</h1>')
@@ -304,7 +305,7 @@ async function loadProfiles(supabase, userIds) {
   var result = await withTimeout(
     supabase
       .from('profiles')
-      .select('id, username, full_name, avatar_url')
+      .select('id, username, avatar_url')
       .in('id', ids),
     { data: [], error: { message: 'profiles timeout' } }
   )
@@ -781,6 +782,32 @@ if (typeof document !== 'undefined') {
   padding: 0.15rem 0.35rem;
   border-radius: 4px;
   background: #f3f4f6;
+}
+
+.article-image {
+  margin: 1.5rem 0;
+}
+
+.article-image img {
+  display: block;
+  width: 100%;
+  max-height: 560px;
+  object-fit: contain;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 12px;
+  background: #f8fafc;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.article-image figcaption {
+  margin-top: 0.55rem;
+  color: #64748b;
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.article-image figcaption:empty {
+  display: none;
 }
 
 .floating-actions {
