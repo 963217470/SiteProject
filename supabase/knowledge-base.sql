@@ -45,8 +45,33 @@ ADD COLUMN IF NOT EXISTS kb_sort_order INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_articles_kb_branch_status_sort
 ON articles(kb_branch_id, status, kb_enabled, kb_sort_order, created_at DESC);
 
--- 3. 开启 RLS
+-- 3. 普通用户的新分支申请
+CREATE TABLE IF NOT EXISTS knowledge_branch_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  article_id UUID NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+  requester_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  requested_path TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  review_note TEXT,
+  reviewed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT knowledge_branch_requests_path_not_blank CHECK (length(trim(requested_path)) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_branch_requests_status_created
+ON knowledge_branch_requests(status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_branch_requests_requester_created
+ON knowledge_branch_requests(requester_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_branch_requests_article
+ON knowledge_branch_requests(article_id);
+
+-- 4. 开启 RLS
 ALTER TABLE knowledge_branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE knowledge_branch_requests ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view knowledge branches" ON knowledge_branches;
 DROP POLICY IF EXISTS "Admins can create knowledge branches" ON knowledge_branches;
@@ -102,13 +127,61 @@ USING (
   )
 );
 
--- 4. REST API 权限
+DROP POLICY IF EXISTS "Users can create own branch requests" ON knowledge_branch_requests;
+DROP POLICY IF EXISTS "Users can view own branch requests" ON knowledge_branch_requests;
+DROP POLICY IF EXISTS "Admins can view all branch requests" ON knowledge_branch_requests;
+DROP POLICY IF EXISTS "Admins can update branch requests" ON knowledge_branch_requests;
+
+CREATE POLICY "Users can create own branch requests"
+ON knowledge_branch_requests
+FOR INSERT
+WITH CHECK (auth.uid() = requester_id);
+
+CREATE POLICY "Users can view own branch requests"
+ON knowledge_branch_requests
+FOR SELECT
+USING (auth.uid() = requester_id);
+
+CREATE POLICY "Admins can view all branch requests"
+ON knowledge_branch_requests
+FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1
+    FROM profiles
+    WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+  )
+);
+
+CREATE POLICY "Admins can update branch requests"
+ON knowledge_branch_requests
+FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1
+    FROM profiles
+    WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM profiles
+    WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+  )
+);
+
+-- 5. REST API 权限
 GRANT SELECT ON knowledge_branches TO anon, authenticated;
 GRANT INSERT, UPDATE, DELETE ON knowledge_branches TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON knowledge_branch_requests TO authenticated;
 GRANT SELECT ON articles TO anon, authenticated;
 GRANT UPDATE(kb_enabled, kb_branch_id, kb_sort_order, updated_at) ON articles TO authenticated;
 
--- 5. 可选：初始化示例分支
+-- 6. 可选：初始化示例分支
 INSERT INTO knowledge_branches (name, slug, sort_order)
 VALUES
   ('00-认识层', '00-awareness', 0),
@@ -149,5 +222,5 @@ CROSS JOIN (
 WHERE parent.slug = '04-comprehensive'
 ON CONFLICT DO NOTHING;
 
--- 6. 验证结果
+-- 7. 验证结果
 SELECT 'knowledge base schema is ready' AS status;

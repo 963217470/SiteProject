@@ -53,6 +53,13 @@ layout: page
 <button id="delete-branch-btn" class="btn-danger" type="button" onclick="deleteBranch()" style="display:none">删除分支</button>
 </div>
 </section>
+<section class="request-panel">
+<div class="panel-head">
+<h2>新分支申请</h2>
+<button class="btn-secondary" type="button" onclick="loadKbAdmin()">刷新</button>
+</div>
+<div id="branch-requests" class="branch-requests"></div>
+</section>
 <section class="article-panel">
 <div class="panel-head">
 <h2>文章归类</h2>
@@ -64,7 +71,7 @@ layout: page
 </div>
 
 <script>
-var kbAdminState = { sb: null, branches: [], articles: [], selectedBranchId: '' }
+var kbAdminState = { sb: null, branches: [], articles: [], branchRequests: [], selectedBranchId: '' }
 
 function esc(value) {
   return String(value || '')
@@ -86,6 +93,14 @@ function slugify(value) {
     .toLowerCase()
     .replace(/[^\w\u4e00-\u9fa5-]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'branch'
+}
+
+function normalizeRequestPath(value) {
+  return String(value || '')
+    .split('/')
+    .map(function(part) { return part.trim() })
+    .filter(Boolean)
+    .filter(function(part) { return part !== '知识库总览' })
 }
 
 async function waitForSupabase(maxAttempts) {
@@ -172,12 +187,13 @@ function renderArticles() {
   var box = document.getElementById('article-assignments')
   if (!box) return
 
-  if (!kbAdminState.articles.length) {
+  var publishedArticles = kbAdminState.articles.filter(function(article) { return article.status === 'published' })
+  if (!publishedArticles.length) {
     box.innerHTML = '<div class="empty-state">暂无已发布文章。</div>'
     return
   }
 
-  box.innerHTML = kbAdminState.articles.map(function(article) {
+  box.innerHTML = publishedArticles.map(function(article) {
     return [
       '<article class="assignment-row">',
       '  <div>',
@@ -192,9 +208,54 @@ function renderArticles() {
   }).join('')
 }
 
+function getArticleTitle(articleId) {
+  var article = kbAdminState.articles.find(function(item) { return item.id === articleId })
+  return article ? article.title : '未知文章'
+}
+
+function renderBranchRequests() {
+  var box = document.getElementById('branch-requests')
+  if (!box) return
+
+  var pending = kbAdminState.branchRequests.filter(function(request) { return (request.status || 'pending') === 'pending' })
+  if (!pending.length) {
+    box.innerHTML = '<div class="empty-state">暂无待审核的新分支申请。</div>'
+    return
+  }
+
+  box.innerHTML = pending.map(function(request) {
+    var parts = normalizeRequestPath(request.requested_path)
+    return [
+      '<article class="request-row">',
+      '  <div>',
+      '    <h3>' + esc(getArticleTitle(request.article_id)) + '</h3>',
+      '    <p class="request-path">' + esc(parts.join(' / ')) + '</p>',
+      '    <p class="request-meta">提交时间：' + esc(formatDateTime(request.created_at)) + '</p>',
+      '  </div>',
+      '  <div class="request-actions">',
+      '    <button class="btn-primary" type="button" onclick="approveBranchRequest(\'' + request.id + '\')">通过并创建</button>',
+      '    <button class="btn-danger" type="button" onclick="rejectBranchRequest(\'' + request.id + '\')">拒绝</button>',
+      '  </div>',
+      '</article>'
+    ].join('')
+  }).join('')
+}
+
 function renderAll() {
   renderBranches()
+  renderBranchRequests()
   renderArticles()
+}
+
+function formatDateTime(value) {
+  if (!value) return '未知时间'
+  return new Date(value).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 function resetBranchForm() {
@@ -300,6 +361,95 @@ async function assignArticleBranch(articleId, branchId) {
   renderAll()
 }
 
+async function createBranch(parentId, name) {
+  var siblingCount = childBranches(parentId).length
+  var payload = {
+    parent_id: parentId || null,
+    name: name,
+    slug: slugify(name),
+    sort_order: siblingCount * 10,
+    updated_at: new Date().toISOString()
+  }
+
+  var result = await kbAdminState.sb
+    .from('knowledge_branches')
+    .insert(payload)
+    .select('id, parent_id, name, slug, description, sort_order')
+    .single()
+
+  if (result.error) throw new Error('创建分支失败：' + result.error.message)
+  var branch = Array.isArray(result.data) ? result.data[0] : result.data
+  kbAdminState.branches.push(branch)
+  return branch
+}
+
+async function ensureBranchPath(path) {
+  var parts = normalizeRequestPath(path)
+  if (!parts.length) throw new Error('申请路径为空')
+
+  var parentId = ''
+  var current = null
+  for (var i = 0; i < parts.length; i++) {
+    var name = parts[i]
+    var slug = slugify(name)
+    current = kbAdminState.branches.find(function(branch) {
+      return (branch.parent_id || '') === parentId && (branch.name === name || branch.slug === slug)
+    })
+    if (!current) current = await createBranch(parentId, name)
+    parentId = current.id
+  }
+  return current.id
+}
+
+function getBranchRequest(id) {
+  return kbAdminState.branchRequests.find(function(request) { return request.id === id })
+}
+
+async function approveBranchRequest(id) {
+  var request = getBranchRequest(id)
+  if (!request) return
+  if (!confirm('确定通过这个新分支申请，并把文章投入该分支吗？')) return
+
+  try {
+    var branchId = await ensureBranchPath(request.requested_path)
+    var articleResult = await kbAdminState.sb
+      .from('articles')
+      .update({ kb_enabled: true, kb_branch_id: branchId, updated_at: new Date().toISOString() })
+      .eq('id', request.article_id)
+      .select('id')
+
+    if (articleResult.error) throw new Error('更新文章分支失败：' + articleResult.error.message)
+
+    var updateResult = await kbAdminState.sb
+      .from('knowledge_branch_requests')
+      .update({ status: 'approved', reviewed_at: new Date().toISOString(), review_note: null, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('id')
+
+    if (updateResult.error) throw new Error('更新申请状态失败：' + updateResult.error.message)
+    await loadKbAdmin()
+  } catch (error) {
+    alert(error.message || '通过失败')
+  }
+}
+
+async function rejectBranchRequest(id) {
+  var note = prompt('请输入拒绝原因（可选）')
+  if (note === null) return
+
+  var updateResult = await kbAdminState.sb
+    .from('knowledge_branch_requests')
+    .update({ status: 'rejected', review_note: note || '', reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id')
+
+  if (updateResult.error) {
+    alert('拒绝失败：' + updateResult.error.message)
+    return
+  }
+  await loadKbAdmin()
+}
+
 async function loadKbAdmin() {
   show('loading', true)
   show('error', false)
@@ -320,12 +470,19 @@ async function loadKbAdmin() {
     var articleResult = await supabase
       .from('articles')
       .select('id, title, summary, status, kb_enabled, kb_branch_id, kb_sort_order, created_at')
-      .eq('status', 'published')
       .order('created_at', { ascending: false })
     if (articleResult.error) throw new Error('文章读取失败：' + articleResult.error.message)
 
+    var requestResult = await supabase
+      .from('knowledge_branch_requests')
+      .select('id, article_id, requester_id, requested_path, status, review_note, created_at')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+    if (requestResult.error) throw new Error('分支申请读取失败：' + requestResult.error.message + '。请重新执行最新版 supabase/knowledge-base.sql')
+
     kbAdminState.branches = branchResult.data || []
     kbAdminState.articles = articleResult.data || []
+    kbAdminState.branchRequests = requestResult.data || []
     renderAll()
     show('loading', false)
     show('kb-admin-app', true)
@@ -346,6 +503,8 @@ if (typeof window !== 'undefined') {
   window.saveBranch = saveBranch
   window.deleteBranch = deleteBranch
   window.assignArticleBranch = assignArticleBranch
+  window.approveBranchRequest = approveBranchRequest
+  window.rejectBranchRequest = rejectBranchRequest
 }
 
 if (typeof document !== 'undefined') setTimeout(loadKbAdmin, 100)
@@ -415,12 +574,14 @@ if (typeof document !== 'undefined') setTimeout(loadKbAdmin, 100)
   gap: 1rem;
 }
 
+.request-panel,
 .article-panel {
   grid-column: 1 / -1;
 }
 
 .branch-panel,
 .edit-panel,
+.request-panel,
 .article-panel,
 .state-panel {
   padding: 1rem;
@@ -508,12 +669,14 @@ if (typeof document !== 'undefined') setTimeout(loadKbAdmin, 100)
   font: inherit;
 }
 
+.branch-requests,
 .article-assignments {
   display: grid;
   gap: 0.75rem;
   margin-top: 1rem;
 }
 
+.request-row,
 .assignment-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
@@ -525,11 +688,13 @@ if (typeof document !== 'undefined') setTimeout(loadKbAdmin, 100)
   background: var(--vp-c-bg-soft);
 }
 
+.request-row h3,
 .assignment-row h3 {
   margin: 0 0 0.25rem;
   font-size: 1rem;
 }
 
+.request-row p,
 .assignment-row p {
   display: -webkit-box;
   margin: 0;
@@ -538,6 +703,24 @@ if (typeof document !== 'undefined') setTimeout(loadKbAdmin, 100)
   font-size: 0.88rem;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.request-path {
+  color: var(--vp-c-text-1) !important;
+  font-weight: 700;
+}
+
+.request-meta {
+  margin-top: 0.35rem !important;
+  color: var(--vp-c-text-3) !important;
+  font-size: 0.82rem !important;
+}
+
+.request-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .btn-primary,
@@ -584,6 +767,7 @@ if (typeof document !== 'undefined') setTimeout(loadKbAdmin, 100)
   }
 
   .kb-admin-layout,
+  .request-row,
   .assignment-row {
     grid-template-columns: 1fr;
   }

@@ -53,14 +53,22 @@
           <input v-model="article.kbEnabled" type="checkbox">
           <span>投入知识库</span>
         </label>
-        <select v-model="article.kbBranchId" :disabled="!article.kbEnabled || kbLoading || kbBranches.length === 0">
-          <option value="">选择知识库分支</option>
-          <option v-for="branch in flatBranches" :key="branch.id" :value="branch.id">
-            {{ branch.label }}
-          </option>
-        </select>
+        <div class="kb-targets">
+          <select v-model="article.kbBranchId" :disabled="!article.kbEnabled || !!article.kbBranchPath.trim() || kbLoading || kbBranches.length === 0">
+            <option value="">选择已有分支</option>
+            <option v-for="branch in flatBranches" :key="branch.id" :value="branch.id">
+              {{ branch.label }}
+            </option>
+          </select>
+          <input
+            v-model="article.kbBranchPath"
+            :disabled="!article.kbEnabled || !!article.kbBranchId"
+            type="text"
+            placeholder="申请新分支：知识库总览/02-方向学习/程序/蓝图/基础操作/移动"
+          >
+        </div>
         <small v-if="kbError">{{ kbError }}</small>
-        <small v-else>投入知识库的文章必须选择一个固定分支，提交后仍会进入审核。</small>
+        <small v-else>可以选择已有分支，也可以输入新分支路径。新分支需要管理员审核后才会生效。</small>
       </div>
     </section>
 
@@ -149,7 +157,8 @@ const article = reactive({
   visibility: 'public',
   content: '',
   kbEnabled: false,
-  kbBranchId: ''
+  kbBranchId: '',
+  kbBranchPath: ''
 })
 
 const tags = computed(() => selectedTags.value)
@@ -198,6 +207,15 @@ function flattenBranches(branches, parentId = null, depth = 0) {
         ...flattenBranches(branches, branch.id, depth + 1)
       ]
     })
+}
+
+function normalizeBranchPath(value) {
+  return String(value || '')
+    .split('/')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .filter(part => part !== '知识库总览')
+    .join('/')
 }
 
 function escapeHtml(value) {
@@ -568,8 +586,9 @@ async function saveArticle(status) {
     return
   }
 
-  if (article.kbEnabled && !article.kbBranchId) {
-    showStatus('请选择要投入的知识库分支', 'error')
+  const requestedBranchPath = normalizeBranchPath(article.kbBranchPath)
+  if (article.kbEnabled && !article.kbBranchId && !requestedBranchPath) {
+    showStatus('请选择已有知识库分支，或输入要申请的新分支路径', 'error')
     return
   }
 
@@ -606,7 +625,7 @@ async function saveArticle(status) {
     }
 
     if (article.kbEnabled || kbBranches.value.length > 0) {
-      articleData.kb_enabled = !!article.kbEnabled
+      articleData.kb_enabled = !!article.kbEnabled && !requestedBranchPath
       articleData.kb_branch_id = article.kbEnabled ? article.kbBranchId : null
     }
 
@@ -626,6 +645,24 @@ async function saveArticle(status) {
     if (!insertedArticle?.id) {
       showStatus('保存失败：数据库没有返回文章 ID', 'error')
       return
+    }
+
+    if (article.kbEnabled && requestedBranchPath) {
+      const requestResult = await supabase
+        .from('knowledge_branch_requests')
+        .insert({
+          article_id: insertedArticle.id,
+          requester_id: userId,
+          requested_path: requestedBranchPath,
+          status: 'pending'
+        })
+        .select('id')
+        .single()
+
+      if (requestResult.error) {
+        showStatus('文章已提交，但新分支申请失败：' + requestResult.error.message + '。请确认已执行 supabase/knowledge-base.sql', 'error')
+        return
+      }
     }
 
     showStatus(status === 'pending' ? '提交成功，文章已进入待审核' : '草稿保存成功', 'success')
@@ -826,8 +863,16 @@ function showStatus(message, type) {
   font-weight: 700;
 }
 
-.knowledge-row select {
-  min-width: min(100%, 280px);
+.kb-targets {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.knowledge-row select,
+.knowledge-row input[type='text'] {
+  width: 100%;
   padding: 0.45rem 0.65rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 6px;
@@ -1041,6 +1086,10 @@ function showStatus(message, type) {
   .knowledge-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .kb-targets {
+    grid-template-columns: 1fr;
   }
 }
 </style>
