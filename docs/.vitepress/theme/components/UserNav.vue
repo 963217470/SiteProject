@@ -47,6 +47,16 @@ let supabase = null
 
 function go(url) { window.location.href = url }
 
+function getMetaName(user) {
+  var meta = user && user.user_metadata ? user.user_metadata : {}
+  return meta.full_name || meta.user_name || meta.name || meta.preferred_username || user.email || '用户'
+}
+
+function getMetaAvatar(user) {
+  var meta = user && user.user_metadata ? user.user_metadata : {}
+  return meta.avatar_url || meta.picture || '/SiteProject/images/default-avatar.svg'
+}
+
 function handleClickOutside(e) {
   if (!e.target.closest('.user-nav')) showMenu.value = false
 }
@@ -59,39 +69,25 @@ onMounted(() => {
     if (r.data && r.data.session) {
       isLoggedIn.value = true
       var user = r.data.session.user
-      
-      console.log('用户数据:', user);
-      console.log('用户元数据:', user.user_metadata);
-      
-      displayName.value = '';
-      
-      // 尝试从 GitHub 元数据中获取用户名
-      if (user.user_metadata) {
-        if (user.user_metadata.full_name) displayName.value = user.user_metadata.full_name;
-        else if (user.user_metadata.user_name) displayName.value = user.user_metadata.user_name;
-        else if (user.user_metadata.name) displayName.value = user.user_metadata.name;
-        else if (user.user_metadata.preferred_username) displayName.value = user.user_metadata.preferred_username;
-      }
-      
-      if (!displayName.value) displayName.value = user.email || '用户';
-      
-      avatar.value = (user.user_metadata && user.user_metadata.avatar_url) || 
-                    (user.user_metadata && user.user_metadata.picture) || 
-                    '/SiteProject/images/default-avatar.svg';
+      displayName.value = getMetaName(user)
+      avatar.value = getMetaAvatar(user)
       
       if (!user.id) return null;
 
       return supabase
         .from('profiles')
-        .select('role')
+        .select('username, avatar_url, role')
         .eq('id', user.id)
         .useServiceRole()
         .maybeSingle();
     }
   }).then(function(r) {
-    if (r && r.data && r.data.role === 'admin') isAdmin.value = true
+    if (!r || !r.data) return
+    if (r.data.username) displayName.value = r.data.username
+    if (r.data.avatar_url) avatar.value = r.data.avatar_url
+    if (r.data.role === 'admin') isAdmin.value = true
   }).catch(function(e) {
-    console.log('获取用户角色失败:', e)
+    console.log('获取用户资料失败:', e)
   }).finally(function() {
     loading.value = false
   })
