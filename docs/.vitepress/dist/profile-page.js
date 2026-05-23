@@ -46,7 +46,7 @@ function roleDesc(role) { return role === 'admin' ? '拥有审核与后台管理
 
 function setProfile(session, profile) {
   var meta = session.user.user_metadata || {}
-  var name = profile.username || profile.full_name || meta.full_name || meta.user_name || meta.name || meta.preferred_username || session.user.email || '社团成员'
+  var name = profile.username || meta.full_name || meta.user_name || meta.name || meta.preferred_username || session.user.email || '社团成员'
   var avatar = profile.avatar_url || meta.avatar_url || meta.picture || '/SiteProject/images/default-avatar.svg'
   var role = profile.role || 'member'
   state.profile = { username: name, avatar: avatar, bio: profile.bio || '', role: role, email: session.user.email || '' }
@@ -61,7 +61,7 @@ function setProfile(session, profile) {
 }
 
 async function loadProfile() {
-  var r = await state.sb.from('profiles').select('id, username, full_name, avatar_url, bio, role').eq('id', state.uid).maybeSingle()
+  var r = await state.sb.from('profiles').select('id, username, avatar_url, bio, role').eq('id', state.uid).maybeSingle()
   return r.data || {}
 }
 

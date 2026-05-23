@@ -152,7 +152,7 @@ function getProfile(userId) {
 }
 
 function getName(profile, userId) {
-  return profile.username || profile.full_name || userId || '未知用户'
+  return profile.username || userId || '未知用户'
 }
 
 function getAvatar(profile) {
@@ -161,7 +161,7 @@ function getAvatar(profile) {
 
 function changeDiff(profile, change) {
   var rows = []
-  var currentName = profile.username || profile.full_name || ''
+  var currentName = profile.username || ''
   var nextName = change.username || ''
   var currentAvatar = profile.avatar_url || ''
   var nextAvatar = change.avatar_url || ''
@@ -309,7 +309,7 @@ async function loadProfiles(supabase, userIds) {
 
   var result = await supabase
     .from('profiles')
-    .select('id, username, full_name, avatar_url, bio, role')
+    .select('id, username, avatar_url, bio, role')
     .in('id', userIds)
     .useServiceRole()
 
