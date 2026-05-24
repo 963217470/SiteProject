@@ -79,22 +79,39 @@
       <input ref="imageInput" type="file" accept="image/*" @change="handleImageUpload" hidden>
       <input ref="attachmentInput" type="file" @change="handleAttachmentUpload" hidden>
 
-      <button class="import-tile" type="button" @click="triggerFileSelect">
-        <strong>上传 Markdown 文件</strong>
-        <span>{{ selectedFile || '读取标题、标签、可见性和正文' }}</span>
-      </button>
-      <button class="import-tile" type="button" @click="triggerFolderSelect">
-        <strong>上传文章文件夹</strong>
-        <span>{{ selectedFolder || '支持 .md + 相对路径图片' }}</span>
-      </button>
-      <button class="import-tile" type="button" @click="triggerImageSelect">
-        <strong>插入图片</strong>
-        <span>拖拽或选择图片插入正文</span>
-      </button>
-      <button v-if="article.visibility === 'internal'" class="import-tile attachment-tile" type="button" @click="triggerAttachmentSelect">
-        <strong>上传附件</strong>
-        <span>{{ selectedAttachment || '压缩包、安装包、PDF、工程文件等' }}</span>
-      </button>
+      <div class="import-tile">
+        <button class="import-action" type="button" @click="triggerFileSelect">
+          <strong>上传 Markdown 文件</strong>
+          <span>{{ selectedFile || '读取标题、标签、可见性和正文' }}</span>
+        </button>
+        <button v-if="selectedFile" class="clear-upload" type="button" title="取消文件" aria-label="取消文件" @click="clearUpload('file')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 12.6 12.6-1.4 1.4L5 6.4 6.4 5Zm12.6 1.4L6.4 19 5 17.6 17.6 5 19 6.4Z"></path></svg>
+        </button>
+      </div>
+      <div class="import-tile">
+        <button class="import-action" type="button" @click="triggerFolderSelect">
+          <strong>上传文章文件夹</strong>
+          <span>{{ selectedFolder || '支持 .md + 相对路径图片' }}</span>
+        </button>
+        <button v-if="selectedFolder" class="clear-upload" type="button" title="取消文件夹" aria-label="取消文件夹" @click="clearUpload('folder')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 12.6 12.6-1.4 1.4L5 6.4 6.4 5Zm12.6 1.4L6.4 19 5 17.6 17.6 5 19 6.4Z"></path></svg>
+        </button>
+      </div>
+      <div class="import-tile">
+        <button class="import-action" type="button" @click="triggerImageSelect">
+          <strong>插入图片</strong>
+          <span>拖拽或选择图片插入正文</span>
+        </button>
+      </div>
+      <div v-if="article.visibility === 'internal'" class="import-tile attachment-tile">
+        <button class="import-action" type="button" @click="triggerAttachmentSelect">
+          <strong>上传附件</strong>
+          <span>{{ selectedAttachment || '压缩包、安装包、PDF、工程文件等' }}</span>
+        </button>
+        <button v-if="selectedAttachment" class="clear-upload" type="button" title="取消附件" aria-label="取消附件" @click="clearUpload('attachment')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 12.6 12.6-1.4 1.4L5 6.4 6.4 5Zm12.6 1.4L6.4 19 5 17.6 17.6 5 19 6.4Z"></path></svg>
+        </button>
+      </div>
     </section>
 
     <section class="body-panel" @dragover.prevent @drop.prevent="handleDrop">
@@ -150,7 +167,15 @@
           rows="20"
         ></textarea>
         <div class="content-preview" aria-label="正文预览">
-          <div v-if="article.content.trim()" class="preview-body" v-html="previewHtml"></div>
+          <div
+            v-if="article.content.trim()"
+            class="preview-body editable-preview"
+            contenteditable="true"
+            spellcheck="true"
+            @blur="syncPreviewEdit"
+            @paste="handlePreviewPaste"
+            v-html="previewHtml"
+          ></div>
           <div v-else class="preview-empty">上传或输入内容后，这里会显示图片和排版效果。</div>
         </div>
       </div>
@@ -244,6 +269,36 @@ function triggerImageSelect() {
 
 function triggerAttachmentSelect() {
   attachmentInput.value?.click()
+}
+
+function clearUpload(type) {
+  if (type === 'file') {
+    selectedFile.value = ''
+    if (fileInput.value) fileInput.value.value = ''
+    showStatus('已取消 Markdown 文件选择，当前正文已保留', 'info')
+    return
+  }
+
+  if (type === 'folder') {
+    selectedFolder.value = ''
+    if (folderInput.value) folderInput.value.value = ''
+    showStatus('已取消文件夹选择，当前正文已保留', 'info')
+    return
+  }
+
+  if (type === 'attachment') {
+    if (selectedAttachment.value) {
+      article.content = article.content
+        .split('\n')
+        .filter(line => !line.includes('](') || !line.includes(selectedAttachment.value))
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+    }
+    selectedAttachment.value = ''
+    if (attachmentInput.value) attachmentInput.value.value = ''
+    showStatus('已取消附件并从正文移除下载链接', 'info')
+  }
 }
 
 function syncVisibilityMode() {
@@ -406,6 +461,135 @@ function renderInline(value) {
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
+}
+
+function syncPreviewEdit(event) {
+  const target = event.currentTarget
+  if (!target) return
+  const markdown = domChildrenToMarkdown(target).trim()
+  if (markdown !== article.content.trim()) article.content = markdown
+}
+
+function handlePreviewPaste(event) {
+  const text = event.clipboardData?.getData('text/plain')
+  if (!text) return
+  event.preventDefault()
+  document.execCommand('insertText', false, text)
+}
+
+function domChildrenToMarkdown(node) {
+  return Array.from(node.childNodes || [])
+    .map(child => domNodeToMarkdown(child, false))
+    .filter(part => part.trim())
+    .join('\n\n')
+}
+
+function domNodeToMarkdown(node, inline) {
+  if (!node) return ''
+  if (node.nodeType === 3) return node.textContent || ''
+  if (node.nodeType !== 1) return ''
+
+  const element = node
+  const tag = element.tagName.toLowerCase()
+
+  if (tag === 'br') return '\n'
+  if (tag === 'hr') return '---'
+  if (tag === 'img') return markdownImageFromElement(element)
+  if (tag === 'figure') return markdownFigureFromElement(element)
+  if (tag === 'pre') return '```\n' + (element.textContent || '').trim() + '\n```'
+  if (tag === 'blockquote') {
+    return inlineMarkdown(element).split('\n').map(line => '> ' + line).join('\n')
+  }
+  if (/^h[1-6]$/.test(tag)) {
+    const level = Math.min(Number(tag.slice(1)), 3)
+    return '#'.repeat(level) + ' ' + inlineMarkdown(element).trim()
+  }
+  if (tag === 'ul' || tag === 'ol') {
+    return Array.from(element.children || [])
+      .filter(child => child.tagName?.toLowerCase() === 'li')
+      .map((child, index) => (tag === 'ol' ? (index + 1) + '. ' : '- ') + inlineMarkdown(child).trim())
+      .join('\n')
+  }
+  if (tag === 'p' || tag === 'div' || tag === 'li') {
+    const value = inlineMarkdown(element).trim()
+    return inline ? value : value
+  }
+
+  return inlineMarkdown(element).trim()
+}
+
+function inlineMarkdown(element) {
+  return Array.from(element.childNodes || [])
+    .map(child => inlineNodeToMarkdown(child))
+    .join('')
+    .replace(/\n{3,}/g, '\n\n')
+}
+
+function inlineNodeToMarkdown(node) {
+  if (!node) return ''
+  if (node.nodeType === 3) return node.textContent || ''
+  if (node.nodeType !== 1) return ''
+
+  const element = node
+  const tag = element.tagName.toLowerCase()
+  const text = inlineMarkdown(element)
+
+  if (tag === 'br') return '\n'
+  if (tag === 'strong' || tag === 'b') return '**' + text + '**'
+  if (tag === 'em' || tag === 'i') return '*' + text + '*'
+  if (tag === 'code') return '`' + (element.textContent || '') + '`'
+  if (tag === 'img') return markdownImageFromElement(element)
+  if (tag === 'figure') return markdownFigureFromElement(element)
+  if (tag === 'span') {
+    const color = element.style?.color || ''
+    if (color) return '<span style="color: ' + normalizeCssColor(color) + ';">' + text + '</span>'
+    return text
+  }
+  if (tag === 'a') return markdownLinkFromElement(element, text)
+
+  return text
+}
+
+function markdownLinkFromElement(element, text) {
+  const cleanText = (text || element.textContent || '').trim()
+  const href = element.getAttribute('href') || ''
+
+  if (element.classList?.contains('wiki-tag')) {
+    return '[[#' + cleanText.replace(/^#/, '') + ']]'
+  }
+
+  if (element.classList?.contains('wiki-link')) {
+    try {
+      const url = new URL(href, window.location.origin)
+      const branch = url.searchParams.get('branch')
+      return branch && branch !== cleanText ? '[[' + branch + '|' + cleanText + ']]' : '[[' + cleanText + ']]'
+    } catch (error) {
+      return '[[' + cleanText + ']]'
+    }
+  }
+
+  return href ? '[' + cleanText + '](' + href + ')' : cleanText
+}
+
+function markdownFigureFromElement(element) {
+  const img = element.querySelector('img')
+  if (!img) return inlineMarkdown(element)
+  const caption = element.querySelector('figcaption')?.textContent?.trim()
+  return markdownImageFromElement(img, caption)
+}
+
+function markdownImageFromElement(element, caption = '') {
+  const src = element.getAttribute('src') || ''
+  if (!src) return ''
+  const alt = caption || element.getAttribute('alt') || 'image'
+  return '![' + alt + '](' + src + ')'
+}
+
+function normalizeCssColor(color) {
+  const value = String(color || '').trim()
+  const rgb = value.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i)
+  if (!rgb) return value
+  return '#' + rgb.slice(1).map(part => Number(part).toString(16).padStart(2, '0')).join('')
 }
 
 function parseFrontmatter(text) {
@@ -969,7 +1153,6 @@ function showStatus(message, type) {
 .btn,
 .block-toolbar button,
 .source-toggle,
-.import-tile,
 .tag-chip {
   border: 1px solid var(--vp-c-divider);
   border-radius: 6px;
@@ -1150,16 +1333,59 @@ function showStatus(message, type) {
 
 .import-tile {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 0.25rem;
   padding: 1rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
   text-align: left;
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-text-1);
 }
 
-.import-tile span {
+.import-action {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.import-action span {
   color: var(--vp-c-text-2);
   font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clear-upload {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid rgba(139, 31, 31, 0.2);
+  border-radius: 999px;
+  background: var(--vp-c-bg);
+  color: #8b1f1f;
+  cursor: pointer;
+}
+
+.clear-upload:hover {
+  border-color: #8b1f1f;
+  background: rgba(139, 31, 31, 0.08);
+}
+
+.clear-upload svg {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
 }
 
 .attachment-tile {
@@ -1282,6 +1508,16 @@ function showStatus(message, type) {
   color: var(--vp-c-text-1);
   font-size: 1.02rem;
   line-height: 1.9;
+}
+
+.editable-preview {
+  min-height: 560px;
+  cursor: text;
+}
+
+.editable-preview:focus {
+  outline: 2px solid var(--vp-c-brand-soft);
+  outline-offset: -2px;
 }
 
 .preview-body h1,
