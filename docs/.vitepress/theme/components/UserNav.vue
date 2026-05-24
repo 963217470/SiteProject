@@ -140,38 +140,45 @@ function logout() {
 .login-link { padding: 0.4rem 1rem; font-size: 0.875rem; color: var(--vp-c-brand-1); text-decoration: none; border: 1px solid var(--vp-c-brand-1); border-radius: 6px; transition: all 0.2s; }
 .login-link:hover { background: var(--vp-c-brand-1); color: white; }
 
+:global(.VPNav.nav-at-top) .login-link,
 :global(.is-home .VPNav.nav-at-top) .login-link {
   color: white;
   border-color: rgba(255, 255, 255, 0.75);
   background: rgba(255, 255, 255, 0.08);
 }
 
+:global(.VPNav.nav-at-top) .login-link:hover,
 :global(.is-home .VPNav.nav-at-top) .login-link:hover {
   color: white;
   border-color: white;
   background: rgba(255, 255, 255, 0.18);
 }
 
+:global(.VPNav.nav-at-top) .user-name,
 :global(.is-home .VPNav.nav-at-top) .user-name {
   color: white;
 }
 
+:global(.VPNav.nav-at-top) .user-menu:hover,
 :global(.is-home .VPNav.nav-at-top) .user-menu:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 
+:global(.VPNav.nav-scrolled) .login-link,
 :global(.is-home .VPNav.nav-scrolled) .login-link {
   color: var(--vp-c-text-1);
   border-color: var(--vp-c-divider);
   background: var(--vp-c-bg);
 }
 
+:global(.VPNav.nav-scrolled) .login-link:hover,
 :global(.is-home .VPNav.nav-scrolled) .login-link:hover {
   color: white;
   border-color: var(--vp-c-brand-1);
   background: var(--vp-c-brand-1);
 }
 
+:global(.VPNav.nav-scrolled) .user-name,
 :global(.is-home .VPNav.nav-scrolled) .user-name {
   color: var(--vp-c-text-1);
 }

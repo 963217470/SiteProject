@@ -139,11 +139,13 @@ html, body {
 }
 
 /* 首页导航栏：顶部透明，滚动后变实色 */
+.VPNav.nav-at-top .VPNavBar,
 .is-home .VPNav .VPNavBar {
   background: transparent !important;
   border-bottom: none !important;
   transition: background 0.3s ease, box-shadow 0.3s ease;
 }
+.VPNav.nav-scrolled .VPNavBar,
 .is-home .VPNav.nav-scrolled .VPNavBar {
   background: var(--vp-c-bg) !important;
   border-bottom: 1px solid var(--vp-c-divider) !important;
@@ -151,14 +153,20 @@ html, body {
 }
 
 /* 首页导航栏顶部时：白色文字和透明搜索框 */
-.is-home .VPNav.nav-at-top .VPNavBarMenuLink,
-.is-home .VPNav.nav-at-top .title,
-.is-home .VPNav.nav-at-top .VPNavBarAppearance,
-.is-home .VPNav.nav-at-top .VPNavBarHamburger,
-.is-home .VPNav.nav-at-top .VPNavBarMenuGroup button {
+.VPNav.nav-at-top .VPNavBarMenuLink,
+.VPNav.nav-at-top .VPNavBarMenuLink span,
+.VPNav.nav-at-top .VPNavBarMenu a,
+.VPNav.nav-at-top .VPNavBarMenu button,
+.VPNav.nav-at-top .VPNavBarMenuGroup button,
+.VPNav.nav-at-top .VPNavBarTitle,
+.VPNav.nav-at-top .VPNavBarTitle span,
+.VPNav.nav-at-top .title,
+.VPNav.nav-at-top .VPNavBarAppearance,
+.VPNav.nav-at-top .VPNavBarHamburger,
+.VPNav.nav-at-top .VPNavBarHamburger span {
   color: white !important;
 }
-.is-home .VPNav.nav-at-top .DocSearch-Button {
+.VPNav.nav-at-top .DocSearch-Button {
   background: transparent !important;
   color: white !important;
   border: 1px solid rgba(255, 255, 255, 0.3) !important;
@@ -170,30 +178,36 @@ html, body {
   --docsearch-muted-color: rgba(255,255,255,0.6);
   --docsearch-text-color: white;
 }
-.is-home .VPNav.nav-at-top .DocSearch-Button:hover {
+.VPNav.nav-at-top .DocSearch-Button:hover {
   border-color: rgba(255, 255, 255, 0.6) !important;
 }
-.is-home .VPNav.nav-at-top .DocSearch-Button-Key {
+.VPNav.nav-at-top .DocSearch-Button-Key {
   background: rgba(0,0,0,0.3) !important;
   box-shadow: none !important;
   color: rgba(255,255,255,0.6) !important;
 }
-.is-home .VPNav.nav-at-top .DocSearch-Search-Icon {
+.VPNav.nav-at-top .DocSearch-Search-Icon {
   color: rgba(255,255,255,0.8) !important;
 }
-.is-home .VPNav.nav-at-top .DocSearch-Button-Placeholder {
+.VPNav.nav-at-top .DocSearch-Button-Placeholder {
   color: rgba(255,255,255,0.6) !important;
 }
 /* 首页滚动后：深色文字 */
-.is-home .VPNav.nav-scrolled .VPNavBarMenuLink,
-.is-home .VPNav.nav-scrolled .title,
-.is-home .VPNav.nav-scrolled .VPNavBarAppearance,
-.is-home .VPNav.nav-scrolled .VPNavBarHamburger,
-.is-home .VPNav.nav-scrolled .VPNavBarMenuGroup button {
+.VPNav.nav-scrolled .VPNavBarMenuLink,
+.VPNav.nav-scrolled .VPNavBarMenuLink span,
+.VPNav.nav-scrolled .VPNavBarMenu a,
+.VPNav.nav-scrolled .VPNavBarMenu button,
+.VPNav.nav-scrolled .VPNavBarMenuGroup button,
+.VPNav.nav-scrolled .VPNavBarTitle,
+.VPNav.nav-scrolled .VPNavBarTitle span,
+.VPNav.nav-scrolled .title,
+.VPNav.nav-scrolled .VPNavBarAppearance,
+.VPNav.nav-scrolled .VPNavBarHamburger,
+.VPNav.nav-scrolled .VPNavBarHamburger span {
   color: var(--vp-c-text-1) !important;
 }
-.is-home .VPNav.nav-scrolled .nav-rd,
-.is-home .VPNav.nav-scrolled .nav-studio {
+.VPNav.nav-scrolled .nav-rd,
+.VPNav.nav-scrolled .nav-studio {
   color: var(--vp-c-text-1) !important;
 }
 .VPNav.nav-scrolled .DocSearch-Button {
