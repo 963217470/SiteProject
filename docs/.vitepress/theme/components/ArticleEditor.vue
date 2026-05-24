@@ -185,7 +185,7 @@ const customTag = ref('')
 const kbBranches = ref([])
 const kbLoading = ref(false)
 const kbError = ref('')
-const showSource = ref(false)
+const showSource = ref(true)
 
 const presetTags = ['Unity', 'Godot', 'Unreal Engine', 'C#', '教程', '入门', '进阶', '2D游戏', '3D游戏', '团队合作']
 const selectedTags = ref([])
