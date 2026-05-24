@@ -31,7 +31,9 @@ var articleState = {
   session: null,
   liked: false,
   favoriteTableReady: true,
-  favorited: false
+  favorited: false,
+  downloadUrl: '',
+  downloadStatus: ''
 }
 
 function escapeHtml(value) {
@@ -424,6 +426,156 @@ function getFirstArticleImage(content) {
   return match ? match[1] : ''
 }
 
+function safePackageName(value) {
+  return String(value || 'article')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80) || 'article'
+}
+
+function imageExtFromUrl(url, fallback) {
+  if (/^data:image\//i.test(url)) {
+    var dataExt = String(url).match(/^data:image\/([^;]+)/i)
+    return (dataExt && dataExt[1] || fallback || 'jpg').replace('jpeg', 'jpg')
+  }
+  try {
+    var path = new URL(url, window.location.href).pathname
+    var ext = (path.match(/\.([a-z0-9]+)$/i) || [])[1]
+    return ext || fallback || 'jpg'
+  } catch (error) {
+    return fallback || 'jpg'
+  }
+}
+
+function extractArticleImages(article) {
+  var images = []
+  var seen = {}
+  var content = String(article && article.content || '')
+  var matches = content.matchAll(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/gi)
+  Array.from(matches).forEach(function(match) {
+    var url = match[2]
+    if (seen[url]) return
+    seen[url] = true
+    images.push({ url: url, alt: match[1] || 'image' })
+  })
+  if (article && article.cover_url && !seen[article.cover_url]) {
+    images.unshift({ url: article.cover_url, alt: 'cover' })
+  }
+  return images
+}
+
+function dataUrlToBlob(dataUrl) {
+  var match = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/)
+  if (!match) return null
+  var binary = atob(match[2])
+  var bytes = new Uint8Array(binary.length)
+  for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type: match[1] })
+}
+
+function loadJsZip() {
+  if (window.JSZip) return Promise.resolve(window.JSZip)
+  return new Promise(function(resolve, reject) {
+    var existing = document.querySelector('script[data-jszip-loader]')
+    if (existing) {
+      existing.addEventListener('load', function() { resolve(window.JSZip) })
+      existing.addEventListener('error', reject)
+      return
+    }
+    var script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'
+    script.async = true
+    script.setAttribute('data-jszip-loader', 'true')
+    script.onload = function() { resolve(window.JSZip) }
+    script.onerror = function() { reject(new Error('ZIP 工具加载失败，请检查网络后重试')) }
+    document.head.appendChild(script)
+  })
+}
+
+async function fetchImageBlob(url) {
+  if (/^data:image\//i.test(url)) return dataUrlToBlob(url)
+  var response = await fetch(url, { mode: 'cors' })
+  if (!response.ok) throw new Error('图片下载失败')
+  return response.blob()
+}
+
+function buildPackageMarkdown(article, imageMap) {
+  var content = String(article.content || '')
+  Object.keys(imageMap).forEach(function(url) {
+    content = content.split(url).join(imageMap[url])
+  })
+  return [
+    '---',
+    'title: "' + String(article.title || '').replace(/"/g, '\\"') + '"',
+    'summary: "' + String(article.summary || '').replace(/"/g, '\\"') + '"',
+    'visibility: ' + (article.visibility || 'public'),
+    'created: ' + (article.created_at || ''),
+    'tags: [' + (article.tags || []).map(function(tag) { return '"' + String(tag).replace(/"/g, '\\"') + '"' }).join(', ') + ']',
+    'source: ' + window.location.href,
+    '---',
+    '',
+    '# ' + (article.title || 'Untitled'),
+    '',
+    content
+  ].join('\n')
+}
+
+async function generateArticlePackage() {
+  var article = articleState.article
+  if (!article) return
+
+  articleState.downloadStatus = '正在生成下载包...'
+  renderArticle()
+
+  try {
+    var JSZip = await loadJsZip()
+    var zip = new JSZip()
+    var images = extractArticleImages(article)
+    var imageMap = {}
+    var failed = []
+
+    for (var i = 0; i < images.length; i++) {
+      var item = images[i]
+      try {
+        var blob = await fetchImageBlob(item.url)
+        if (!blob) throw new Error('图片格式不支持')
+        var ext = imageExtFromUrl(item.url, blob.type && blob.type.split('/')[1])
+        var name = 'images/' + String(i + 1).padStart(2, '0') + '-' + safePackageName(item.alt || 'image') + '.' + ext
+        zip.file(name, blob)
+        imageMap[item.url] = './' + name
+      } catch (error) {
+        failed.push(item.url)
+      }
+    }
+
+    zip.file('index.md', buildPackageMarkdown(article, imageMap))
+    zip.file('article.json', JSON.stringify({
+      id: article.id,
+      title: article.title,
+      summary: article.summary,
+      tags: article.tags || [],
+      visibility: article.visibility,
+      created_at: article.created_at,
+      source: window.location.href,
+      skipped_images: failed
+    }, null, 2))
+
+    var blobUrl = URL.createObjectURL(await zip.generateAsync({ type: 'blob' }))
+    if (articleState.downloadUrl) URL.revokeObjectURL(articleState.downloadUrl)
+    articleState.downloadUrl = blobUrl
+    articleState.downloadStatus = failed.length
+      ? '下载包已生成，部分图片受跨域限制保留原链接。'
+      : '下载包已生成，可以下载。'
+    renderArticle()
+  } catch (error) {
+    articleState.downloadStatus = '下载包生成失败：' + (error.message || '未知错误')
+    renderArticle()
+  }
+}
+
 function renderArticle() {
   var article = articleState.article
   if (!article) return
@@ -435,6 +587,7 @@ function renderArticle() {
   var favoriteLabel = articleState.favoriteTableReady ? '收藏' : '本地收藏'
   var backgroundUrl = '/SiteProject/images/hero-bg.jpg'
   var coverUrl = article.cover_url || getFirstArticleImage(article.content) || backgroundUrl
+  var packageFileName = safePackageName(article.title) + '.zip'
   shell.style.setProperty('--article-bg-image', "url('" + String(backgroundUrl).replace(/'/g, '%27') + "')")
 
   shell.innerHTML = [
@@ -465,6 +618,15 @@ function renderArticle() {
     '        </div>',
     '      </div>',
     article.tags && article.tags.length ? '      <div class="article-tags">' + article.tags.map(function(tag) { return '<a class="tag" href="/SiteProject/articles?tag=' + encodeURIComponent(tag) + '">' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
+    '      <div class="article-download-card">',
+    '        <div>',
+    '          <strong>打包下载</strong>',
+    '          <span>将文章 Markdown 和图片一起保存为 ZIP</span>',
+    '        </div>',
+    '        <button type="button" class="download-build-btn" onclick="generateArticlePackage()">生成下载包</button>',
+    articleState.downloadUrl ? '        <a class="download-ready-link" href="' + articleState.downloadUrl + '" download="' + escapeHtml(packageFileName) + '">下载 ' + escapeHtml(packageFileName) + '</a>' : '',
+    articleState.downloadStatus ? '        <p class="download-status">' + escapeHtml(articleState.downloadStatus) + '</p>' : '',
+    '      </div>',
     '    </header>',
     article.summary ? '    <section class="article-summary"><strong>摘要</strong><p>' + escapeHtml(article.summary) + '</p></section>' : '',
     '    <section class="article-body-card">',
@@ -754,6 +916,7 @@ if (typeof window !== 'undefined') {
   window.toggleFavorite = toggleFavorite
   window.submitComment = submitComment
   window.scrollToTop = scrollToTop
+  window.generateArticlePackage = generateArticlePackage
 }
 
 if (typeof document !== 'undefined') {
@@ -976,6 +1139,64 @@ if (typeof document !== 'undefined') {
   color: var(--vp-c-brand-1);
   text-decoration: none;
   font-size: 0.88rem;
+}
+
+.article-download-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 18px;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(139, 31, 31, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.article-download-card strong,
+.article-download-card span {
+  display: block;
+}
+
+.article-download-card strong {
+  color: var(--vp-c-text-1);
+}
+
+.article-download-card span,
+.download-status {
+  color: var(--vp-c-text-2);
+  font-size: 0.86rem;
+}
+
+.download-build-btn,
+.download-ready-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
+  padding: 0.5rem 0.82rem;
+  border: 1px solid #8b1f1f;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.download-build-btn {
+  background: #8b1f1f;
+  color: #fff;
+  cursor: pointer;
+}
+
+.download-ready-link {
+  background: rgba(139, 31, 31, 0.08);
+  color: #8b1f1f;
+}
+
+.download-status {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 
 .article-summary,
@@ -1439,6 +1660,15 @@ if (typeof document !== 'undefined') {
 
   .article-tags {
     margin-left: 0;
+  }
+
+  .article-download-card {
+    grid-template-columns: 1fr;
+  }
+
+  .download-build-btn,
+  .download-ready-link {
+    width: 100%;
   }
 
   .comment-editor {
