@@ -15,6 +15,19 @@
     </header>
 
     <section class="editor-meta">
+      <div class="visibility-row featured-visibility">
+        <span class="field-label">可见性</span>
+        <label class="radio-pill">
+          <input v-model="article.visibility" type="radio" value="public" @change="syncVisibilityMode">
+          <span>公开</span>
+        </label>
+        <label class="radio-pill">
+          <input v-model="article.visibility" type="radio" value="internal" @change="syncVisibilityMode">
+          <span>内部成员</span>
+        </label>
+        <small>{{ article.visibility === 'internal' ? '内部文章不会投入知识库，可上传附件供成员下载。' : '公开文章可选择投入知识库。' }}</small>
+      </div>
+
       <label class="title-field">
         <span>标题</span>
         <input v-model="article.title" type="text" placeholder="Unity 2D 光照系统入门指南">
@@ -36,19 +49,7 @@
         </div>
       </div>
 
-      <div class="visibility-row">
-        <span class="field-label">可见性</span>
-        <label class="radio-pill">
-          <input v-model="article.visibility" type="radio" value="public">
-          <span>公开</span>
-        </label>
-        <label class="radio-pill">
-          <input v-model="article.visibility" type="radio" value="internal">
-          <span>内部成员</span>
-        </label>
-      </div>
-
-      <div class="knowledge-row">
+      <div v-if="article.visibility !== 'internal'" class="knowledge-row">
         <label class="kb-toggle">
           <input v-model="article.kbEnabled" type="checkbox">
           <span>投入知识库</span>
@@ -76,6 +77,7 @@
       <input ref="fileInput" type="file" accept=".md,.markdown,text/markdown,text/plain" @change="handleFileUpload" hidden>
       <input ref="folderInput" type="file" webkitdirectory directory multiple @change="handleFolderUpload" hidden>
       <input ref="imageInput" type="file" accept="image/*" @change="handleImageUpload" hidden>
+      <input ref="attachmentInput" type="file" @change="handleAttachmentUpload" hidden>
 
       <button class="import-tile" type="button" @click="triggerFileSelect">
         <strong>上传 Markdown 文件</strong>
@@ -88,6 +90,10 @@
       <button class="import-tile" type="button" @click="triggerImageSelect">
         <strong>插入图片</strong>
         <span>拖拽或选择图片插入正文</span>
+      </button>
+      <button v-if="article.visibility === 'internal'" class="import-tile attachment-tile" type="button" @click="triggerAttachmentSelect">
+        <strong>上传附件</strong>
+        <span>{{ selectedAttachment || '压缩包、安装包、PDF、工程文件等' }}</span>
       </button>
     </section>
 
@@ -167,9 +173,11 @@ import { computed, onMounted, reactive, ref } from 'vue'
 const fileInput = ref(null)
 const folderInput = ref(null)
 const imageInput = ref(null)
+const attachmentInput = ref(null)
 const contentInput = ref(null)
 const selectedFile = ref('')
 const selectedFolder = ref('')
+const selectedAttachment = ref('')
 const submitting = ref(false)
 const statusMessage = ref('')
 const statusType = ref('success')
@@ -232,6 +240,17 @@ function triggerFolderSelect() {
 
 function triggerImageSelect() {
   imageInput.value?.click()
+}
+
+function triggerAttachmentSelect() {
+  attachmentInput.value?.click()
+}
+
+function syncVisibilityMode() {
+  if (article.visibility !== 'internal') return
+  article.kbEnabled = false
+  article.kbBranchId = ''
+  article.kbBranchPath = ''
 }
 
 function toggleTag(tag) {
@@ -581,6 +600,15 @@ async function uploadArticleImage(supabase, file) {
   return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
 }
 
+async function uploadArticleAttachment(supabase, file) {
+  const sessionResult = await supabase.auth.getSession()
+  const userId = sessionResult?.data?.session?.user?.id || 'anonymous'
+  const path = userId + '/' + safeFileName(file.name)
+  const upload = await supabase.storage.from('resources').upload(path, file)
+  if (upload.error) throw new Error('附件上传失败：' + upload.error.message)
+  return supabase.storage.from('resources').getPublicUrl(path).data.publicUrl
+}
+
 function findImageUrl(src, baseDir, imageMap) {
   if (/^(https?:|data:|\/)/i.test(src)) return ''
   const normalizedSrc = normalizePath(src).replace(/[?#].*$/, '')
@@ -626,6 +654,13 @@ async function handleImageUpload(event) {
   event.target.value = ''
 }
 
+async function handleAttachmentUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  await insertAttachmentFile(file)
+  event.target.value = ''
+}
+
 async function handleDrop(event) {
   const files = Array.from(event.dataTransfer?.files || [])
   const image = files.find(file => file.type.startsWith('image/'))
@@ -641,6 +676,23 @@ async function insertImageFile(file) {
     showStatus('图片已插入正文', 'success')
   } catch (error) {
     showStatus(error.message || '图片插入失败', 'error')
+  }
+}
+
+async function insertAttachmentFile(file) {
+  if (article.visibility !== 'internal') {
+    showStatus('只有内部文章可以上传附件', 'error')
+    return
+  }
+  try {
+    const supabase = await waitForSupabase()
+    if (!supabase) throw new Error('Supabase 未加载，请刷新页面后重试')
+    const url = await uploadArticleAttachment(supabase, file)
+    selectedAttachment.value = file.name
+    insertAtCursor('\n\n[📎 下载附件：' + file.name + '](' + url + ')\n\n')
+    showStatus('附件已上传并插入正文', 'success')
+  } catch (error) {
+    showStatus(error.message || '附件上传失败', 'error')
   }
 }
 
@@ -766,8 +818,10 @@ async function saveArticle(status) {
     return
   }
 
+  if (article.visibility === 'internal') syncVisibilityMode()
+
   const requestedBranchPath = normalizeBranchPath(article.kbBranchPath)
-  if (article.kbEnabled && !article.kbBranchId && !requestedBranchPath) {
+  if (article.visibility !== 'internal' && article.kbEnabled && !article.kbBranchId && !requestedBranchPath) {
     showStatus('请选择已有知识库分支，或输入要申请的新分支路径', 'error')
     return
   }
@@ -804,7 +858,7 @@ async function saveArticle(status) {
       author_id: userId
     }
 
-    if (article.kbEnabled || kbBranches.value.length > 0) {
+    if (article.visibility !== 'internal' && (article.kbEnabled || kbBranches.value.length > 0)) {
       articleData.kb_enabled = !!article.kbEnabled && !requestedBranchPath
       articleData.kb_branch_id = article.kbEnabled ? article.kbBranchId : null
     }
@@ -827,7 +881,7 @@ async function saveArticle(status) {
       return
     }
 
-    if (article.kbEnabled && requestedBranchPath) {
+    if (article.visibility !== 'internal' && article.kbEnabled && requestedBranchPath) {
       const requestResult = await supabase
         .from('knowledge_branch_requests')
         .insert({
@@ -954,6 +1008,22 @@ function showStatus(message, type) {
   margin-bottom: 1rem;
 }
 
+.featured-visibility {
+  padding: 1rem;
+  border: 1px solid rgba(139, 31, 31, 0.28);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(139, 31, 31, 0.1), rgba(216, 30, 6, 0.04));
+}
+
+.featured-visibility .field-label {
+  color: #8b1f1f;
+}
+
+.featured-visibility small {
+  flex-basis: 100%;
+  color: var(--vp-c-text-2);
+}
+
 .title-field,
 .summary-field {
   display: grid;
@@ -1030,6 +1100,12 @@ function showStatus(message, type) {
   background: var(--vp-c-bg-soft);
 }
 
+.radio-pill:has(input:checked) {
+  border-color: #8b1f1f;
+  background: #8b1f1f;
+  color: #fff;
+}
+
 .knowledge-row {
   padding: 0.75rem;
   border: 1px solid var(--vp-c-divider);
@@ -1067,7 +1143,7 @@ function showStatus(message, type) {
 
 .import-panel {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 0.75rem;
   margin: 1.25rem 0;
 }
@@ -1084,6 +1160,11 @@ function showStatus(message, type) {
 .import-tile span {
   color: var(--vp-c-text-2);
   font-size: 0.85rem;
+}
+
+.attachment-tile {
+  border-color: rgba(139, 31, 31, 0.35);
+  background: rgba(139, 31, 31, 0.06);
 }
 
 .body-panel {
