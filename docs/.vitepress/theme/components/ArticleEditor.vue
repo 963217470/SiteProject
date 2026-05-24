@@ -93,14 +93,31 @@
 
     <section class="body-panel" @dragover.prevent @drop.prevent="handleDrop">
       <div class="body-header">
-        <span>正文</span>
-        <div class="block-toolbar">
-          <button type="button" @click="insertBlock('h2')">H2</button>
-          <button type="button" @click="insertBlock('h3')">H3</button>
-          <button type="button" @click="insertBlock('quote')">引用</button>
-          <button type="button" @click="insertBlock('code')">代码</button>
-          <button type="button" @click="insertBlock('ul')">列表</button>
-          <button type="button" @click="insertBlock('hr')">分割线</button>
+        <div class="block-toolbar" aria-label="正文排版工具">
+          <button
+            v-for="tool in formatTools"
+            :key="tool.type"
+            class="tool-button"
+            type="button"
+            :title="tool.label"
+            :aria-label="tool.label"
+            @click="insertBlock(tool.type)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path :d="tool.icon"></path>
+            </svg>
+          </button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button
+            v-for="color in colorTools"
+            :key="color.value"
+            class="color-button"
+            type="button"
+            :title="color.label"
+            :aria-label="color.label"
+            :style="{ '--swatch': color.value }"
+            @click="applyColor(color.value)"
+          ></button>
         </div>
       </div>
 
@@ -112,11 +129,10 @@
           placeholder="直接输入正文，或上传 Markdown / 文件夹。支持拖拽图片到这里。"
           rows="20"
         ></textarea>
-        <aside class="content-preview" aria-label="正文预览">
-          <div class="preview-title">预览</div>
+        <div class="content-preview" aria-label="正文预览">
           <div v-if="article.content.trim()" class="preview-body" v-html="previewHtml"></div>
           <div v-else class="preview-empty">上传或输入内容后，这里会显示图片和排版效果。</div>
-        </aside>
+        </div>
       </div>
     </section>
 
@@ -150,6 +166,26 @@ const kbError = ref('')
 
 const presetTags = ['Unity', 'Godot', 'Unreal Engine', 'C#', '教程', '入门', '进阶', '2D游戏', '3D游戏', '团队合作']
 const selectedTags = ref([])
+const formatTools = [
+  { type: 'h2', label: '二级标题', icon: 'M4 5h2v6h8V5h2v14h-2v-6H6v6H4V5Zm14 4h-3V7h8v2h-3v10h-2V9Z' },
+  { type: 'h3', label: '三级标题', icon: 'M4 5h2v6h7V5h2v14h-2v-6H6v6H4V5Zm13 4.5c.2-.8 1-1.5 2.2-1.5 1.6 0 2.8 1 2.8 2.4 0 .9-.5 1.7-1.4 2.1 1 .4 1.7 1.2 1.7 2.5 0 1.7-1.4 3-3.4 3-1.7 0-3-.9-3.4-2.3l1.8-.6c.2.7.8 1.1 1.6 1.1.9 0 1.4-.5 1.4-1.2 0-.8-.6-1.2-1.6-1.2h-1v-1.7h.9c.9 0 1.4-.5 1.4-1.1 0-.7-.5-1.1-1.2-1.1-.7 0-1.1.3-1.3.9l-1.8-.3Z' },
+  { type: 'bold', label: '加粗', icon: 'M7 4h6.2c2.4 0 4 1.4 4 3.5 0 1.3-.6 2.4-1.7 3 1.5.5 2.4 1.8 2.4 3.5 0 2.4-1.8 4-4.6 4H7V4Zm3 5.8h2.8c.9 0 1.4-.5 1.4-1.3s-.5-1.3-1.4-1.3H10v2.6Zm0 5h3.1c1.1 0 1.7-.5 1.7-1.5s-.6-1.5-1.7-1.5H10v3Z' },
+  { type: 'italic', label: '斜体', icon: 'M10 4h8v2h-3l-3 12h3v2H7v-2h3l3-12h-3V4Z' },
+  { type: 'quote', label: '引用', icon: 'M7 7h5v5H9c0 2 1 3.3 3 4v2c-3.4-.8-5-3.1-5-6.8V7Zm8 0h5v5h-3c0 2 1 3.3 3 4v2c-3.4-.8-5-3.1-5-6.8V7Z' },
+  { type: 'code', label: '代码块', icon: 'M8.7 16.6 3.9 12l4.8-4.6 1.4 1.5L6.9 12l3.2 3.1-1.4 1.5Zm6.6 0-1.4-1.5 3.2-3.1-3.2-3.1 1.4-1.5 4.8 4.6-4.8 4.6ZM11.2 19l-1.9-.6L12.8 5l1.9.6L11.2 19Z' },
+  { type: 'ul', label: '无序列表', icon: 'M5 7.5A1.5 1.5 0 1 1 5 4a1.5 1.5 0 0 1 0 3.5ZM8 5h12v2H8V5Zm-3 8.5A1.5 1.5 0 1 1 5 10a1.5 1.5 0 0 1 0 3.5ZM8 11h12v2H8v-2Zm-3 8.5A1.5 1.5 0 1 1 5 16a1.5 1.5 0 0 1 0 3.5ZM8 17h12v2H8v-2Z' },
+  { type: 'ol', label: '有序列表', icon: 'M4 5h2v5H4V8h1V6H4V5Zm0 7h2v1.5H5v1h1v1.5H4V14h1v-.5H4V12Zm0 6h2v1H5v.5h1V21H4v-1h1v-.5H4V18Zm5-12h11v2H9V6Zm0 6h11v2H9v-2Zm0 6h11v2H9v-2Z' },
+  { type: 'link', label: '链接', icon: 'M10.6 13.4a1 1 0 0 1 0-1.4l3.4-3.4a3 3 0 0 1 4.2 4.2l-1.4 1.4-1.4-1.4 1.4-1.4a1 1 0 0 0-1.4-1.4L12 13.4a1 1 0 0 1-1.4 0Zm2.8-2.8a1 1 0 0 1 0 1.4L10 15.4a1 1 0 0 0 1.4 1.4l1.4-1.4 1.4 1.4-1.4 1.4a3 3 0 0 1-4.2-4.2l3.4-3.4a1 1 0 0 1 1.4 0Z' },
+  { type: 'image', label: '插入图片', icon: 'M5 5h14v14H5V5Zm2 2v8.6l3.1-3.1 2.3 2.3 2.9-3.6L17 13.3V7H7Zm2.5 4A1.5 1.5 0 1 0 9.5 8a1.5 1.5 0 0 0 0 3Z' },
+  { type: 'hr', label: '分割线', icon: 'M4 11h16v2H4v-2Z' }
+]
+const colorTools = [
+  { label: '蓝色文字', value: '#61afef' },
+  { label: '绿色文字', value: '#98c379' },
+  { label: '橙色文字', value: '#d19a66' },
+  { label: '紫色文字', value: '#c678dd' },
+  { label: '红色文字', value: '#d81e06' }
+]
 
 const article = reactive({
   title: '',
@@ -228,17 +264,104 @@ function escapeHtml(value) {
 }
 
 function renderMarkdownPreview(content) {
-  const html = escapeHtml(content)
-    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="preview-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
-    .replace(/^### (.*)$/gim, '<h3>$1</h3>')
-    .replace(/^## (.*)$/gim, '<h2>$1</h2>')
-    .replace(/^# (.*)$/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\n\n+/g, '</p><p>')
-    .replace(/\n/g, '<br>')
+  const blocks = []
+  let listType = ''
+  let listItems = []
+  let inCode = false
+  let codeLines = []
 
-  return '<p>' + html + '</p>'
+  const flushList = () => {
+    if (!listType) return
+    blocks.push('<' + listType + '>' + listItems.map(item => '<li>' + renderInline(item) + '</li>').join('') + '</' + listType + '>')
+    listType = ''
+    listItems = []
+  }
+
+  const flushCode = () => {
+    if (!inCode) return
+    blocks.push('<pre><code>' + escapeHtml(codeLines.join('\n')) + '</code></pre>')
+    inCode = false
+    codeLines = []
+  }
+
+  for (const rawLine of String(content || '').split('\n')) {
+    const line = rawLine.trimEnd()
+
+    if (/^```/.test(line.trim())) {
+      if (inCode) flushCode()
+      else {
+        flushList()
+        inCode = true
+        codeLines = []
+      }
+      continue
+    }
+
+    if (inCode) {
+      codeLines.push(rawLine)
+      continue
+    }
+
+    if (!line.trim()) {
+      flushList()
+      continue
+    }
+
+    const imageMatch = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)$/)
+    if (imageMatch) {
+      flushList()
+      blocks.push('<figure class="preview-image"><img src="' + imageMatch[2] + '" alt="' + escapeHtml(imageMatch[1]) + '"><figcaption>' + escapeHtml(imageMatch[1]) + '</figcaption></figure>')
+      continue
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/)
+    if (heading) {
+      flushList()
+      const level = heading[1].length
+      blocks.push('<h' + level + '>' + renderInline(heading[2]) + '</h' + level + '>')
+      continue
+    }
+
+    const quote = line.match(/^>\s?(.*)$/)
+    if (quote) {
+      flushList()
+      blocks.push('<blockquote>' + renderInline(quote[1]) + '</blockquote>')
+      continue
+    }
+
+    if (/^---+$/.test(line.trim())) {
+      flushList()
+      blocks.push('<hr>')
+      continue
+    }
+
+    const ordered = line.match(/^\d+\.\s+(.+)$/)
+    const unordered = line.match(/^[-*]\s+(.+)$/)
+    if (ordered || unordered) {
+      const nextType = ordered ? 'ol' : 'ul'
+      if (listType && listType !== nextType) flushList()
+      listType = nextType
+      listItems.push((ordered || unordered)[1])
+      continue
+    }
+
+    flushList()
+    blocks.push('<p>' + renderInline(line.trim()) + '</p>')
+  }
+
+  flushList()
+  flushCode()
+  return blocks.join('')
+}
+
+function renderInline(value) {
+  return escapeHtml(value)
+    .replace(/&lt;span\s+style=&quot;color:\s*(#[0-9a-fA-F]{3,6});?&quot;&gt;([\s\S]*?)&lt;\/span&gt;/g, '<span style="color: $1;">$2</span>')
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="preview-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
 }
 
 function parseFrontmatter(text) {
@@ -497,18 +620,42 @@ async function insertImageFile(file) {
 }
 
 function insertBlock(type) {
-  const snippets = {
-    h2: '\n\n## 小节标题\n\n',
-    h3: '\n\n### 子标题\n\n',
-    quote: '\n\n> 引用内容\n\n',
-    code: '\n\n```js\n// code\n```\n\n',
-    ul: '\n\n- 列表项\n- 列表项\n\n',
-    hr: '\n\n---\n\n'
-  }
-  insertAtCursor(snippets[type] || '\n\n')
+  if (type === 'h2') return lineBlock('## ', '小节标题')
+  if (type === 'h3') return lineBlock('### ', '子标题')
+  if (type === 'bold') return wrapSelection('**', '**', '加粗文字')
+  if (type === 'italic') return wrapSelection('*', '*', '斜体文字')
+  if (type === 'quote') return lineBlock('> ', '引用内容')
+  if (type === 'code') return wrapSelection('\n\n```js\n', '\n```\n\n', '// code')
+  if (type === 'ul') return insertAtCursor('\n\n- 列表项\n- 列表项\n\n')
+  if (type === 'ol') return insertAtCursor('\n\n1. 列表项\n2. 列表项\n\n')
+  if (type === 'link') return wrapSelection('[', '](https://example.com)', '链接文字')
+  if (type === 'image') return triggerImageSelect()
+  if (type === 'hr') return insertAtCursor('\n\n---\n\n')
+  insertAtCursor('\n\n')
 }
 
-function insertAtCursor(text) {
+function lineBlock(prefix, placeholder) {
+  const selected = getSelectionText()
+  insertAtCursor('\n\n' + prefix + (selected || placeholder) + '\n\n', selected ? null : placeholder)
+}
+
+function wrapSelection(before, after, placeholder) {
+  const selected = getSelectionText()
+  insertAtCursor(before + (selected || placeholder) + after, selected ? null : placeholder)
+}
+
+function applyColor(color) {
+  const selected = getSelectionText()
+  insertAtCursor('<span style="color: ' + color + ';">' + (selected || '彩色文字') + '</span>', selected ? null : '彩色文字')
+}
+
+function getSelectionText() {
+  const textarea = contentInput.value
+  if (!textarea) return ''
+  return article.content.slice(textarea.selectionStart, textarea.selectionEnd)
+}
+
+function insertAtCursor(text, selectText = null) {
   const textarea = contentInput.value
   if (!textarea) {
     article.content += text
@@ -521,7 +668,13 @@ function insertAtCursor(text) {
 
   requestAnimationFrame(() => {
     textarea.focus()
-    textarea.selectionStart = textarea.selectionEnd = start + text.length
+    if (selectText) {
+      const selectedStart = start + text.indexOf(selectText)
+      textarea.selectionStart = selectedStart
+      textarea.selectionEnd = selectedStart + selectText.length
+    } else {
+      textarea.selectionStart = textarea.selectionEnd = start + text.length
+    }
   })
 }
 
@@ -910,59 +1063,98 @@ function showStatus(message, type) {
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
   overflow: hidden;
+  background: var(--vp-c-bg);
 }
 
 .body-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   gap: 1rem;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem;
   background: var(--vp-c-bg-soft);
   font-weight: 700;
 }
 
-.block-toolbar button {
-  min-width: 2.2rem;
-  padding: 0.35rem 0.55rem;
+.block-toolbar {
+  justify-content: center;
+  width: 100%;
+}
+
+.tool-button,
+.color-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
   background: var(--vp-c-bg);
   color: var(--vp-c-text-1);
 }
 
+.tool-button:hover,
+.color-button:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+.tool-button svg {
+  width: 1.18rem;
+  height: 1.18rem;
+  fill: currentColor;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 1.7rem;
+  background: var(--vp-c-divider);
+}
+
+.color-button::before {
+  content: '';
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 999px;
+  background: var(--swatch);
+  box-shadow: 0 0 0 1px var(--vp-c-divider);
+}
+
 .content-editor {
-  min-height: 520px;
-  padding: 1.2rem;
+  min-height: 560px;
+  padding: 1.35rem;
   border: 0;
   border-radius: 0;
   resize: vertical;
-  line-height: 1.75;
+  background:
+    linear-gradient(var(--vp-c-bg) 0 0) padding-box,
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 2.08rem,
+      color-mix(in srgb, var(--vp-c-divider) 55%, transparent) 2.1rem
+    );
+  color: var(--vp-c-text-1);
+  font-size: 1rem;
+  line-height: 2.1;
 }
 
 .editor-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 42%);
-  min-height: 520px;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 560px;
 }
 
 .content-preview {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  border-left: 1px solid var(--vp-c-divider);
-  background: var(--vp-c-bg);
+  border-top: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
   min-width: 0;
-}
-
-.preview-title {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--vp-c-divider);
-  color: var(--vp-c-text-2);
-  font-size: 0.86rem;
-  font-weight: 700;
+  max-height: 420px;
+  overflow: auto;
 }
 
 .preview-body {
-  padding: 1.2rem;
-  overflow: auto;
+  padding: 1.25rem 1.35rem;
   color: var(--vp-c-text-1);
   font-size: 0.95rem;
   line-height: 1.85;
@@ -987,10 +1179,53 @@ function showStatus(message, type) {
   font-size: 1.02rem;
 }
 
+.preview-body p {
+  margin: 0.72rem 0;
+}
+
+.preview-body a {
+  color: var(--vp-c-brand-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.preview-body blockquote {
+  margin: 1rem 0;
+  padding: 0.8rem 1rem;
+  border-left: 4px solid var(--vp-c-brand-1);
+  border-radius: 6px;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-2);
+}
+
+.preview-body ul,
+.preview-body ol {
+  padding-left: 1.4rem;
+}
+
+.preview-body hr {
+  margin: 1.2rem 0;
+  border: 0;
+  border-top: 1px solid var(--vp-c-divider);
+}
+
 .preview-body code {
   padding: 0.12rem 0.32rem;
   border-radius: 4px;
   background: var(--vp-c-bg-soft);
+}
+
+.preview-body pre {
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg);
+}
+
+.preview-body pre code {
+  padding: 0;
+  background: transparent;
 }
 
 .preview-image {
