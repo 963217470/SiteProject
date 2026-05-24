@@ -140,7 +140,7 @@
         </button>
       </div>
 
-      <div class="editor-workspace">
+      <div class="editor-workspace" :class="{ 'with-source': showSource }">
         <textarea
           v-show="showSource"
           ref="contentInput"
@@ -1242,7 +1242,7 @@ function showStatus(message, type) {
   min-height: 560px;
   padding: 1.35rem;
   border: 0;
-  border-bottom: 1px solid var(--vp-c-divider);
+  border-right: 1px solid var(--vp-c-divider);
   border-radius: 0;
   resize: vertical;
   background:
@@ -1262,6 +1262,10 @@ function showStatus(message, type) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-height: 560px;
+}
+
+.editor-workspace.with-source {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .content-preview {
@@ -1446,6 +1450,15 @@ function showStatus(message, type) {
 
   .editor-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .editor-workspace.with-source {
+    grid-template-columns: 1fr;
+  }
+
+  .content-editor {
+    border-right: 0;
+    border-bottom: 1px solid var(--vp-c-divider);
   }
 
   .content-preview {
