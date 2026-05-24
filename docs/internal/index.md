@@ -8,9 +8,20 @@ import { ref, computed, onMounted } from 'vue'
 
 const loading = ref(true)
 const notMember = ref(false)
+const isAdmin = ref(false)
 const articles = ref([])
+const resources = ref([])
+const resourceError = ref('')
+const resourceBusy = ref(false)
+const resourceFile = ref(null)
 const selectedTags = ref([])
 const sortOrder = ref('newest')
+const resourceForm = ref({
+  title: '',
+  description: '',
+  category: '',
+  version: ''
+})
 let supabase = null
 
 const availableTags = ['Unity', 'Godot', 'Unreal Engine', 'Cocos Creator', 'C#', 'GDScript', 'C++', 'Lua', '教程', '入门', '进阶', '会议记录']
@@ -21,8 +32,13 @@ onMounted(async () => {
     supabase = window.__supabase
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { notMember.value = true; loading.value = false; return }
+    const profileResult = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle()
+    const role = profileResult.data?.role || 'user'
+    if (!['member', 'admin'].includes(role)) { notMember.value = true; loading.value = false; return }
+    isAdmin.value = role === 'admin'
     const { data } = await supabase.from('articles').select('id, title, summary, cover_url, tags, created_at, profiles!articles_author_id_fkey(username)').eq('status', 'published').eq('visibility', 'internal').order('created_at', { ascending: false })
     articles.value = data || []
+    await loadResources()
   } catch (e) { console.error('Internal articles error:', e) }
   finally { loading.value = false }
 })
@@ -41,6 +57,89 @@ function toggleTag(tag) {
 }
 
 function formatDate(d) { return new Date(d).toLocaleDateString('zh-CN') }
+function formatSize(size) {
+  const value = Number(size || 0)
+  if (!value) return ''
+  if (value < 1024 * 1024) return Math.max(1, Math.round(value / 1024)) + ' KB'
+  return (value / 1024 / 1024).toFixed(value > 100 * 1024 * 1024 ? 0 : 1) + ' MB'
+}
+
+async function loadResources() {
+  resourceError.value = ''
+  try {
+    const { data, error } = await supabase
+      .from('internal_resources')
+      .select('id, title, description, category, version, file_url, file_name, file_size, created_at')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+    if (error) {
+      resources.value = []
+      resourceError.value = '资源库还没有初始化，请管理员执行 supabase/internal-resources.sql'
+      return
+    }
+    resources.value = data || []
+  } catch (e) {
+    resourceError.value = '资源加载失败：' + (e.message || '未知错误')
+  }
+}
+
+function handleResourceFile(event) {
+  resourceFile.value = event.target.files?.[0] || null
+}
+
+function safePathName(name) {
+  return String(name || 'download')
+    .replace(/[\\/:*?"<>|#%{}^~[\]`]/g, '-')
+    .replace(/\s+/g, '-')
+    .slice(0, 120)
+}
+
+async function publishResource() {
+  if (!isAdmin.value || resourceBusy.value) return
+  const title = resourceForm.value.title.trim()
+  const file = resourceFile.value
+  if (!title || !file) {
+    resourceError.value = '请填写资源名称并选择文件'
+    return
+  }
+
+  resourceBusy.value = true
+  resourceError.value = ''
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('请先登录')
+    const path = [
+      session.user.id,
+      Date.now() + '-' + safePathName(file.name)
+    ].join('/')
+
+    const upload = await supabase.storage.from('resources').upload(path, file)
+    if (upload.error) throw new Error(upload.error.message || '文件上传失败')
+    const publicUrl = supabase.storage.from('resources').getPublicUrl(path).data.publicUrl
+    const insert = await supabase.from('internal_resources').insert({
+      title,
+      description: resourceForm.value.description.trim(),
+      category: resourceForm.value.category.trim(),
+      version: resourceForm.value.version.trim(),
+      file_url: publicUrl,
+      file_path: path,
+      file_name: file.name,
+      file_size: file.size,
+      status: 'published',
+      created_by: session.user.id
+    }).select('id').single()
+    if (insert.error) throw new Error(insert.error.message || '资源发布失败')
+    resourceForm.value = { title: '', description: '', category: '', version: '' }
+    resourceFile.value = null
+    const input = document.getElementById('resource-file')
+    if (input) input.value = ''
+    await loadResources()
+  } catch (e) {
+    resourceError.value = '资源发布失败：' + (e.message || '未知错误')
+  } finally {
+    resourceBusy.value = false
+  }
+}
 </script>
 
 <div class="internal-page">
@@ -49,6 +148,45 @@ function formatDate(d) { return new Date(d).toLocaleDateString('zh-CN') }
 <div v-show="notMember && !loading" class="not-member"><p>请先 <a href="/SiteProject/login">登录</a> 以查看内部文章</p></div>
 <div v-show="!loading && !notMember">
 <div class="internal-notice"><p>⚠️ 此区域仅社员可见，请勿外传</p></div>
+<section class="resources-section">
+<div class="section-heading">
+<div>
+<p class="section-kicker">资源软件</p>
+<h2>内部下载</h2>
+</div>
+<span>{{ resources.length }} 个资源</span>
+</div>
+<form v-if="isAdmin" class="resource-form" @submit.prevent="publishResource">
+<div class="form-grid">
+<label><span>资源名称</span><input v-model="resourceForm.title" type="text" placeholder="Blender 插件包 / UE 工具集"></label>
+<label><span>分类</span><input v-model="resourceForm.category" type="text" placeholder="软件 / 插件 / 素材"></label>
+<label><span>版本</span><input v-model="resourceForm.version" type="text" placeholder="v1.0 / 2026.05"></label>
+<label><span>文件</span><input id="resource-file" type="file" @change="handleResourceFile"></label>
+</div>
+<label class="description-field"><span>说明</span><textarea v-model="resourceForm.description" rows="3" placeholder="写清用途、安装方式或注意事项"></textarea></label>
+<button class="publish-resource" type="submit" :disabled="resourceBusy">{{ resourceBusy ? '发布中...' : '发布资源' }}</button>
+</form>
+<p v-if="resourceError" class="resource-error">{{ resourceError }}</p>
+<div v-if="resources.length" class="resource-list">
+<article v-for="item in resources" :key="item.id" class="resource-card">
+<div class="resource-main">
+<div class="resource-icon">⬇</div>
+<div>
+<h3>{{ item.title }}</h3>
+<p v-if="item.description">{{ item.description }}</p>
+<div class="resource-meta">
+<span v-if="item.category">{{ item.category }}</span>
+<span v-if="item.version">{{ item.version }}</span>
+<span v-if="item.file_size">{{ formatSize(item.file_size) }}</span>
+<span>{{ formatDate(item.created_at) }}</span>
+</div>
+</div>
+</div>
+<a class="download-btn" :href="item.file_url" :download="item.file_name || item.title" target="_blank" rel="noreferrer">下载</a>
+</article>
+</div>
+<div v-else-if="!resourceError" class="no-resources">暂无内部资源</div>
+</section>
 <div class="filter-section">
 <div class="tag-filter">
 <span>标签筛选：</span>
@@ -80,12 +218,36 @@ function formatDate(d) { return new Date(d).toLocaleDateString('zh-CN') }
 </div>
 
 <style scoped>
-.internal-page { max-width: 900px; margin: 0 auto; padding: 2rem; }
+.internal-page { max-width: 980px; margin: 0 auto; padding: 2rem; }
 .internal-page h1 { margin: 0 0 1.5rem 0; }
 .loading-state, .not-member { text-align: center; padding: 3rem; color: var(--vp-c-text-2); }
 .not-member a { color: var(--vp-c-brand-1); }
 .internal-notice { padding: 0.75rem 1rem; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; margin-bottom: 1.5rem; color: #92400e; font-size: 0.9rem; }
 .internal-notice p { margin: 0; }
+.resources-section { margin-bottom: 2rem; padding: 1.25rem; border: 1px solid var(--vp-c-divider); border-radius: 8px; background: var(--vp-c-bg-soft); }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.section-heading h2 { margin: 0; font-size: 1.35rem; }
+.section-heading > span { color: var(--vp-c-text-2); font-size: 0.85rem; }
+.section-kicker { margin: 0 0 0.2rem; color: var(--vp-c-brand-1); font-size: 0.78rem; font-weight: 700; letter-spacing: 0; }
+.resource-form { display: grid; gap: 0.9rem; margin-bottom: 1.2rem; padding: 1rem; border: 1px solid var(--vp-c-divider); border-radius: 8px; background: var(--vp-c-bg); }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; }
+.resource-form label { display: grid; gap: 0.35rem; color: var(--vp-c-text-2); font-size: 0.85rem; font-weight: 600; }
+.resource-form input, .resource-form textarea { width: 100%; padding: 0.65rem 0.75rem; border: 1px solid var(--vp-c-divider); border-radius: 6px; background: var(--vp-c-bg); color: var(--vp-c-text-1); font: inherit; }
+.description-field { grid-column: 1 / -1; }
+.publish-resource { justify-self: start; padding: 0.65rem 1.05rem; border: 1px solid #8b1f1f; border-radius: 8px; background: #8b1f1f; color: #fff; cursor: pointer; font: inherit; font-weight: 700; }
+.publish-resource:disabled { cursor: not-allowed; opacity: 0.65; }
+.resource-error { margin: 0 0 1rem; padding: 0.75rem 0.9rem; border-radius: 6px; background: #fee2e2; color: #991b1b; }
+.resource-list { display: grid; gap: 0.85rem; }
+.resource-card { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid var(--vp-c-divider); border-radius: 8px; background: var(--vp-c-bg); }
+.resource-main { display: flex; gap: 0.85rem; min-width: 0; }
+.resource-icon { display: grid; place-items: center; flex: 0 0 auto; width: 2.4rem; height: 2.4rem; border-radius: 8px; background: rgba(139, 31, 31, 0.1); color: #8b1f1f; font-weight: 800; }
+.resource-card h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+.resource-card p { margin: 0 0 0.5rem; color: var(--vp-c-text-2); font-size: 0.88rem; line-height: 1.5; }
+.resource-meta { display: flex; gap: 0.45rem; flex-wrap: wrap; color: var(--vp-c-text-3); font-size: 0.78rem; }
+.resource-meta span { padding: 0.12rem 0.45rem; border-radius: 999px; background: var(--vp-c-bg-soft); }
+.download-btn { flex: 0 0 auto; padding: 0.55rem 0.9rem; border-radius: 8px; background: #8b1f1f; color: #fff; text-decoration: none; font-size: 0.88rem; font-weight: 700; }
+.download-btn:hover { background: #6f1818; color: #fff; }
+.no-resources { padding: 1.5rem; border: 1px dashed var(--vp-c-divider); border-radius: 8px; color: var(--vp-c-text-2); text-align: center; background: var(--vp-c-bg); }
 .filter-section { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; padding: 1rem; background: var(--vp-c-bg-soft); border-radius: 8px; }
 .tag-filter { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .tag-filter span { font-weight: 500; font-size: 0.875rem; }
@@ -108,5 +270,5 @@ function formatDate(d) { return new Date(d).toLocaleDateString('zh-CN') }
 .tag-item { padding: 0.15rem 0.5rem; background: var(--vp-c-bg-soft); border-radius: 4px; font-size: 0.75rem; color: var(--vp-c-text-2); }
 .no-articles { text-align: center; padding: 3rem; color: var(--vp-c-text-2); background: var(--vp-c-bg-soft); border-radius: 8px; }
 .no-articles p { margin: 0; }
-@media (max-width: 768px) { .article-card { flex-direction: column; } .article-cover { width: 100%; height: 160px; } }
+@media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } .resource-card { align-items: stretch; flex-direction: column; } .download-btn { text-align: center; } .article-card { flex-direction: column; } .article-cover { width: 100%; height: 160px; } }
 </style>
