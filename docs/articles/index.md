@@ -117,7 +117,7 @@ function showArticles(data) {
   loading.style.display = 'none'
   noArticles.style.display = 'none'
   list.style.display = 'block'
-  if (pageHeader) pageHeader.textContent = activeTag ? '📚 标签：#' + activeTag : '📚 文章列表'
+  if (pageHeader) pageHeader.textContent = activeTag ? '📚 标签：' + activeTag : '📚 文章列表'
 
   if (!data || data.length === 0) {
     showNoArticles()
@@ -127,30 +127,30 @@ function showArticles(data) {
   list.innerHTML = data.map(article => {
     const cover = getArticleCover(article)
     return `
-    <div class="article-card">
-      ${cover ? `<img src="${cover}" class="article-cover" alt="${article.title}" onerror="this.style.display='none'">` : ''}
-      <div class="article-content">
-        <div class="article-header">
-          <h2><a href="/SiteProject/article?id=${article.id}">${article.title}</a></h2>
-          <span class="badge ${getStatusBadgeClass(article.status)}">${getStatusText(article.status)}</span>
+    <article class="list-article-card">
+      ${cover ? `<img src="${escapeHtml(cover)}" class="list-article-cover" alt="${escapeHtml(article.title)}" onerror="this.style.display='none'">` : '<div class="list-article-cover list-article-cover-fallback">RD</div>'}
+      <div class="list-article-content">
+        <div class="list-article-head">
+          <h2><a href="/SiteProject/article?id=${encodeURIComponent(article.id)}">${escapeHtml(article.title)}</a></h2>
+          <span class="list-badge ${getStatusBadgeClass(article.status)}">${getStatusText(article.status)}</span>
         </div>
-        <p class="article-summary">${article.summary || renderArticlePreview(article.content)}</p>
-        <div class="article-meta">
-          <span class="meta-item">📅 ${formatDate(article.created_at)}</span>
-          <span class="meta-item">${getVisibilityText(article.visibility)}</span>
-          <span class="meta-item">❤️ ${article.likes_count || 0}</span>
-          <span class="meta-item">💬 ${article.comments_count || 0}</span>
+        <p class="list-article-summary">${escapeHtml(article.summary || renderArticlePreview(article.content))}</p>
+        <div class="list-article-meta">
+          <span>📅 ${formatDate(article.created_at)}</span>
+          <span>${getVisibilityText(article.visibility)}</span>
+          <span>❤️ ${article.likes_count || 0}</span>
+          <span>💬 ${article.comments_count || 0}</span>
         </div>
-        <div class="article-footer">
+        <div class="list-article-footer">
           ${article.tags && article.tags.length > 0 ? `
-            <div class="article-tags">
-              ${article.tags.map(tag => `<a class="tag" href="/SiteProject/articles?tag=${encodeURIComponent(tag)}">#${escapeHtml(tag)}</a>`).join('')}
+            <div class="list-article-tags">
+              ${article.tags.map(tag => `<a class="list-tag" href="/SiteProject/articles?tag=${encodeURIComponent(tag)}">#${escapeHtml(tag)}</a>`).join('')}
             </div>
           ` : '<div></div>'}
-          <a class="view-article-btn" href="/SiteProject/article?id=${article.id}">查看文章</a>
+          <a class="view-article-btn" href="/SiteProject/article?id=${encodeURIComponent(article.id)}">查看文章</a>
         </div>
-          </div>
-    </div>
+      </div>
+    </article>
   `}).join('')
 }
 
@@ -196,7 +196,7 @@ async function loadArticles() {
 
     if (error) {
       console.error('Database error:', error)
-      showError('数据库错误: ' + error.message)
+      showError('数据库错误：' + error.message)
       return
     }
 
@@ -209,7 +209,7 @@ async function loadArticles() {
 
   } catch (e) {
     console.error('Unexpected error:', e)
-    showError('加载失败: ' + e.message)
+    showError('加载失败：' + e.message)
   }
 }
 
@@ -311,38 +311,46 @@ if (typeof document !== 'undefined') {
   gap: 1rem;
 }
 
-.article-card {
-  display: flex;
+.list-article-card {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
   gap: 1.25rem;
+  min-height: 180px;
   padding: 1.15rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 10px;
   background: var(--vp-c-bg);
-  transition: all 0.2s;
-  min-height: 180px;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.article-card:hover {
+.list-article-card:hover {
   border-color: var(--vp-c-brand-1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.article-cover {
+.list-article-cover {
   width: 220px;
   height: 156px;
   object-fit: cover;
   border-radius: 8px;
-  flex-shrink: 0;
+  background: var(--vp-c-bg-soft);
 }
 
-.article-content {
-  flex: 1;
-  min-width: 0;
+.list-article-cover-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--vp-c-brand-1);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.list-article-content {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
-.article-header {
+.list-article-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -350,30 +358,29 @@ if (typeof document !== 'undefined') {
   margin-bottom: 0.75rem;
 }
 
-.article-content h2 {
+.list-article-content h2 {
   margin: 0;
-  flex: 1;
   min-width: 0;
   font-size: 1.25rem;
   line-height: 1.35;
 }
 
-.article-content h2 a {
+.list-article-content h2 a {
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--vp-c-text-1);
   text-decoration: none;
   transition: color 0.2s;
-  display: -webkit-box;
-  overflow: hidden;
   overflow-wrap: anywhere;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
-.article-content h2 a:hover {
+.list-article-content h2 a:hover {
   color: var(--vp-c-brand-1);
 }
 
-.badge {
+.list-badge {
   flex-shrink: 0;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
@@ -386,7 +393,7 @@ if (typeof document !== 'undefined') {
 .badge-published { background: #d1fae5; color: #065f46; }
 .badge-rejected { background: #fee2e2; color: #991b1b; }
 
-.article-summary {
+.list-article-summary {
   margin: 0 0 1rem 0;
   color: var(--vp-c-text-2);
   line-height: 1.6;
@@ -396,7 +403,7 @@ if (typeof document !== 'undefined') {
   -webkit-box-orient: vertical;
 }
 
-.article-meta {
+.list-article-meta {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
@@ -405,13 +412,13 @@ if (typeof document !== 'undefined') {
   color: var(--vp-c-text-3);
 }
 
-.article-tags {
+.list-article-tags {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-.article-footer {
+.list-article-footer {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -419,7 +426,7 @@ if (typeof document !== 'undefined') {
   margin-top: auto;
 }
 
-.tag {
+.list-tag {
   padding: 0.25rem 0.5rem;
   background: var(--vp-c-brand-soft);
   color: var(--vp-c-brand-1);
@@ -428,7 +435,7 @@ if (typeof document !== 'undefined') {
   text-decoration: none;
 }
 
-.tag:hover {
+.list-tag:hover {
   background: var(--vp-c-brand-1);
   color: #fff;
 }
@@ -455,16 +462,16 @@ if (typeof document !== 'undefined') {
     flex-direction: column;
   }
 
-  .article-card {
-    flex-direction: column;
+  .list-article-card {
+    grid-template-columns: 1fr;
   }
 
-  .article-cover {
+  .list-article-cover {
     width: 100%;
     height: 200px;
   }
 
-  .article-footer {
+  .list-article-footer {
     align-items: flex-start;
     flex-direction: column;
   }
