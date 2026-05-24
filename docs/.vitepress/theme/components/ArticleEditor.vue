@@ -603,10 +603,10 @@ async function uploadArticleImage(supabase, file) {
 async function uploadArticleAttachment(supabase, file) {
   const sessionResult = await supabase.auth.getSession()
   const userId = sessionResult?.data?.session?.user?.id || 'anonymous'
-  const path = userId + '/' + safeFileName(file.name)
-  const upload = await supabase.storage.from('resources').upload(path, file)
+  const path = 'article-attachments/' + userId + '/' + safeFileName(file.name)
+  const upload = await supabase.storage.from('avatars').upload(path, file)
   if (upload.error) throw new Error('附件上传失败：' + upload.error.message)
-  return supabase.storage.from('resources').getPublicUrl(path).data.publicUrl
+  return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
 }
 
 function findImageUrl(src, baseDir, imageMap) {
