@@ -142,41 +142,30 @@
             @click="applyColor(color.value)"
           ></button>
         </div>
-        <button
-          class="source-toggle"
-          type="button"
-          :class="{ active: showSource }"
-          :title="showSource ? '隐藏源码' : '显示源码'"
-          :aria-label="showSource ? '隐藏源码' : '显示源码'"
-          :aria-pressed="showSource"
-          @click="showSource = !showSource"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M8.7 16.6 3.9 12l4.8-4.6 1.4 1.5L6.9 12l3.2 3.1-1.4 1.5Zm6.6 0-1.4-1.5 3.2-3.1-3.2-3.1 1.4-1.5 4.8 4.6-4.8 4.6ZM11.2 19l-1.9-.6L12.8 5l1.9.6L11.2 19Z"></path>
-          </svg>
-        </button>
       </div>
 
-      <div class="editor-workspace" :class="{ 'with-source': showSource }">
+      <div class="editor-workspace">
         <textarea
-          v-show="showSource"
+          v-show="false"
           ref="contentInput"
           v-model="article.content"
-          class="content-editor"
+          class="content-editor source-buffer"
+          aria-hidden="true"
+          tabindex="-1"
           placeholder="直接输入正文，或上传 Markdown / 文件夹。支持拖拽图片到这里。"
           rows="20"
         ></textarea>
         <div class="content-preview" aria-label="正文预览">
           <div
-            v-if="article.content.trim()"
+            ref="previewInput"
             class="preview-body editable-preview"
             contenteditable="true"
             spellcheck="true"
+            data-placeholder="上传或输入内容后，这里会显示图片和排版效果。"
             @blur="syncPreviewEdit"
             @paste="handlePreviewPaste"
             v-html="previewHtml"
           ></div>
-          <div v-else class="preview-empty">上传或输入内容后，这里会显示图片和排版效果。</div>
         </div>
       </div>
     </section>
@@ -200,6 +189,7 @@ const folderInput = ref(null)
 const imageInput = ref(null)
 const attachmentInput = ref(null)
 const contentInput = ref(null)
+const previewInput = ref(null)
 const selectedFile = ref('')
 const selectedFolder = ref('')
 const selectedAttachment = ref('')
@@ -210,7 +200,6 @@ const customTag = ref('')
 const kbBranches = ref([])
 const kbLoading = ref(false)
 const kbError = ref('')
-const showSource = ref(true)
 
 const presetTags = ['Unity', 'Godot', 'Unreal Engine', 'C#', '教程', '入门', '进阶', '2D游戏', '3D游戏', '团队合作']
 const selectedTags = ref([])
@@ -881,7 +870,6 @@ async function insertAttachmentFile(file) {
 }
 
 function insertBlock(type) {
-  showSource.value = true
   if (type === 'h2') return lineBlock('## ', '小节标题')
   if (type === 'h3') return lineBlock('### ', '子标题')
   if (type === 'bold') return wrapSelection('**', '**', '加粗文字')
@@ -907,20 +895,30 @@ function wrapSelection(before, after, placeholder) {
 }
 
 function applyColor(color) {
-  showSource.value = true
   const selected = getSelectionText()
   insertAtCursor('<span style="color: ' + color + ';">' + (selected || '彩色文字') + '</span>', selected ? null : '彩色文字')
 }
 
 function getSelectionText() {
+  const previewSelection = getPreviewSelection()
+  if (previewSelection) return previewSelection.toString()
+
   const textarea = contentInput.value
   if (!textarea) return ''
   return article.content.slice(textarea.selectionStart, textarea.selectionEnd)
 }
 
 function insertAtCursor(text, selectText = null) {
+  const previewSelection = getPreviewSelection()
+  if (previewSelection) {
+    previewSelection.deleteContents()
+    previewSelection.insertNode(document.createTextNode(text))
+    syncPreviewEdit({ currentTarget: previewInput.value })
+    return
+  }
+
   const textarea = contentInput.value
-  if (!textarea) {
+  if (!textarea || textarea.offsetParent === null) {
     article.content += text
     return
   }
@@ -939,6 +937,14 @@ function insertAtCursor(text, selectText = null) {
       textarea.selectionStart = textarea.selectionEnd = start + text.length
     }
   })
+}
+
+function getPreviewSelection() {
+  if (typeof window === 'undefined' || !previewInput.value) return null
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null
+  const range = selection.getRangeAt(0)
+  return previewInput.value.contains(range.commonAncestorContainer) ? range : null
 }
 
 async function waitForSupabase(maxAttempts = 30) {
@@ -1513,6 +1519,16 @@ function showStatus(message, type) {
 .editable-preview {
   min-height: 560px;
   cursor: text;
+}
+
+.editable-preview:empty::before {
+  content: attr(data-placeholder);
+  display: grid;
+  place-items: center;
+  min-height: 480px;
+  color: var(--vp-c-text-2);
+  text-align: center;
+  font-size: 0.9rem;
 }
 
 .editable-preview:focus {
