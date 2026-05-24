@@ -27,6 +27,7 @@ var articleState = {
   article: null,
   comments: [],
   profiles: {},
+  knowledgeBranches: null,
   session: null,
   liked: false,
   favoriteTableReady: true,
@@ -148,11 +149,54 @@ function renderInlineMarkdown(value) {
     .replace(/\[\[([^#|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, title, label) {
       var cleanTitle = String(title || '').trim()
       var text = String(label || cleanTitle).trim()
-      return '<a class="wiki-link" href="/SiteProject/article?title=' + encodeURIComponent(cleanTitle) + '">' + escapeHtml(text) + '</a>'
+      return '<a class="wiki-link" data-wiki-title="' + escapeHtml(cleanTitle) + '" href="/SiteProject/article?title=' + encodeURIComponent(cleanTitle) + '">' + escapeHtml(text) + '</a>'
     })
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
+}
+
+function normalizeWikiTarget(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^知识库总览\s*\/\s*/, '')
+    .replace(/\s*\/\s*/g, '/')
+    .toLowerCase()
+}
+
+function knowledgeBranchPath(branch, branches) {
+  var names = []
+  var current = branch
+  while (current) {
+    names.unshift(current.name)
+    current = branches.find(function(item) { return item.id === current.parent_id })
+  }
+  return names.join('/')
+}
+
+async function hydrateWikiLinks() {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.article-body .wiki-link[data-wiki-title]'))
+  if (!links.length || !window.__supabase) return
+
+  if (!articleState.knowledgeBranches) {
+    var result = await window.__supabase
+      .from('knowledge_branches')
+      .select('id, parent_id, name')
+    articleState.knowledgeBranches = result.error ? [] : (result.data || [])
+  }
+
+  links.forEach(function(link) {
+    var title = link.getAttribute('data-wiki-title') || ''
+    var target = normalizeWikiTarget(title)
+    var match = articleState.knowledgeBranches.find(function(branch) {
+      return normalizeWikiTarget(branch.name) === target
+        || normalizeWikiTarget(knowledgeBranchPath(branch, articleState.knowledgeBranches)) === target
+    })
+    if (!match) return
+    link.href = '/SiteProject/kb?branch=' + encodeURIComponent(title)
+    link.classList.add('wiki-branch-link')
+    link.title = '打开知识库分支：' + title
+  })
 }
 
 function isTableSeparator(line) {
@@ -182,6 +226,10 @@ function renderTable(headerLine, rowLines) {
     }).join('') + '</tbody>',
     '</table></div>'
   ].join('')
+
+  hydrateWikiLinks().catch(function(error) {
+    console.warn('Wiki branch links skipped:', error)
+  })
 }
 
 function renderMarkdown(content) {

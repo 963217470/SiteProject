@@ -400,7 +400,7 @@ function renderInline(value) {
     .replace(/\[\[([^#|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, title, label) {
       const cleanTitle = String(title || '').trim()
       const text = String(label || cleanTitle).trim()
-      return '<a class="wiki-link" href="/SiteProject/article?title=' + encodeURIComponent(cleanTitle) + '">' + text + '</a>'
+      return '<a class="wiki-link" href="/SiteProject/kb?branch=' + encodeURIComponent(cleanTitle) + '">' + text + '</a>'
     })
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')

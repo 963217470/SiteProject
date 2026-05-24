@@ -103,7 +103,7 @@ function renderTreeNodes(parentId) {
     var count = branchArticleCount(branch.id)
     return [
       '<li>',
-      '  <button class="tree-node ' + (kbState.activeBranchId === branch.id ? 'active' : '') + '" type="button" onclick="selectBranch(\'' + branch.id + '\')">',
+      '  <button class="tree-node ' + (kbState.activeBranchId === branch.id ? 'active' : '') + '" type="button" data-branch-id="' + esc(branch.id) + '" onclick="selectBranch(\'' + branch.id + '\')">',
       '    <span>' + esc(branch.name) + '</span>',
       '    <small>' + count + '</small>',
       '  </button>',
@@ -121,6 +121,25 @@ function branchPath(branch) {
     current = kbState.branches.find(function(item) { return item.id === current.parent_id })
   }
   return names.join(' / ')
+}
+
+function normalizeBranchTarget(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^知识库总览\s*\/\s*/, '')
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s+/g, '')
+    .toLowerCase()
+}
+
+function findBranchByTarget(value) {
+  var target = normalizeBranchTarget(value)
+  if (!target) return null
+  return kbState.branches.find(function(branch) {
+    return branch.id === value
+      || normalizeBranchTarget(branch.name) === target
+      || normalizeBranchTarget(branchPath(branch)) === target
+  }) || null
 }
 
 function visibleArticles() {
@@ -176,11 +195,32 @@ function renderPage() {
   document.getElementById('branch-path').textContent = active ? branchPath(active) : '全部分支'
   document.getElementById('branch-description').textContent = active && active.description ? active.description : '按固定分支整理文章，让新成员可以沿着路线阅读。'
   renderArticles()
+
+  if (active) {
+    requestAnimationFrame(function() {
+      var node = document.querySelector('[data-branch-id="' + active.id + '"]')
+      if (node) node.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+  }
 }
 
-function selectBranch(id) {
+function selectBranch(id, skipUrl) {
   kbState.activeBranchId = id || ''
+  if (!skipUrl && window.history) {
+    var active = kbState.branches.find(function(branch) { return branch.id === kbState.activeBranchId })
+    var url = new URL(window.location.href)
+    if (active) url.searchParams.set('branch', branchPath(active))
+    else url.searchParams.delete('branch')
+    window.history.replaceState(null, '', url.toString())
+  }
   renderPage()
+}
+
+function applyInitialBranchFromUrl() {
+  var params = new URLSearchParams(window.location.search)
+  var target = params.get('branch') || params.get('path') || params.get('id') || ''
+  var branch = findBranchByTarget(target)
+  kbState.activeBranchId = branch ? branch.id : ''
 }
 
 async function loadKnowledgeBase() {
@@ -208,6 +248,7 @@ async function loadKnowledgeBase() {
 
     kbState.branches = branchResult.data || []
     kbState.articles = articleResult.data || []
+    applyInitialBranchFromUrl()
     renderPage()
     show('loading', false)
     show('kb-app', true)
