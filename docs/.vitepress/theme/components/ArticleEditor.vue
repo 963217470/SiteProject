@@ -373,6 +373,16 @@ function renderInline(value) {
   return escapeHtml(value)
     .replace(/&lt;span\s+style=&quot;color:\s*(#[0-9a-fA-F]{3,6});?&quot;&gt;([\s\S]*?)&lt;\/span&gt;/g, '<span style="color: $1;">$2</span>')
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="preview-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
+    .replace(/\[\[#([^|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, tag, label) {
+      const cleanTag = String(tag || '').trim()
+      const text = String(label || cleanTag).trim().replace(/^#/, '')
+      return '<a class="wiki-tag" href="/SiteProject/articles?tag=' + encodeURIComponent(cleanTag) + '">#' + text + '</a>'
+    })
+    .replace(/\[\[([^#|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, title, label) {
+      const cleanTitle = String(title || '').trim()
+      const text = String(label || cleanTitle).trim()
+      return '<a class="wiki-link" href="/SiteProject/article?title=' + encodeURIComponent(cleanTitle) + '">' + text + '</a>'
+    })
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
@@ -1216,6 +1226,23 @@ function showStatus(message, type) {
   color: var(--vp-c-brand-1);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.preview-body .wiki-link,
+.preview-body .wiki-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.18rem;
+  border-radius: 5px;
+  background: rgba(139, 31, 31, 0.08);
+  color: #8b1f1f;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.preview-body .wiki-tag {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
 }
 
 .preview-body blockquote {

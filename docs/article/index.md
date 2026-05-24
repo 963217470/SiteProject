@@ -114,6 +114,17 @@ async function loadArticleRecord(supabase, id) {
     .single()
 }
 
+async function loadArticleByTitle(supabase, title) {
+  return supabase
+    .from('articles')
+    .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count, views_count')
+    .eq('title', title)
+    .eq('status', 'published')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+}
+
 async function updateViewCountIfAvailable(supabase) {
   if (!articleState.article || typeof articleState.article.views_count === 'undefined') return
   var nextCount = Number(articleState.article.views_count || 0) + 1
@@ -129,6 +140,16 @@ function renderInlineMarkdown(value) {
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="article-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
     .replace(/&lt;span style=&quot;color:\s*(#[0-9a-fA-F]{3,8}|[a-zA-Z]+);?&quot;&gt;/g, '<span style="color: $1;">')
     .replace(/&lt;\/span&gt;/g, '</span>')
+    .replace(/\[\[#([^|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, tag, label) {
+      var cleanTag = String(tag || '').trim()
+      var text = String(label || cleanTag).trim()
+      return '<a class="wiki-tag" href="/SiteProject/articles?tag=' + encodeURIComponent(cleanTag) + '">#' + escapeHtml(text).replace(/^#/, '') + '</a>'
+    })
+    .replace(/\[\[([^#|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, title, label) {
+      var cleanTitle = String(title || '').trim()
+      var text = String(label || cleanTitle).trim()
+      return '<a class="wiki-link" href="/SiteProject/article?title=' + encodeURIComponent(cleanTitle) + '">' + escapeHtml(text) + '</a>'
+    })
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -616,8 +637,10 @@ async function loadArticle() {
   setVisible('article-shell', false)
 
   try {
-    articleState.id = new URLSearchParams(window.location.search).get('id') || ''
-    if (!articleState.id) {
+    var params = new URLSearchParams(window.location.search)
+    articleState.id = params.get('id') || ''
+    var articleTitle = (params.get('title') || '').trim()
+    if (!articleState.id && !articleTitle) {
       setVisible('loading', false)
       setVisible('article-not-found', true)
       return
@@ -638,7 +661,9 @@ async function loadArticle() {
     }
     articleState.session = sessionResult.data.session
 
-    var result = await loadArticleRecord(supabase, articleState.id)
+    var result = articleState.id
+      ? await loadArticleRecord(supabase, articleState.id)
+      : await loadArticleByTitle(supabase, articleTitle)
 
     if (result.error) throw new Error(result.error.message)
     if (!result.data) {
@@ -648,6 +673,7 @@ async function loadArticle() {
     }
 
     articleState.article = result.data
+    articleState.id = articleState.article.id
     saveRecentArticle(articleState.article)
     updateViewCountIfAvailable(supabase).catch(function(error) {
       console.warn('Article view count update skipped:', error)
@@ -954,6 +980,29 @@ if (typeof document !== 'undefined') {
   padding: 0.15rem 0.35rem;
   border-radius: 4px;
   background: #f3f4f6;
+}
+
+.article-body a {
+  color: #8b1f1f;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(139, 31, 31, 0.32);
+}
+
+.article-body .wiki-link,
+.article-body .wiki-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0 0.18rem;
+  border-radius: 5px;
+  background: rgba(139, 31, 31, 0.08);
+}
+
+.article-body .wiki-tag {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.1);
+  border-bottom-color: rgba(124, 58, 237, 0.3);
 }
 
 .article-body blockquote {

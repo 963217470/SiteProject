@@ -33,6 +33,16 @@ layout: page
 
 <script>
 var currentFilter = 'all'
+var activeTag = ''
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
 
 function formatDate(d) { 
   const date = new Date(d)
@@ -102,10 +112,12 @@ function showArticles(data) {
   const loading = document.getElementById('loading')
   const noArticles = document.getElementById('no-articles')
   const list = document.getElementById('articles-list')
+  const pageHeader = document.querySelector('.page-header h1')
 
   loading.style.display = 'none'
   noArticles.style.display = 'none'
   list.style.display = 'block'
+  if (pageHeader) pageHeader.textContent = activeTag ? '📚 标签：#' + activeTag : '📚 文章列表'
 
   if (!data || data.length === 0) {
     showNoArticles()
@@ -132,7 +144,7 @@ function showArticles(data) {
         <div class="article-footer">
           ${article.tags && article.tags.length > 0 ? `
             <div class="article-tags">
-              ${article.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
+              ${article.tags.map(tag => `<a class="tag" href="/SiteProject/articles?tag=${encodeURIComponent(tag)}">#${escapeHtml(tag)}</a>`).join('')}
             </div>
           ` : '<div></div>'}
           <a class="view-article-btn" href="/SiteProject/article?id=${article.id}">查看文章</a>
@@ -156,6 +168,7 @@ async function loadArticles() {
   if (typeof document === 'undefined') return
   const loading = document.getElementById('loading')
   loading.style.display = 'block'
+  activeTag = new URLSearchParams(window.location.search).get('tag') || ''
 
   try {
     console.log('Waiting for Supabase...')
@@ -187,8 +200,12 @@ async function loadArticles() {
       return
     }
 
-    console.log('Articles loaded:', data)
-    showArticles(data)
+    const filteredData = activeTag
+      ? (data || []).filter(article => Array.isArray(article.tags) && article.tags.some(tag => String(tag).toLowerCase() === activeTag.toLowerCase()))
+      : data
+
+    console.log('Articles loaded:', filteredData)
+    showArticles(filteredData)
 
   } catch (e) {
     console.error('Unexpected error:', e)
@@ -408,6 +425,12 @@ if (typeof document !== 'undefined') {
   color: var(--vp-c-brand-1);
   border-radius: 4px;
   font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.tag:hover {
+  background: var(--vp-c-brand-1);
+  color: #fff;
 }
 
 .view-article-btn {
