@@ -154,7 +154,8 @@ html, body {
 .is-home .VPNav.nav-at-top .VPNavBarMenuLink,
 .is-home .VPNav.nav-at-top .title,
 .is-home .VPNav.nav-at-top .VPNavBarAppearance,
-.is-home .VPNav.nav-at-top .VPNavBarHamburger {
+.is-home .VPNav.nav-at-top .VPNavBarHamburger,
+.is-home .VPNav.nav-at-top .VPNavBarMenuGroup button {
   color: white !important;
 }
 .is-home .VPNav.nav-at-top .DocSearch-Button {
@@ -187,7 +188,12 @@ html, body {
 .is-home .VPNav.nav-scrolled .VPNavBarMenuLink,
 .is-home .VPNav.nav-scrolled .title,
 .is-home .VPNav.nav-scrolled .VPNavBarAppearance,
-.is-home .VPNav.nav-scrolled .VPNavBarHamburger {
+.is-home .VPNav.nav-scrolled .VPNavBarHamburger,
+.is-home .VPNav.nav-scrolled .VPNavBarMenuGroup button {
+  color: var(--vp-c-text-1) !important;
+}
+.is-home .VPNav.nav-scrolled .nav-rd,
+.is-home .VPNav.nav-scrolled .nav-studio {
   color: var(--vp-c-text-1) !important;
 }
 .VPNav.nav-scrolled .DocSearch-Button {
