@@ -119,10 +119,24 @@
             @click="applyColor(color.value)"
           ></button>
         </div>
+        <button
+          class="source-toggle"
+          type="button"
+          :class="{ active: showSource }"
+          :title="showSource ? '隐藏源码' : '显示源码'"
+          :aria-label="showSource ? '隐藏源码' : '显示源码'"
+          :aria-pressed="showSource"
+          @click="showSource = !showSource"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8.7 16.6 3.9 12l4.8-4.6 1.4 1.5L6.9 12l3.2 3.1-1.4 1.5Zm6.6 0-1.4-1.5 3.2-3.1-3.2-3.1 1.4-1.5 4.8 4.6-4.8 4.6ZM11.2 19l-1.9-.6L12.8 5l1.9.6L11.2 19Z"></path>
+          </svg>
+        </button>
       </div>
 
       <div class="editor-workspace">
         <textarea
+          v-show="showSource"
           ref="contentInput"
           v-model="article.content"
           class="content-editor"
@@ -163,6 +177,7 @@ const customTag = ref('')
 const kbBranches = ref([])
 const kbLoading = ref(false)
 const kbError = ref('')
+const showSource = ref(false)
 
 const presetTags = ['Unity', 'Godot', 'Unreal Engine', 'C#', '教程', '入门', '进阶', '2D游戏', '3D游戏', '团队合作']
 const selectedTags = ref([])
@@ -620,6 +635,7 @@ async function insertImageFile(file) {
 }
 
 function insertBlock(type) {
+  showSource.value = true
   if (type === 'h2') return lineBlock('## ', '小节标题')
   if (type === 'h3') return lineBlock('### ', '子标题')
   if (type === 'bold') return wrapSelection('**', '**', '加粗文字')
@@ -645,6 +661,7 @@ function wrapSelection(before, after, placeholder) {
 }
 
 function applyColor(color) {
+  showSource.value = true
   const selected = getSelectionText()
   insertAtCursor('<span style="color: ' + color + ';">' + (selected || '彩色文字') + '</span>', selected ? null : '彩色文字')
 }
@@ -887,6 +904,7 @@ function showStatus(message, type) {
 
 .btn,
 .block-toolbar button,
+.source-toggle,
 .import-tile,
 .tag-chip {
   border: 1px solid var(--vp-c-divider);
@@ -1068,7 +1086,7 @@ function showStatus(message, type) {
 
 .body-header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   gap: 1rem;
   padding: 0.75rem;
@@ -1077,12 +1095,14 @@ function showStatus(message, type) {
 }
 
 .block-toolbar {
-  justify-content: center;
-  width: 100%;
+  flex: 1;
+  justify-content: flex-start;
+  width: auto;
 }
 
 .tool-button,
-.color-button {
+.color-button,
+.source-toggle {
   display: inline-grid;
   place-items: center;
   width: 2.35rem;
@@ -1093,15 +1113,22 @@ function showStatus(message, type) {
 }
 
 .tool-button:hover,
-.color-button:hover {
+.color-button:hover,
+.source-toggle:hover,
+.source-toggle.active {
   border-color: var(--vp-c-brand-1);
   color: var(--vp-c-brand-1);
 }
 
-.tool-button svg {
+.tool-button svg,
+.source-toggle svg {
   width: 1.18rem;
   height: 1.18rem;
   fill: currentColor;
+}
+
+.source-toggle {
+  flex: 0 0 auto;
 }
 
 .toolbar-divider {
@@ -1124,6 +1151,7 @@ function showStatus(message, type) {
   min-height: 560px;
   padding: 1.35rem;
   border: 0;
+  border-bottom: 1px solid var(--vp-c-divider);
   border-radius: 0;
   resize: vertical;
   background:
@@ -1146,18 +1174,19 @@ function showStatus(message, type) {
 }
 
 .content-preview {
-  border-top: 1px solid var(--vp-c-divider);
-  background: var(--vp-c-bg-soft);
+  background: var(--vp-c-bg);
   min-width: 0;
-  max-height: 420px;
+  min-height: 560px;
   overflow: auto;
 }
 
 .preview-body {
-  padding: 1.25rem 1.35rem;
+  width: min(100%, 920px);
+  margin: 0 auto;
+  padding: 2.2rem clamp(1.2rem, 4vw, 3rem);
   color: var(--vp-c-text-1);
-  font-size: 0.95rem;
-  line-height: 1.85;
+  font-size: 1.02rem;
+  line-height: 1.9;
 }
 
 .preview-body h1,
@@ -1168,15 +1197,15 @@ function showStatus(message, type) {
 }
 
 .preview-body h1 {
-  font-size: 1.35rem;
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
 }
 
 .preview-body h2 {
-  font-size: 1.16rem;
+  font-size: 1.45rem;
 }
 
 .preview-body h3 {
-  font-size: 1.02rem;
+  font-size: 1.18rem;
 }
 
 .preview-body p {
@@ -1256,6 +1285,7 @@ function showStatus(message, type) {
 .preview-empty {
   display: grid;
   place-items: center;
+  min-height: 560px;
   padding: 2rem;
   color: var(--vp-c-text-2);
   text-align: center;
