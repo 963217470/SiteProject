@@ -183,6 +183,11 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import MarkdownIt from 'markdown-it'
+import katexPlugin from '@vscode/markdown-it-katex'
+
+const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
+md.use(katexPlugin.default || katexPlugin, { throwOnError: false })
 
 const fileInput = ref(null)
 const folderInput = ref(null)
@@ -342,100 +347,11 @@ function escapeHtml(value) {
 }
 
 function renderMarkdownPreview(content) {
-  const blocks = []
-  let listType = ''
-  let listItems = []
-  let inCode = false
-  let codeLines = []
-
-  const flushList = () => {
-    if (!listType) return
-    blocks.push('<' + listType + '>' + listItems.map(item => '<li>' + renderInline(item) + '</li>').join('') + '</' + listType + '>')
-    listType = ''
-    listItems = []
-  }
-
-  const flushCode = () => {
-    if (!inCode) return
-    blocks.push('<pre><code>' + escapeHtml(codeLines.join('\n')) + '</code></pre>')
-    inCode = false
-    codeLines = []
-  }
-
-  for (const rawLine of String(content || '').split('\n')) {
-    const line = rawLine.trimEnd()
-
-    if (/^```/.test(line.trim())) {
-      if (inCode) flushCode()
-      else {
-        flushList()
-        inCode = true
-        codeLines = []
-      }
-      continue
-    }
-
-    if (inCode) {
-      codeLines.push(rawLine)
-      continue
-    }
-
-    if (!line.trim()) {
-      flushList()
-      continue
-    }
-
-    const imageMatch = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)$/)
-    if (imageMatch) {
-      flushList()
-      blocks.push('<figure class="preview-image"><img src="' + imageMatch[2] + '" alt="' + escapeHtml(imageMatch[1]) + '"><figcaption>' + escapeHtml(imageMatch[1]) + '</figcaption></figure>')
-      continue
-    }
-
-    const heading = line.match(/^(#{1,3})\s+(.+)$/)
-    if (heading) {
-      flushList()
-      const level = heading[1].length
-      blocks.push('<h' + level + '>' + renderInline(heading[2]) + '</h' + level + '>')
-      continue
-    }
-
-    const quote = line.match(/^>\s?(.*)$/)
-    if (quote) {
-      flushList()
-      blocks.push('<blockquote>' + renderInline(quote[1]) + '</blockquote>')
-      continue
-    }
-
-    if (/^---+$/.test(line.trim())) {
-      flushList()
-      blocks.push('<hr>')
-      continue
-    }
-
-    const ordered = line.match(/^\d+\.\s+(.+)$/)
-    const unordered = line.match(/^[-*]\s+(.+)$/)
-    if (ordered || unordered) {
-      const nextType = ordered ? 'ol' : 'ul'
-      if (listType && listType !== nextType) flushList()
-      listType = nextType
-      listItems.push((ordered || unordered)[1])
-      continue
-    }
-
-    flushList()
-    blocks.push('<p>' + renderInline(line.trim()) + '</p>')
-  }
-
-  flushList()
-  flushCode()
-  return blocks.join('')
-}
-
-function renderInline(value) {
-  return escapeHtml(value)
-    .replace(/&lt;span\s+style=&quot;color:\s*(#[0-9a-fA-F]{3,6});?&quot;&gt;([\s\S]*?)&lt;\/span&gt;/g, '<span style="color: $1;">$2</span>')
-    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="preview-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
+  let html = md.render(String(content || ''))
+  html = html
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, function(match, alt, src) {
+      return '<figure class="preview-image"><img src="' + src + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + '</figcaption></figure>'
+    })
     .replace(/\[\[#([^|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, tag, label) {
       const cleanTag = String(tag || '').trim()
       const text = String(label || cleanTag).trim().replace(/^#/, '')
@@ -446,10 +362,7 @@ function renderInline(value) {
       const text = String(label || cleanTitle).trim()
       return '<a class="wiki-link" href="/SiteProject/kb?branch=' + encodeURIComponent(cleanTitle) + '">' + text + '</a>'
     })
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
+  return html
 }
 
 function syncPreviewEdit(event) {

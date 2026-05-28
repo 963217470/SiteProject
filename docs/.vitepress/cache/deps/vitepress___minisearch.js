@@ -1,3 +1,5 @@
+import "./chunk-HKJ2B2AA.js";
+
 // node_modules/minisearch/dist/es/index.js
 var ENTRIES = "ENTRIES";
 var KEYS = "KEYS";

@@ -2,6 +2,7 @@ import DefaultTheme from 'vitepress/theme'
 import Layout from './Layout.vue'
 import ArticleEditor from './components/ArticleEditor.vue'
 import './custom.css'
+import 'katex/dist/katex.min.css'
 import type { Theme } from 'vitepress'
 
 export default {

@@ -22,6 +22,19 @@ layout: page
 </div>
 
 <script>
+// 动态加载 KaTeX（仅浏览器环境）
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  var link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css'
+  document.head.appendChild(link)
+
+  var script = document.createElement('script')
+  script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js'
+  script.async = true
+  document.head.appendChild(script)
+}
+
 var articleState = {
   id: '',
   article: null,
@@ -139,6 +152,18 @@ async function updateViewCountIfAvailable(supabase) {
 }
 
 function renderInlineMarkdown(value) {
+  // 先处理行内数学公式
+  value = value.replace(/\$([^$\n]+)\$/g, function(match, latex) {
+    try {
+      if (typeof katex !== 'undefined') {
+        return katex.renderToString(latex.trim(), { displayMode: false, throwOnError: false })
+      }
+      return escapeHtml(match)
+    } catch (e) {
+      return escapeHtml(match)
+    }
+  })
+
   return escapeHtml(value)
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="article-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
     .replace(/&lt;span style=&quot;color:\s*(#[0-9a-fA-F]{3,8}|[a-zA-Z]+);?&quot;&gt;/g, '<span style="color: $1;">')
@@ -238,6 +263,35 @@ function renderMarkdown(content) {
   var lines = String(content || '').replace(/\r\n/g, '\n').split('\n')
   var blocks = []
   var i = 0
+
+  // KaTeX 渲染函数
+  function renderKatex(latex, displayMode) {
+    try {
+      if (typeof katex !== 'undefined') {
+        return katex.renderToString(latex, { displayMode: displayMode, throwOnError: false })
+      }
+      return escapeHtml(displayMode ? latex : latex)
+    } catch (e) {
+      return escapeHtml(latex)
+    }
+  }
+
+  // 处理行内公式 $...$
+  function processInlineMath(text) {
+    return text.replace(/\$([^$\n]+)\$/g, function(match, latex) {
+      return renderKatex(latex.trim(), false)
+    })
+  }
+
+  // 处理块级公式 $$...$$
+  function processBlockMath(text) {
+    return text.replace(/\$\$([\s\S]+?)\$\$/g, function(match, latex) {
+      return '<p class="katex-block">' + renderKatex(latex.trim(), true) + '</p>'
+    })
+  }
+
+  // 先处理块级公式
+  content = processBlockMath(content)
 
   while (i < lines.length) {
     var line = lines[i]
@@ -1301,6 +1355,17 @@ if (typeof document !== 'undefined') {
   margin: 1.7rem 0;
   border: 0;
   border-top: 1px solid rgba(148, 163, 184, 0.38);
+}
+
+.article-body .katex-block {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.article-body .katex {
+  font-size: 1.1em;
 }
 
 .article-table-wrap {
