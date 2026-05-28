@@ -152,19 +152,16 @@ async function updateViewCountIfAvailable(supabase) {
 }
 
 function renderInlineMarkdown(value) {
-  // 先处理行内数学公式
+  // 先提取数学公式，避免被 escapeHtml 转义
+  var mathBlocks = []
   value = value.replace(/\$([^$\n]+)\$/g, function(match, latex) {
-    try {
-      if (typeof katex !== 'undefined') {
-        return katex.renderToString(latex.trim(), { displayMode: false, throwOnError: false })
-      }
-      return escapeHtml(match)
-    } catch (e) {
-      return escapeHtml(match)
-    }
+    var index = mathBlocks.length
+    mathBlocks.push(renderKatexInline(latex.trim()))
+    return '__MATH_BLOCK_' + index + '__'
   })
 
-  return escapeHtml(value)
+  // 处理其他 markdown 格式
+  value = escapeHtml(value)
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="article-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
     .replace(/&lt;span style=&quot;color:\s*(#[0-9a-fA-F]{3,8}|[a-zA-Z]+);?&quot;&gt;/g, '<span style="color: $1;">')
     .replace(/&lt;\/span&gt;/g, '</span>')
@@ -181,6 +178,35 @@ function renderInlineMarkdown(value) {
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
+
+  // 还原数学公式
+  mathBlocks.forEach(function(html, index) {
+    value = value.replace('__MATH_BLOCK_' + index + '__', html)
+  })
+
+  return value
+}
+
+function renderKatexInline(latex) {
+  try {
+    if (typeof katex !== 'undefined') {
+      return katex.renderToString(latex, { displayMode: false, throwOnError: false })
+    }
+    return escapeHtml('$' + latex + '$')
+  } catch (e) {
+    return escapeHtml('$' + latex + '$')
+  }
+}
+
+function renderKatexBlock(latex) {
+  try {
+    if (typeof katex !== 'undefined') {
+      return katex.renderToString(latex, { displayMode: true, throwOnError: false })
+    }
+    return escapeHtml(latex)
+  } catch (e) {
+    return escapeHtml(latex)
+  }
 }
 
 function normalizeWikiTarget(value) {
@@ -260,44 +286,32 @@ function renderTable(headerLine, rowLines) {
 }
 
 function renderMarkdown(content) {
+  // 先处理块级公式 $$...$$，用占位符替换
+  var blockMaths = []
+  content = content.replace(/\$\$([\s\S]+?)\$\$/g, function(match, latex) {
+    var index = blockMaths.length
+    blockMaths.push(renderKatexBlock(latex.trim()))
+    return '\n__BLOCK_MATH_' + index + '__\n'
+  })
+
   var lines = String(content || '').replace(/\r\n/g, '\n').split('\n')
   var blocks = []
   var i = 0
-
-  // KaTeX 渲染函数
-  function renderKatex(latex, displayMode) {
-    try {
-      if (typeof katex !== 'undefined') {
-        return katex.renderToString(latex, { displayMode: displayMode, throwOnError: false })
-      }
-      return escapeHtml(displayMode ? latex : latex)
-    } catch (e) {
-      return escapeHtml(latex)
-    }
-  }
-
-  // 处理行内公式 $...$
-  function processInlineMath(text) {
-    return text.replace(/\$([^$\n]+)\$/g, function(match, latex) {
-      return renderKatex(latex.trim(), false)
-    })
-  }
-
-  // 处理块级公式 $$...$$
-  function processBlockMath(text) {
-    return text.replace(/\$\$([\s\S]+?)\$\$/g, function(match, latex) {
-      return '<p class="katex-block">' + renderKatex(latex.trim(), true) + '</p>'
-    })
-  }
-
-  // 先处理块级公式
-  content = processBlockMath(content)
 
   while (i < lines.length) {
     var line = lines[i]
     var trimmed = line.trim()
 
     if (!trimmed) {
+      i += 1
+      continue
+    }
+
+    // 处理块级公式占位符
+    var blockMathMatch = trimmed.match(/^__BLOCK_MATH_(\d+)__$/)
+    if (blockMathMatch) {
+      var mathIndex = parseInt(blockMathMatch[1])
+      blocks.push('<p class="katex-block">' + blockMaths[mathIndex] + '</p>')
       i += 1
       continue
     }
@@ -375,14 +389,20 @@ function renderMarkdown(content) {
 
     var paragraph = [trimmed]
     i += 1
-    while (i < lines.length && lines[i].trim() && !/^#{1,3}\s+/.test(lines[i].trim()) && !/^---+$/.test(lines[i].trim()) && !/^>\s?/.test(lines[i].trim()) && !/^[-*+]\s+/.test(lines[i].trim()) && !/^\d+\.\s+/.test(lines[i].trim()) && !(isTableRow(lines[i].trim()) && isTableSeparator((lines[i + 1] || '').trim()))) {
+    while (i < lines.length && lines[i].trim() && !/^#{1,3}\s+/.test(lines[i].trim()) && !/^---+$/.test(lines[i].trim()) && !/^>\s?/.test(lines[i].trim()) && !/^[-*+]\s+/.test(lines[i].trim()) && !/^\d+\.\s+/.test(lines[i].trim()) && !(isTableRow(lines[i].trim()) && isTableSeparator((lines[i + 1] || '').trim())) && !/^__BLOCK_MATH_\d+__$/.test(lines[i].trim())) {
       paragraph.push(lines[i].trim())
       i += 1
     }
     blocks.push('<p>' + paragraph.map(renderInlineMarkdown).join('<br>') + '</p>')
   }
 
-  return blocks.join('')
+  // 还原块级公式
+  var result = blocks.join('')
+  blockMaths.forEach(function(html, index) {
+    result = result.replace('<p>' + renderInlineMarkdown('__BLOCK_MATH_' + index + '__') + '</p>', '<p class="katex-block">' + html + '</p>')
+  })
+
+  return result
 }
 
 function setVisible(id, visible) {
