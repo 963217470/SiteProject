@@ -10,15 +10,15 @@ function date(v) { return v ? new Date(v).toLocaleDateString('zh-CN', { year: 'n
 function time(v) { return v ? new Date(v).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '未知时间' }
 function statusText(v) { return ({ draft: '草稿', pending: '待审核', published: '已发布', rejected: '已拒绝' })[v] || v || '未知' }
 function views(a) { return Number(a.views_count || a.view_count || a.read_count || 0) }
-function articleUrl(id) { return '/SiteProject/article?id=' + encodeURIComponent(id) }
-function editorUrl(id) { return '/SiteProject/editor?id=' + encodeURIComponent(id) }
+function articleUrl(id) { return '/article?id=' + encodeURIComponent(id) }
+function editorUrl(id) { return '/editor?id=' + encodeURIComponent(id) }
 function localList(key) { try { var v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : [] } catch (e) { return [] } }
 
 function renderShell() {
   var root = $('profile-page')
   if (!root || root.dataset.ready) return
   root.dataset.ready = '1'
-  root.innerHTML = '<div id="not-logged-in" class="state-panel" style="display:none"><p>请先 <a href="/SiteProject/login">登录</a></p></div><div id="loading" class="state-panel"><p>加载中...</p></div><div id="profile-app" class="profile-layout" style="display:none"><section class="profile-hero"><div id="avatar-frame" class="avatar-frame member-frame"><img id="profile-avatar" class="user-avatar" src="/SiteProject/images/default-avatar.svg" alt="头像"></div><div class="profile-identity"><h1 id="profile-name"></h1><div id="role-block" class="role-block member-role"><strong id="role-label"></strong><span id="role-desc"></span></div><p id="profile-email" class="email"></p><p id="profile-bio" class="bio"></p></div><section class="stats-card" aria-label="个人统计"><div><strong id="stat-likes">0</strong><span>收到的赞</span></div><div><strong id="stat-articles">0</strong><span>发布文章数</span></div><div><strong id="stat-favorites">0</strong><span>收藏的文章</span></div></section></section><section class="profile-body"><aside class="profile-sidebar"><nav class="profile-tabs" aria-label="个人中心功能"><button id="tab-articles" type="button" onclick="setProfileTab(\'articles\')">我的文章</button><button id="tab-favorites" type="button" onclick="setProfileTab(\'favorites\')">我的收藏</button><button id="tab-recent" type="button" onclick="setProfileTab(\'recent\')">历史记录</button><button id="tab-settings" type="button" onclick="setProfileTab(\'settings\')">个人信息</button></nav></aside><main class="profile-main"><div id="profile-error" class="error-message" style="display:none"></div><section id="panel-articles" class="panel"></section><section id="panel-favorites" class="panel" style="display:none"></section><section id="panel-recent" class="panel" style="display:none"></section><section id="panel-settings" class="panel" style="display:none"></section></main></section></div>'
+  root.innerHTML = '<div id="not-logged-in" class="state-panel" style="display:none"><p>请先 <a href="/login">登录</a></p></div><div id="loading" class="state-panel"><p>加载中...</p></div><div id="profile-app" class="profile-layout" style="display:none"><section class="profile-hero"><div id="avatar-frame" class="avatar-frame member-frame"><img id="profile-avatar" class="user-avatar" src="/images/default-avatar.svg" alt="头像"></div><div class="profile-identity"><h1 id="profile-name"></h1><div id="role-block" class="role-block member-role"><strong id="role-label"></strong><span id="role-desc"></span></div><p id="profile-email" class="email"></p><p id="profile-bio" class="bio"></p></div><section class="stats-card" aria-label="个人统计"><div><strong id="stat-likes">0</strong><span>收到的赞</span></div><div><strong id="stat-articles">0</strong><span>发布文章数</span></div><div><strong id="stat-favorites">0</strong><span>收藏的文章</span></div></section></section><section class="profile-body"><aside class="profile-sidebar"><nav class="profile-tabs" aria-label="个人中心功能"><button id="tab-articles" type="button" onclick="setProfileTab(\'articles\')">我的文章</button><button id="tab-favorites" type="button" onclick="setProfileTab(\'favorites\')">我的收藏</button><button id="tab-recent" type="button" onclick="setProfileTab(\'recent\')">历史记录</button><button id="tab-settings" type="button" onclick="setProfileTab(\'settings\')">个人信息</button></nav></aside><main class="profile-main"><div id="profile-error" class="error-message" style="display:none"></div><section id="panel-articles" class="panel"></section><section id="panel-favorites" class="panel" style="display:none"></section><section id="panel-recent" class="panel" style="display:none"></section><section id="panel-settings" class="panel" style="display:none"></section></main></section></div>'
 }
 
 async function waitSupabase() {
@@ -47,7 +47,7 @@ function roleDesc(role) { return role === 'admin' ? '拥有审核与后台管理
 function setProfile(session, profile) {
   var meta = session.user.user_metadata || {}
   var name = profile.username || meta.full_name || meta.user_name || meta.name || meta.preferred_username || session.user.email || '社团成员'
-  var avatar = profile.avatar_url || meta.avatar_url || meta.picture || '/SiteProject/images/default-avatar.svg'
+  var avatar = profile.avatar_url || meta.avatar_url || meta.picture || '/images/default-avatar.svg'
   var role = profile.role || 'member'
   state.profile = { username: name, avatar: avatar, bio: profile.bio || '', role: role, email: session.user.email || '' }
   $('profile-avatar').src = avatar
@@ -122,12 +122,12 @@ function renderArticles() {
   var rows = state.articles.map(function(a) {
     return '<article class="article-row"><a class="article-title" href="' + articleUrl(a.id) + '">' + esc(a.title) + '</a><span class="status-pill status-' + esc(a.status) + '">' + statusText(a.status) + '</span><span>' + date(a.created_at) + '</span><span>浏览 ' + views(a) + '</span><span>点赞 ' + (a.likes_count || 0) + '</span><span>评论 ' + (a.comments_count || 0) + '</span><div class="row-actions"><a href="' + articleUrl(a.id) + '">查看</a><a href="' + editorUrl(a.id) + '">编辑</a></div></article>'
   }).join('')
-  $('panel-articles').innerHTML = '<div class="panel-head"><div><h2>我的文章</h2><p>查看文章状态、浏览量、点赞量和评论量</p></div><a class="primary-link" href="/SiteProject/editor">新建文章</a></div><div class="status-grid"><div><strong>' + count('published') + '</strong><span>已发布</span></div><div><strong>' + count('pending') + '</strong><span>待审核</span></div><div><strong>' + count('draft') + '</strong><span>草稿</span></div><div><strong>' + count('rejected') + '</strong><span>已拒绝</span></div></div>' + (state.articles.length ? '<div class="article-table">' + rows + '</div>' : '<div class="empty-state">暂无文章</div>')
+  $('panel-articles').innerHTML = '<div class="panel-head"><div><h2>我的文章</h2><p>查看文章状态、浏览量、点赞量和评论量</p></div><a class="primary-link" href="/editor">新建文章</a></div><div class="status-grid"><div><strong>' + count('published') + '</strong><span>已发布</span></div><div><strong>' + count('pending') + '</strong><span>待审核</span></div><div><strong>' + count('draft') + '</strong><span>草稿</span></div><div><strong>' + count('rejected') + '</strong><span>已拒绝</span></div></div>' + (state.articles.length ? '<div class="article-table">' + rows + '</div>' : '<div class="empty-state">暂无文章</div>')
 }
 
 function renderCards(id, title, subtitle, items, emptyText, label, key) {
   var html = items.map(function(a) {
-    return '<a class="article-card" href="' + articleUrl(a.id) + '"><img src="' + esc(a.cover_url || '/SiteProject/images/default-cover.svg') + '" alt="' + esc(a.title) + '"><div><h3>' + esc(a.title) + '</h3><p>' + esc(a.summary || '暂无摘要') + '</p><span>' + label + ' ' + time(a[key]) + '</span></div></a>'
+    return '<a class="article-card" href="' + articleUrl(a.id) + '"><img src="' + esc(a.cover_url || '/images/default-cover.svg') + '" alt="' + esc(a.title) + '"><div><h3>' + esc(a.title) + '</h3><p>' + esc(a.summary || '暂无摘要') + '</p><span>' + label + ' ' + time(a[key]) + '</span></div></a>'
   }).join('')
   $(id).innerHTML = '<div class="panel-head"><div><h2>' + title + '</h2><p>' + subtitle + '</p></div></div>' + (items.length ? '<div class="card-grid">' + html + '</div>' : '<div class="empty-state">' + emptyText + '</div>')
 }

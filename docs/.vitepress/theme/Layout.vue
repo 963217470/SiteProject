@@ -21,7 +21,7 @@ import { onMounted, onUnmounted } from 'vue'
 import DefaultTheme from 'vitepress/theme'
 
 function goToEditor() {
-  window.location.href = '/SiteProject/editor'
+  window.location.href = '/editor'
 }
 import UserNav from './components/UserNav.vue'
 import HeroSection from './components/HeroSection.vue'

@@ -73,7 +73,7 @@ RD STUDIO 是一个热爱游戏开发的学生组织，我们致力于：
 <div class="join-cta">
   <h3>准备好了吗？</h3>
   <p>加入我们，一起探索游戏开发的世界！</p>
-  <a href="/SiteProject/login" class="btn-primary">立即加入</a>
+  <a href="/login" class="btn-primary">立即加入</a>
 </div>
 
 <style scoped>

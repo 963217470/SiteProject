@@ -10,12 +10,12 @@ layout: page
 
   <div id="error" class="error" style="display:none">
     <p id="error-message">加载失败</p>
-    <p><a href="/SiteProject/articles">返回文章列表</a></p>
+    <p><a href="/articles">返回文章列表</a></p>
   </div>
 
   <div id="article-not-found" class="not-found" style="display:none">
     <p>文章不存在</p>
-    <p><a href="/SiteProject/articles">返回文章列表</a></p>
+    <p><a href="/articles">返回文章列表</a></p>
   </div>
 
   <div id="article-shell" class="article-shell" style="display:none"></div>
@@ -168,12 +168,12 @@ function renderInlineMarkdown(value) {
     .replace(/\[\[#([^|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, tag, label) {
       var cleanTag = String(tag || '').trim()
       var text = String(label || cleanTag).trim()
-      return '<a class="wiki-tag" href="/SiteProject/articles?tag=' + encodeURIComponent(cleanTag) + '">#' + escapeHtml(text).replace(/^#/, '') + '</a>'
+      return '<a class="wiki-tag" href="/articles?tag=' + encodeURIComponent(cleanTag) + '">#' + escapeHtml(text).replace(/^#/, '') + '</a>'
     })
     .replace(/\[\[([^#|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, title, label) {
       var cleanTitle = String(title || '').trim()
       var text = String(label || cleanTitle).trim()
-      return '<a class="wiki-link" data-wiki-title="' + escapeHtml(cleanTitle) + '" href="/SiteProject/article?title=' + encodeURIComponent(cleanTitle) + '">' + escapeHtml(text) + '</a>'
+      return '<a class="wiki-link" data-wiki-title="' + escapeHtml(cleanTitle) + '" href="/article?title=' + encodeURIComponent(cleanTitle) + '">' + escapeHtml(text) + '</a>'
     })
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -246,7 +246,7 @@ async function hydrateWikiLinks() {
         || normalizeWikiTarget(knowledgeBranchPath(branch, articleState.knowledgeBranches)) === target
     })
     if (!match) return
-    link.href = '/SiteProject/kb?branch=' + encodeURIComponent(title)
+    link.href = '/kb?branch=' + encodeURIComponent(title)
     link.classList.add('wiki-branch-link')
     link.title = '打开知识库分支：' + title
   })
@@ -436,7 +436,7 @@ function getUserName(userId) {
 
 function getUserAvatar(userId) {
   var profile = articleState.profiles[userId]
-  return (profile && profile.avatar_url) || '/SiteProject/images/default-avatar.svg'
+  return (profile && profile.avatar_url) || '/images/default-avatar.svg'
 }
 
 function isUuid(value) {
@@ -659,13 +659,13 @@ function renderArticle() {
   var likeCount = article.likes_count || 0
   var commentCount = article.comments_count || articleState.comments.length || 0
   var favoriteLabel = articleState.favoriteTableReady ? '收藏' : '本地收藏'
-  var backgroundUrl = '/SiteProject/images/hero-bg.jpg'
+  var backgroundUrl = '/images/hero-bg.jpg'
   var coverUrl = article.cover_url || getFirstArticleImage(article.content) || backgroundUrl
   var packageFileName = safePackageName(article.title) + '.zip'
   shell.style.setProperty('--article-bg-image', "url('" + String(backgroundUrl).replace(/'/g, '%27') + "')")
 
   shell.innerHTML = [
-    '<a href="/SiteProject/articles" class="back-link" aria-label="返回文章列表" title="返回文章列表">',
+    '<a href="/articles" class="back-link" aria-label="返回文章列表" title="返回文章列表">',
     '  <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M137.195012 473.012753l343.015525-236.983218-0.308863 468.654345z"></path><path d="M480.667511 706.240841l-1.146949-0.774868L135.66695 473.021784 480.978181 234.452705v1.578636l-0.31067 470.2095zM138.723073 473.003722L479.135837 703.125112l0.308863-465.518748L138.723073 473.003722z"></path><path d="M807.983377 647.341831s-7.347701-39.173288-31.538398-63.073184c-18.555293-18.331321-30.10426-28.670122-57.340243-34.404868-70.879664-14.921179-394.378989 0.050574-394.378989 0.050574V413.73263s214.893154-3.375824 285.431443 11.417113c20.932277 4.389113 57.967001 10.044386 83.143895 22.935375 27.143866 13.900665 53.628462 34.040012 67.375598 50.173164 46.838883 54.974096 47.306694 149.083548 47.306694 149.083549z"></path></svg>',
     '</a>',
     '<div class="article-stage">',
@@ -691,7 +691,7 @@ function renderArticle() {
     '          <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
     '        </div>',
     '      </div>',
-    article.tags && article.tags.length ? '      <div class="article-tags">' + article.tags.map(function(tag) { return '<a class="tag" href="/SiteProject/articles?tag=' + encodeURIComponent(tag) + '">' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
+    article.tags && article.tags.length ? '      <div class="article-tags">' + article.tags.map(function(tag) { return '<a class="tag" href="/articles?tag=' + encodeURIComponent(tag) + '">' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
     '      <div class="article-download-card">',
     '        <div>',
     '          <strong>打包下载</strong>',
@@ -940,7 +940,7 @@ async function loadArticle() {
     if (!sessionResult.data.session || !isUuid(sessionResult.data.session.user.id)) {
       setVisible('loading', false)
       setVisible('error', true)
-      document.getElementById('error-message').innerHTML = '请先使用 GitHub 登录后查看文章详情。<br><a class="login-link" href="/SiteProject/login">去登录</a>'
+      document.getElementById('error-message').innerHTML = '请先使用 GitHub 登录后查看文章详情。<br><a class="login-link" href="/login">去登录</a>'
       return
     }
     articleState.session = sessionResult.data.session
@@ -1066,7 +1066,7 @@ if (typeof document !== 'undefined') {
   grid-template-columns: minmax(0, 1fr) var(--article-content-width) minmax(0, 1fr);
   min-height: calc(100vh - 64px);
   padding: 24px 0 48px;
-  background-image: linear-gradient(rgba(248, 250, 252, 0.58), rgba(248, 250, 252, 0.58)), url('/SiteProject/images/hero-bg.jpg');
+  background-image: linear-gradient(rgba(248, 250, 252, 0.58), rgba(248, 250, 252, 0.58)), url('/images/hero-bg.jpg');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;

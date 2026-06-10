@@ -246,7 +246,7 @@ const flatBranches = computed(() => flattenBranches(kbBranches.value))
 onMounted(loadKnowledgeBranches)
 
 function goBack() {
-  window.location.href = '/SiteProject/articles'
+  window.location.href = '/articles'
 }
 
 function triggerFileSelect() {
@@ -355,12 +355,12 @@ function renderMarkdownPreview(content) {
     .replace(/\[\[#([^|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, tag, label) {
       const cleanTag = String(tag || '').trim()
       const text = String(label || cleanTag).trim().replace(/^#/, '')
-      return '<a class="wiki-tag" href="/SiteProject/articles?tag=' + encodeURIComponent(cleanTag) + '">#' + text + '</a>'
+      return '<a class="wiki-tag" href="/articles?tag=' + encodeURIComponent(cleanTag) + '">#' + text + '</a>'
     })
     .replace(/\[\[([^#|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, title, label) {
       const cleanTitle = String(title || '').trim()
       const text = String(label || cleanTitle).trim()
-      return '<a class="wiki-link" href="/SiteProject/kb?branch=' + encodeURIComponent(cleanTitle) + '">' + text + '</a>'
+      return '<a class="wiki-link" href="/kb?branch=' + encodeURIComponent(cleanTitle) + '">' + text + '</a>'
     })
   return html
 }
@@ -1005,7 +1005,7 @@ async function saveArticle(status) {
     showStatus(status === 'pending' ? '提交成功，文章已进入待审核' : '草稿保存成功', 'success')
     if (status === 'pending') {
       setTimeout(() => {
-        window.location.href = '/SiteProject/articles'
+        window.location.href = '/articles'
       }, 1200)
     }
   } catch (error) {

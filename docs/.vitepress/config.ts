@@ -3,11 +3,11 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'RD STUDIO',
   description: '创造 · 学习 · 分享',
-  base: '/SiteProject/',
+  base: '/',
 
   head: [
-    ['script', { src: '/SiteProject/supabase-rest.js?v=20260523-review-guard' }],
-    ['script', { src: '/SiteProject/profile-page.js?v=20260523-profile-wireframe' }]
+    ['script', { src: '/supabase-rest.js?v=20260523-review-guard' }],
+    ['script', { src: '/profile-page.js?v=20260523-profile-wireframe' }]
   ],
 
   vite: {

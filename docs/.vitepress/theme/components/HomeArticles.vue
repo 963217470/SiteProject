@@ -2,9 +2,9 @@
   <div class="home-articles" v-if="latestArticles.length > 0">
     <h2>📝 最新文章</h2>
     <div class="article-list">
-      <a v-for="a in latestArticles" :key="a.id" :href="'/SiteProject/article?id=' + a.id" class="article-card">
+      <a v-for="a in latestArticles" :key="a.id" :href="'/article?id=' + a.id" class="article-card">
         <div class="article-cover">
-          <img :src="a.cover_url || '/SiteProject/images/default-cover.svg'" :alt="a.title">
+          <img :src="a.cover_url || '/images/default-cover.svg'" :alt="a.title">
         </div>
         <div class="article-info">
           <h3>{{ a.title }}</h3>
@@ -20,7 +20,7 @@
       </a>
     </div>
     <div class="view-more">
-      <a href="/SiteProject/articles" class="btn-primary">查看更多文章 →</a>
+      <a href="/articles" class="btn-primary">查看更多文章 →</a>
     </div>
   </div>
 </template>

@@ -6,12 +6,12 @@ layout: page
 <div class="settings-redirect">
   <h1>个人设置</h1>
   <p>个人设置已经合并到个人中心。</p>
-  <a href="/SiteProject/user/profile?tab=settings">打开个人设置</a>
+  <a href="/user/profile?tab=settings">打开个人设置</a>
 </div>
 
 <script>
 if (typeof window !== 'undefined') {
-  window.location.replace('/SiteProject/user/profile?tab=settings')
+  window.location.replace('/user/profile?tab=settings')
 }
 </script>
 

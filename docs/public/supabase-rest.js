@@ -115,7 +115,7 @@ window.__supabase = {
       return { error: null }
     },
     signInWithOAuth: async function(options) {
-      var redirectUrl = options.options?.redirectTo || window.location.origin + '/SiteProject/auth/callback'
+      var redirectUrl = options.options?.redirectTo || window.location.origin + '/auth/callback'
       var url = URL + '/auth/v1/authorize?provider=' + options.provider + '&redirect_to=' + encodeURIComponent(redirectUrl)
       window.location.href = url
       return { data: { url: url }, error: null }

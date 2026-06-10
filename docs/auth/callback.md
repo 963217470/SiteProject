@@ -29,14 +29,14 @@ onMounted(async () => {
         localStorage.setItem('sb-auth-token', JSON.stringify(sessionData))
         window.location.hash = ''
         status.value = '登录成功！正在跳转...'
-        setTimeout(() => { window.location.href = '/SiteProject/' }, 800)
+        setTimeout(() => { window.location.href = '/' }, 800)
         return
       }
     }
 
     if (!window.__supabase) {
       status.value = '系统未加载'
-      setTimeout(() => { window.location.href = '/SiteProject/login' }, 2000)
+      setTimeout(() => { window.location.href = '/login' }, 2000)
       return
     }
 
@@ -45,14 +45,14 @@ onMounted(async () => {
       status.value = '登录成功！正在跳转...'
       var redirectPath = localStorage.getItem('redirectAfterLogin') || '/'
       localStorage.removeItem('redirectAfterLogin')
-      setTimeout(() => { window.location.href = '/SiteProject' + redirectPath }, 800)
+      setTimeout(() => { window.location.href = redirectPath }, 800)
     } else {
       status.value = '登录失败，请重试'
-      setTimeout(() => { window.location.href = '/SiteProject/login' }, 2000)
+      setTimeout(() => { window.location.href = '/login' }, 2000)
     }
   } catch (e) {
     status.value = '登录失败：' + e.message
-    setTimeout(() => { window.location.href = '/SiteProject/login' }, 2000)
+    setTimeout(() => { window.location.href = '/login' }, 2000)
   }
 })
 </script>

@@ -14,12 +14,12 @@
         </div>
       </div>
       <div v-if="showMenu" class="user-dropdown">
-        <a href="/SiteProject/user/profile" class="dropdown-item" @click.prevent="go('/SiteProject/user/profile')">个人主页</a>
-        <a href="/SiteProject/user/profile?tab=articles" class="dropdown-item" @click.prevent="go('/SiteProject/user/profile?tab=articles')">我的文章</a>
-        <a href="/SiteProject/user/profile?tab=favorites" class="dropdown-item" @click.prevent="go('/SiteProject/user/profile?tab=favorites')">我的收藏</a>
+        <a href="/user/profile" class="dropdown-item" @click.prevent="go('/user/profile')">个人主页</a>
+        <a href="/user/profile?tab=articles" class="dropdown-item" @click.prevent="go('/user/profile?tab=articles')">我的文章</a>
+        <a href="/user/profile?tab=favorites" class="dropdown-item" @click.prevent="go('/user/profile?tab=favorites')">我的收藏</a>
         <template v-if="isAdmin">
           <div class="dropdown-divider"></div>
-          <a href="/SiteProject/admin" class="dropdown-item admin-item" @click.prevent="go('/SiteProject/admin')">
+          <a href="/admin" class="dropdown-item admin-item" @click.prevent="go('/admin')">
             🔧 管理后台
           </a>
         </template>
@@ -28,7 +28,7 @@
       </div>
     </template>
     <template v-else>
-      <a href="/SiteProject/login" class="login-link" @click.prevent="go('/SiteProject/login')">登录</a>
+      <a href="/login" class="login-link" @click.prevent="go('/login')">登录</a>
     </template>
   </div>
 </template>
@@ -40,7 +40,7 @@ const loading = ref(true)
 const isLoggedIn = ref(false)
 const isAdmin = ref(false)
 const displayName = ref('')
-const avatar = ref('/SiteProject/images/default-avatar.svg')
+const avatar = ref('/images/default-avatar.svg')
 const showMenu = ref(false)
 
 let supabase = null
@@ -54,7 +54,7 @@ function getMetaName(user) {
 
 function getMetaAvatar(user) {
   var meta = user && user.user_metadata ? user.user_metadata : {}
-  return meta.avatar_url || meta.picture || '/SiteProject/images/default-avatar.svg'
+  return meta.avatar_url || meta.picture || '/images/default-avatar.svg'
 }
 
 function handleClickOutside(e) {
@@ -105,7 +105,7 @@ function logout() {
       isLoggedIn.value = false
       displayName.value = ''
       showMenu.value = false
-      window.location.href = '/SiteProject/'
+      window.location.href = '/'
     })
   }
 }

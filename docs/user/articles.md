@@ -5,7 +5,7 @@ layout: page
 
 <div id="my-articles-page">
   <div id="not-logged-in" class="not-logged-in" style="display:none">
-    <p>请先 <a href="/SiteProject/login">登录</a></p>
+    <p>请先 <a href="/login">登录</a></p>
   </div>
 
   <div id="loading" class="loading-state">
@@ -15,7 +15,7 @@ layout: page
   <div id="my-articles" class="my-articles" style="display:none">
     <div class="page-header">
       <h1>我的文章</h1>
-      <a href="/SiteProject/editor" class="btn-primary">新建文章</a>
+      <a href="/editor" class="btn-primary">新建文章</a>
     </div>
 
     <div class="tabs">
@@ -117,22 +117,22 @@ function renderArticles() {
     var actions = []
 
   if (article.status === 'draft') {
-    actions.push('<a href="/SiteProject/editor?id=' + article.id + '" class="btn-edit">编辑</a>')
+    actions.push('<a href="/editor?id=' + article.id + '" class="btn-edit">编辑</a>')
     actions.push("<button class=\"btn-delete\" type=\"button\" onclick=\"deleteArticle('" + article.id + "')\">删除</button>")
   }
 
   if (article.status === 'pending') {
-    actions.push('<a href="/SiteProject/article?id=' + article.id + '" class="btn-view">查看</a>')
+    actions.push('<a href="/article?id=' + article.id + '" class="btn-view">查看</a>')
     actions.push("<button class=\"btn-resubmit\" type=\"button\" onclick=\"withdrawArticle('" + article.id + "')\">撤回</button>")
   }
 
     if (article.status === 'published') {
-      actions.push('<a href="/SiteProject/article?id=' + article.id + '" class="btn-view">查看</a>')
-      actions.push('<a href="/SiteProject/editor?id=' + article.id + '" class="btn-edit">编辑</a>')
+      actions.push('<a href="/article?id=' + article.id + '" class="btn-view">查看</a>')
+      actions.push('<a href="/editor?id=' + article.id + '" class="btn-edit">编辑</a>')
     }
 
   if (article.status === 'rejected') {
-    actions.push('<a href="/SiteProject/editor?id=' + article.id + '" class="btn-edit">编辑</a>')
+    actions.push('<a href="/editor?id=' + article.id + '" class="btn-edit">编辑</a>')
     actions.push("<button class=\"btn-resubmit\" type=\"button\" onclick=\"resubmitArticle('" + article.id + "')\">重新提交</button>")
     actions.push("<button class=\"btn-delete\" type=\"button\" onclick=\"deleteArticle('" + article.id + "')\">删除</button>")
   }

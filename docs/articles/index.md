@@ -24,7 +24,7 @@ layout: page
 
   <div id="no-articles" class="no-articles" style="display:none">
     <p>暂无文章</p>
-    <p><a href="/SiteProject/editor" class="link">去发布第一篇文章</a></p>
+    <p><a href="/editor" class="link">去发布第一篇文章</a></p>
   </div>
 
   <div id="articles-list" class="articles-list" style="display:none">
@@ -131,7 +131,7 @@ function showArticles(data) {
       ${cover ? `<img src="${escapeHtml(cover)}" class="list-article-cover" alt="${escapeHtml(article.title)}" onerror="this.style.display='none'">` : '<div class="list-article-cover list-article-cover-fallback">RD</div>'}
       <div class="list-article-content">
         <div class="list-article-head">
-          <h2><a href="/SiteProject/article?id=${encodeURIComponent(article.id)}">${escapeHtml(article.title)}</a></h2>
+          <h2><a href="/article?id=${encodeURIComponent(article.id)}">${escapeHtml(article.title)}</a></h2>
           <span class="list-badge ${getStatusBadgeClass(article.status)}">${getStatusText(article.status)}</span>
         </div>
         <p class="list-article-summary">${escapeHtml(article.summary || renderArticlePreview(article.content))}</p>
@@ -144,10 +144,10 @@ function showArticles(data) {
         <div class="list-article-footer">
           ${article.tags && article.tags.length > 0 ? `
             <div class="list-article-tags">
-              ${article.tags.map(tag => `<a class="list-tag" href="/SiteProject/articles?tag=${encodeURIComponent(tag)}">#${escapeHtml(tag)}</a>`).join('')}
+              ${article.tags.map(tag => `<a class="list-tag" href="/articles?tag=${encodeURIComponent(tag)}">#${escapeHtml(tag)}</a>`).join('')}
             </div>
           ` : '<div></div>'}
-          <a class="view-article-btn" href="/SiteProject/article?id=${encodeURIComponent(article.id)}">查看文章</a>
+          <a class="view-article-btn" href="/article?id=${encodeURIComponent(article.id)}">查看文章</a>
         </div>
       </div>
     </article>

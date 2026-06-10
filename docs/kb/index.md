@@ -9,7 +9,7 @@ layout: page
 <p class="eyebrow">RD STUDIO</p>
 <h1>知识库</h1>
 </div>
-<a class="submit-link" href="/SiteProject/editor">投稿文章</a>
+<a class="submit-link" href="/editor">投稿文章</a>
 </header>
 <div id="loading" class="state-panel">加载中...</div>
 <div id="error" class="state-panel error" style="display:none"></div>
@@ -164,7 +164,7 @@ function renderArticles() {
       '<article class="kb-article-card">',
       cover ? '<img src="' + esc(cover) + '" alt="" onerror="this.style.display=\'none\'">' : '<div class="cover-placeholder"></div>',
       '  <div class="kb-article-body">',
-      '    <h3><a href="/SiteProject/article?id=' + encodeURIComponent(article.id) + '">' + esc(article.title) + '</a></h3>',
+      '    <h3><a href="/article?id=' + encodeURIComponent(article.id) + '">' + esc(article.title) + '</a></h3>',
       '    <p>' + esc(buildSummary(article)) + '</p>',
       '    <div class="article-meta">',
       '      <span>' + formatDate(article.created_at) + '</span>',

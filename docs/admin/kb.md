@@ -9,12 +9,12 @@ layout: page
 <p class="eyebrow">管理后台</p>
 <h1>知识库管理</h1>
 </div>
-<a href="/SiteProject/kb" class="btn-secondary">查看知识库</a>
+<a href="/kb" class="btn-secondary">查看知识库</a>
 </div>
 <nav class="admin-section-nav" aria-label="管理后台导航">
-<a href="/SiteProject/admin">文章审核</a>
-<a href="/SiteProject/admin/profile-review">个人信息审核</a>
-<a class="active" href="/SiteProject/admin/kb">知识库管理</a>
+<a href="/admin">文章审核</a>
+<a href="/admin/profile-review">个人信息审核</a>
+<a class="active" href="/admin/kb">知识库管理</a>
 </nav>
 <div id="loading" class="state-panel">加载中...</div>
 <div id="error" class="state-panel error" style="display:none"></div>

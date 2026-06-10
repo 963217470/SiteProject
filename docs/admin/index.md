@@ -11,14 +11,14 @@ layout: page
     </div>
     <div class="header-actions">
       <button class="btn-secondary" type="button" onclick="testConnection()">测试连接</button>
-      <a href="/SiteProject/articles" class="btn-secondary">返回文章列表</a>
+      <a href="/articles" class="btn-secondary">返回文章列表</a>
     </div>
   </div>
 
   <nav class="admin-section-nav" aria-label="审核类型">
-    <a class="active" href="/SiteProject/admin">文章审核</a>
-    <a href="/SiteProject/admin/profile-review">个人信息审核</a>
-    <a href="/SiteProject/admin/kb">知识库管理</a>
+    <a class="active" href="/admin">文章审核</a>
+    <a href="/admin/profile-review">个人信息审核</a>
+    <a href="/admin/kb">知识库管理</a>
   </nav>
 
   <section class="review-summary" aria-label="审核统计">
@@ -428,7 +428,7 @@ async function deleteArticle(id) {
 }
 
 function viewArticle(id) {
-  window.open('/SiteProject/article?id=' + encodeURIComponent(id), '_blank')
+  window.open('/article?id=' + encodeURIComponent(id), '_blank')
 }
 
 async function testConnection() {

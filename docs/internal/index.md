@@ -145,7 +145,7 @@ async function publishResource() {
 <div class="internal-page">
 <h1>🔒 内部文章</h1>
 <div v-show="loading" class="loading-state"><p>加载中...</p></div>
-<div v-show="notMember && !loading" class="not-member"><p>请先 <a href="/SiteProject/login">登录</a> 以查看内部文章</p></div>
+<div v-show="notMember && !loading" class="not-member"><p>请先 <a href="/login">登录</a> 以查看内部文章</p></div>
 <div v-show="!loading && !notMember">
 <div class="internal-notice"><p>⚠️ 此区域仅社员可见，请勿外传</p></div>
 <section class="resources-section">
@@ -198,7 +198,7 @@ async function publishResource() {
 </div>
 </div>
 <div class="article-list">
-<a v-for="a in filteredArticles" :key="a.id" :href="'/SiteProject/article?id=' + a.id" class="article-card">
+<a v-for="a in filteredArticles" :key="a.id" :href="'/article?id=' + a.id" class="article-card">
 <div v-if="a.cover_url" class="article-cover"><img :src="a.cover_url" :alt="a.title"></div>
 <div class="article-info">
 <h3>🔒 {{ a.title }}</h3>

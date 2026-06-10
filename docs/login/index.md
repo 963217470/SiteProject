@@ -29,8 +29,8 @@ onMounted(() => {
 })
 
 function doLogin() {
-  var origin = window.location.origin.includes('localhost') ? 'https://963217470.github.io' : window.location.origin
-  window.location.href = 'https://jenrgzwwowgfqbwcozbi.supabase.co/auth/v1/authorize?provider=github&redirect_to=' + encodeURIComponent(origin + '/SiteProject/auth/callback')
+  var origin = window.location.origin
+  window.location.href = 'https://jenrgzwwowgfqbwcozbi.supabase.co/auth/v1/authorize?provider=github&redirect_to=' + encodeURIComponent(origin + '/auth/callback')
 }
 
 async function logout() {
@@ -49,7 +49,7 @@ async function logout() {
       <p v-else>使用 GitHub 账号登录</p>
     </div>
     <div class="login-content">
-      <a v-if="isLoggedIn" href="/SiteProject/" class="github-login-btn" style="text-decoration:none;text-align:center;">进入首页</a>
+      <a v-if="isLoggedIn" href="/" class="github-login-btn" style="text-decoration:none;text-align:center;">进入首页</a>
       <button v-if="isLoggedIn" class="logout-btn" @click="logout">退出登录</button>
       <button v-if="!isLoggedIn && !loading" class="github-login-btn" type="button" @click="doLogin">🔑 使用 GitHub 登录</button>
       <p v-if="!isLoggedIn && !loading" class="login-hint">还没有账号？<br>登录后自动创建账号</p>

@@ -11,14 +11,14 @@ layout: page
     </div>
     <div class="header-actions">
       <button class="btn-secondary" type="button" onclick="loadProfileReviews()">刷新</button>
-      <a href="/SiteProject/admin" class="btn-secondary">返回文章审核</a>
+      <a href="/admin" class="btn-secondary">返回文章审核</a>
     </div>
   </div>
 
   <nav class="admin-section-nav" aria-label="审核类型">
-    <a href="/SiteProject/admin">文章审核</a>
-    <a class="active" href="/SiteProject/admin/profile-review">个人信息审核</a>
-    <a href="/SiteProject/admin/kb">知识库管理</a>
+    <a href="/admin">文章审核</a>
+    <a class="active" href="/admin/profile-review">个人信息审核</a>
+    <a href="/admin/kb">知识库管理</a>
   </nav>
 
   <section class="review-summary" aria-label="个人信息审核统计">
@@ -157,7 +157,7 @@ function getName(profile, userId) {
 }
 
 function getAvatar(profile) {
-  return profile.avatar_url || '/SiteProject/images/default-avatar.svg'
+  return profile.avatar_url || '/images/default-avatar.svg'
 }
 
 function changeDiff(profile, change) {
@@ -173,7 +173,7 @@ function changeDiff(profile, change) {
     rows.push('<div class="diff-row"><span>昵称</span><strong>' + escapeHtml(currentName || '未设置') + '</strong><em>→</em><strong>' + escapeHtml(nextName) + '</strong></div>')
   }
   if (nextAvatar && nextAvatar !== currentAvatar) {
-    rows.push('<div class="avatar-diff"><span>头像</span><img src="' + escapeHtml(currentAvatar || '/SiteProject/images/default-avatar.svg') + '" alt="当前头像"><em>→</em><img src="' + escapeHtml(nextAvatar) + '" alt="新头像"></div>')
+    rows.push('<div class="avatar-diff"><span>头像</span><img src="' + escapeHtml(currentAvatar || '/images/default-avatar.svg') + '" alt="当前头像"><em>→</em><img src="' + escapeHtml(nextAvatar) + '" alt="新头像"></div>')
   }
   if (nextBio !== currentBio) {
     rows.push('<div class="diff-row bio-diff"><span>简介</span><strong>' + escapeHtml(currentBio || '未填写') + '</strong><em>→</em><strong>' + escapeHtml(nextBio || '清空简介') + '</strong></div>')

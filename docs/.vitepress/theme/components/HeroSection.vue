@@ -1,6 +1,6 @@
 <template>
   <div class="hero-fullscreen">
-    <div class="hero-bg" :style="{ backgroundImage: 'url(/SiteProject/images/hero-bg.jpg)' }"></div>
+    <div class="hero-bg" :style="{ backgroundImage: 'url(/images/hero-bg.jpg)' }"></div>
     <div class="hero-overlay"></div>
     <div class="hero-content">
       <h1 class="hero-title">
