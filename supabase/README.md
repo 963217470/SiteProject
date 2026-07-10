@@ -17,7 +17,8 @@
 1. `202607100000_profiles_baseline.sql`：创建用户资料、角色约束、新用户触发器与 RLS。
 2. `202607100002_articles_baseline.sql`：创建文章、审核字段、状态/可见性约束与 RLS。
 3. `202607100003_article_interactions_baseline.sql`：创建点赞、收藏、评论、唯一约束与 RLS。
-4. `202607109999_security_hardening.sql`：在全部基线表之上收紧文章、互动和内部资源权限。
+4. `202607100004_atomic_interaction_counts.sql`：由数据库触发器原子维护点赞数和评论数。
+5. `202607109999_security_hardening.sql`：在全部基线表之上收紧文章、互动和内部资源权限。
 
 数据库测试脚本位于 `tests/`，只允许对临时 Supabase/Postgres 环境执行；脚本使用事务并在结束时回滚。
 

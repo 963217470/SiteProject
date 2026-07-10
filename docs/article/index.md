@@ -809,12 +809,11 @@ async function loadComments(supabase) {
   }
 }
 
-async function updateArticleCount(supabase, patch) {
+async function refreshArticleCounts(supabase) {
   var result = await supabase
     .from('articles')
-    .update(patch)
+    .select('likes_count, comments_count')
     .eq('id', articleState.id)
-    .select('id, likes_count, comments_count')
     .limit(1)
 
   if (!result.error && result.data && result.data[0]) {
@@ -834,19 +833,22 @@ async function toggleLike() {
 
   var userId = session.user.id
   if (articleState.liked) {
-    await supabase.from('article_likes').delete().eq('article_id', articleState.id).eq('user_id', userId)
+    var deletion = await supabase.from('article_likes').delete().eq('article_id', articleState.id).eq('user_id', userId)
+    if (deletion.error) {
+      alert('取消点赞失败：' + deletion.error.message)
+      return
+    }
     articleState.liked = false
-    articleState.article.likes_count = Math.max(0, (articleState.article.likes_count || 0) - 1)
   } else {
-    var exists = await supabase.from('article_likes').select('article_id').eq('article_id', articleState.id).eq('user_id', userId).limit(1)
-    if (!exists.data || !exists.data.length) {
-      await supabase.from('article_likes').insert({ article_id: articleState.id, user_id: userId })
-      articleState.article.likes_count = (articleState.article.likes_count || 0) + 1
+    var insertion = await supabase.from('article_likes').insert({ article_id: articleState.id, user_id: userId })
+    if (insertion.error && insertion.error.code !== '23505') {
+      alert('点赞失败：' + insertion.error.message)
+      return
     }
     articleState.liked = true
   }
 
-  await updateArticleCount(supabase, { likes_count: articleState.article.likes_count })
+  await refreshArticleCounts(supabase)
   renderArticle()
 }
 
@@ -904,8 +906,7 @@ async function submitComment() {
   }
 
   articleState.comments.push(insert.data[0])
-  articleState.article.comments_count = (articleState.article.comments_count || 0) + 1
-  await updateArticleCount(supabase, { comments_count: articleState.article.comments_count })
+  await refreshArticleCounts(supabase)
   await loadProfiles(supabase, [session.user.id])
   renderArticle()
 }
