@@ -1,7 +1,8 @@
 // Supabase REST API helper — no SDK dependency needed
 ;(function() {
-var URL = 'https://jenrgzwwowgfqbwcozbi.supabase.co'
-var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplbnJnend3b3dnZnFid2NvemJpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODgwNjM1NCwiZXhwIjoyMDk0MzgyMzU0fQ.-qioHuE8nqf-9fhwNsJmh0fPlMSt7ysc0LtFlxulh6s'
+var CONFIG = window.__SUPABASE_CONFIG__ || {}
+var URL = CONFIG.url || ''
+var KEY = CONFIG.anonKey || ''
 var STORAGE_KEY = 'sb-auth-token'
 var session = null
 var listeners = []
@@ -47,6 +48,7 @@ function makeUser(tokenData) {
 
 async function api(path, options) {
   options = options || {}
+  if (!URL || !KEY) return { data: null, error: { message: 'Supabase 公开配置缺失', status: 503 } }
   var headers = Object.assign({ 'apikey': KEY, 'Content-Type': 'application/json' }, options.headers || {})
   if (options.token) headers['Authorization'] = 'Bearer ' + options.token
   var res = await fetch(URL + path, {
@@ -115,6 +117,7 @@ window.__supabase = {
       return { error: null }
     },
     signInWithOAuth: async function(options) {
+      if (!URL || !KEY) return { data: null, error: { message: 'Supabase 公开配置缺失' } }
       var redirectUrl = options.options?.redirectTo || window.location.origin + '/auth/callback'
       var url = URL + '/auth/v1/authorize?provider=' + options.provider + '&redirect_to=' + encodeURIComponent(redirectUrl)
       window.location.href = url
@@ -148,7 +151,9 @@ window.__supabase = {
     from: function(bucket) {
       return {
         upload: async function(path, file) {
-          var headers = { 'apikey': KEY, 'authorization': 'Bearer ' + KEY }
+          var sess = await ensureSession()
+          if (!sess) return { data: null, error: { message: 'Not authenticated' } }
+          var headers = { 'apikey': KEY, 'authorization': 'Bearer ' + sess.access_token }
           if (file && file.type) headers['Content-Type'] = file.type
           var res = await fetch(URL + '/storage/v1/object/' + bucket + '/' + encodeURI(path), {
             method: 'POST',
@@ -165,6 +170,21 @@ window.__supabase = {
         },
         getPublicUrl: function(path) {
           return { data: { publicUrl: URL + '/storage/v1/object/public/' + bucket + '/' + path } }
+        },
+        createSignedUrl: async function(path, expiresIn) {
+          var sess = await ensureSession()
+          if (!sess) return { data: null, error: { message: 'Not authenticated' } }
+          var result = await api('/storage/v1/object/sign/' + bucket + '/' + encodeURI(path), {
+            method: 'POST',
+            token: sess.access_token,
+            body: { expiresIn: Number(expiresIn || 60) }
+          })
+          if (result.error || !result.data) return result
+          var signedPath = result.data.signedURL || result.data.signedUrl || ''
+          var signedUrl = signedPath.indexOf('http') === 0
+            ? signedPath
+            : URL + (signedPath.indexOf('/storage/v1') === 0 ? '' : '/storage/v1') + signedPath
+          return { data: { signedUrl: signedUrl }, error: null }
         },
         remove: async function(paths) {
           var sess = await ensureSession()
@@ -193,7 +213,6 @@ function QueryBuilder(table) {
   this._maybeSingle = false
   this._countOpts = null
   this._body = null
-  this._useServiceRole = false
 }
 
 QueryBuilder.prototype.select = function(cols) { this._selectCols = cols || '*'; return this }
@@ -214,11 +233,9 @@ QueryBuilder.prototype.offset = function(n) { this._offsetVal = n; return this }
 QueryBuilder.prototype.single = function() { this._single = true; return this }
 QueryBuilder.prototype.maybeSingle = function() { this._maybeSingle = true; return this }
 QueryBuilder.prototype.selectCount = function(opts) { this._countOpts = opts; return this }
-QueryBuilder.prototype.useServiceRole = function() { this._useServiceRole = true; return this }
-
 QueryBuilder.prototype.execute = async function() {
   var sess = await ensureSession()
-  var token = this._useServiceRole ? KEY : (sess ? sess.access_token : KEY)
+  var token = sess ? sess.access_token : KEY
 
   if (this._countOpts) {
     var countUrl = '/rest/v1/' + this._table + '?select=*&' + this._filters.join('&')
@@ -234,8 +251,9 @@ QueryBuilder.prototype.execute = async function() {
   }
 
   if (this._method === 'POST' || this._method === 'PATCH' || this._method === 'DELETE') {
+    if (!sess) return { data: null, error: { message: 'Not authenticated' }, count: null }
     var headers = { 'apikey': KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
-    headers['Authorization'] = 'Bearer ' + KEY
+    headers['Authorization'] = 'Bearer ' + sess.access_token
     var path = '/rest/v1/' + this._table
     var params = []
     if (this._selectCols) params.push('select=' + encodeURIComponent(this._selectCols))
