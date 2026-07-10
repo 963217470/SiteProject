@@ -3,7 +3,7 @@
 -- ============================================================
 -- 用途：
 --   1. 确保点赞、评论、收藏表存在。
---   2. 为收藏表配置 RLS 策略。
+--   2. 为点赞、评论、收藏表配置 RLS 策略。
 --   3. 补充常用索引，提升文章详情页互动查询速度。
 --
 -- 使用方式：
@@ -35,7 +35,65 @@ CREATE TABLE IF NOT EXISTS article_favorites (
   PRIMARY KEY (article_id, user_id)
 );
 
+ALTER TABLE article_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE article_favorites ENABLE ROW LEVEL SECURITY;
+
+DELETE FROM article_likes a
+USING article_likes b
+WHERE a.ctid < b.ctid
+  AND a.article_id = b.article_id
+  AND a.user_id = b.user_id;
+
+CREATE UNIQUE INDEX IF NOT EXISTS article_likes_article_user_uidx
+ON article_likes(article_id, user_id);
+
+DROP POLICY IF EXISTS "Users can view own article likes" ON article_likes;
+DROP POLICY IF EXISTS "Users can create own article likes" ON article_likes;
+DROP POLICY IF EXISTS "Users can delete own article likes" ON article_likes;
+
+CREATE POLICY "Users can view own article likes"
+ON article_likes FOR SELECT TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create own article likes"
+ON article_likes FOR INSERT TO authenticated
+WITH CHECK (
+  auth.uid() = user_id
+  AND EXISTS (SELECT 1 FROM articles WHERE articles.id = article_likes.article_id)
+);
+
+CREATE POLICY "Users can delete own article likes"
+ON article_likes FOR DELETE TO authenticated
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Readers can view article comments" ON comments;
+DROP POLICY IF EXISTS "Users can create own comments" ON comments;
+DROP POLICY IF EXISTS "Users can update own comments" ON comments;
+DROP POLICY IF EXISTS "Users can delete own comments" ON comments;
+
+CREATE POLICY "Readers can view article comments"
+ON comments FOR SELECT
+USING (EXISTS (SELECT 1 FROM articles WHERE articles.id = comments.article_id));
+
+CREATE POLICY "Users can create own comments"
+ON comments FOR INSERT TO authenticated
+WITH CHECK (
+  auth.uid() = user_id
+  AND EXISTS (SELECT 1 FROM articles WHERE articles.id = comments.article_id)
+);
+
+CREATE POLICY "Users can update own comments"
+ON comments FOR UPDATE TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (
+  auth.uid() = user_id
+  AND EXISTS (SELECT 1 FROM articles WHERE articles.id = comments.article_id)
+);
+
+CREATE POLICY "Users can delete own comments"
+ON comments FOR DELETE TO authenticated
+USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can view own article favorites" ON article_favorites;
 DROP POLICY IF EXISTS "Users can create own article favorites" ON article_favorites;
@@ -44,16 +102,22 @@ DROP POLICY IF EXISTS "Users can delete own article favorites" ON article_favori
 CREATE POLICY "Users can view own article favorites"
 ON article_favorites
 FOR SELECT
+TO authenticated
 USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can create own article favorites"
 ON article_favorites
 FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+TO authenticated
+WITH CHECK (
+  auth.uid() = user_id
+  AND EXISTS (SELECT 1 FROM articles WHERE articles.id = article_favorites.article_id)
+);
 
 CREATE POLICY "Users can delete own article favorites"
 ON article_favorites
 FOR DELETE
+TO authenticated
 USING (auth.uid() = user_id);
 
 -- 4. 互动查询索引
