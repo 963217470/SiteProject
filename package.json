@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vitepress dev docs",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitepress build docs",
-    "preview": "vitepress preview docs"
+    "preview": "vitepress preview docs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check:secrets:build": "node scripts/check-secrets.mjs --include-generated",
+    "check:security": "node scripts/check-security-baseline.mjs"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +24,7 @@
     "vue": "^3.5.34"
   },
   "devDependencies": {
-    "cross-env": "^10.1.0"
+    "cross-env": "^10.1.0",
+    "vite": "^5.4.21"
   }
 }
