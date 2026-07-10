@@ -78,7 +78,6 @@ onMounted(() => {
         .from('profiles')
         .select('username, avatar_url, role')
         .eq('id', user.id)
-        .useServiceRole()
         .maybeSingle();
     }
   }).then(function(r) {

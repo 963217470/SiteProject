@@ -262,7 +262,6 @@ async function requireAdmin(supabase) {
     .from('profiles')
     .select('role')
     .eq('id', user.id)
-    .useServiceRole()
     .maybeSingle()
 
   if (profileResult.error) {

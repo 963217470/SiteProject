@@ -287,7 +287,6 @@ async function requireAdmin(supabase) {
     .from('profiles')
     .select('role')
     .eq('id', user.id)
-    .useServiceRole()
     .maybeSingle()
 
   if (profileResult.error) {
@@ -312,7 +311,6 @@ async function loadProfiles(supabase, userIds) {
     .from('profiles')
     .select('id, username, avatar_url, bio, role')
     .in('id', userIds)
-    .useServiceRole()
 
   if (result.error) return
   ;(result.data || []).forEach(function(profile) {
@@ -339,7 +337,6 @@ async function loadProfileReviews() {
       .from('profile_changes')
       .select('id, user_id, username, avatar_url, bio, status, created_at')
       .order('created_at', { ascending: false })
-      .useServiceRole()
 
     if (result.error) {
       showError('数据库查询失败：' + result.error.message)
@@ -367,7 +364,6 @@ async function updateChangeStatus(id, status) {
     .update({ status: status })
     .eq('id', id)
     .select('id')
-    .useServiceRole()
 
   if (result.error) {
     alert('操作失败：' + result.error.message)
@@ -423,7 +419,6 @@ async function approveProfileChange(id) {
       .update(updateData)
       .eq('id', change.user_id)
       .select('id')
-      .useServiceRole()
 
     if (profileResult.error) {
       alert('写入资料失败：' + profileResult.error.message)
@@ -436,7 +431,6 @@ async function approveProfileChange(id) {
         .from('profiles')
         .insert(insertData)
         .select('id')
-        .useServiceRole()
       if (profileResult.error) {
         alert('创建资料失败：' + profileResult.error.message)
         return

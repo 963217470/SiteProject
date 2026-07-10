@@ -121,7 +121,6 @@ async function requireAdmin(supabase) {
     .from('profiles')
     .select('role')
     .eq('id', user.id)
-    .useServiceRole()
     .maybeSingle()
 
   if (profileResult.error) throw new Error('读取权限失败：' + profileResult.error.message)
