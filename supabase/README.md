@@ -18,3 +18,21 @@
 2. `202607100001_security_hardening.sql`：在基线表之上收紧文章、互动和内部资源权限。
 
 数据库测试脚本位于 `tests/`，只允许对临时 Supabase/Postgres 环境执行；脚本使用事务并在结束时回滚。
+
+## 本地验证
+
+首次启动只需核心服务即可验证数据库迁移：
+
+```powershell
+npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,realtime,storage-api
+```
+
+在后续表基线尚未完成时，按任务版本重置，避免执行依赖尚不存在表的迁移：
+
+```powershell
+npx supabase db reset --local --version 202607100000 --no-seed
+docker cp supabase/tests/profiles_baseline.sql supabase_db_SiteProject:/tmp/profiles_baseline.sql
+docker exec supabase_db_SiteProject psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/profiles_baseline.sql
+```
+
+完成测试后可运行 `npx supabase stop` 停止本地服务。CLI 输出的本地密钥只能用于开发环境，不得复制到生产配置或提交到仓库。
