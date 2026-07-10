@@ -1,4 +1,12 @@
 import { defineConfig } from 'vitepress'
+import { loadEnv } from 'vite'
+
+const mode = process.env.NODE_ENV === 'production' ? 'production' : 'development'
+const env = loadEnv(mode, process.cwd(), '')
+const supabaseConfig = JSON.stringify({
+  url: env.VITE_SUPABASE_URL || '',
+  anonKey: env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY || ''
+}).replace(/</g, '\\u003c')
 
 export default defineConfig({
   title: 'RD STUDIO',
@@ -6,6 +14,7 @@ export default defineConfig({
   base: '/',
 
   head: [
+    ['script', {}, `window.__SUPABASE_CONFIG__=${supabaseConfig}`],
     ['script', { src: '/supabase-rest.js?v=20260523-review-guard' }],
     ['script', { src: '/profile-page.js?v=20260523-profile-wireframe' }]
   ],

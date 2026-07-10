@@ -84,9 +84,11 @@ npm run build
 | 变量名 | 说明 |
 |--------|------|
 | `VITE_SUPABASE_URL` | Supabase 项目 URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase 匿名密钥 |
-| `VITE_GITHUB_TOKEN` | GitHub Token（用于图片上传） |
-| `VITE_GITHUB_REPO` | GitHub 仓库地址 |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | 推荐的 Supabase 公开密钥，可进入浏览器构建产物 |
+| `VITE_SUPABASE_ANON_KEY` | 旧项目临时兼容的公开匿名密钥，迁移后删除 |
+| `SUPABASE_SECRET_KEY` | 推荐的服务端特权密钥，仅限受控服务端秘密存储 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 旧服务端临时兼容项，轮换后禁用并删除 |
+| `GITHUB_WRITE_TOKEN` | 仅限受控服务端或 CI 使用，禁止使用 `VITE_` 前缀 |
 
 ## 贡献指南
 
