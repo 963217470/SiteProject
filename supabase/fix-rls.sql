@@ -6,7 +6,7 @@
 --
 -- 策略摘要：
 --   - 任何人可以查看已发布的公开文章。
---   - 任何人可以提交文章。
+--   - 登录用户只能以自己身份提交草稿或待审核文章。
 --   - 作者可以查看、更新、删除自己的文章。
 --   - member/admin 可以查看内部文章。
 --   - admin 可以查看所有文章。
@@ -20,6 +20,7 @@ ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Members can create articles" ON articles;
 DROP POLICY IF EXISTS "Allow anonymous users to create articles" ON articles;
 DROP POLICY IF EXISTS "Anyone can create articles" ON articles;
+DROP POLICY IF EXISTS "Authenticated users can create own articles" ON articles;
 DROP POLICY IF EXISTS "Public articles are viewable by everyone" ON articles;
 DROP POLICY IF EXISTS "Public articles viewable by everyone" ON articles;
 DROP POLICY IF EXISTS "Authors can update own articles" ON articles;
@@ -70,16 +71,25 @@ USING (
 );
 
 -- 4. 写入策略
-CREATE POLICY "Anyone can create articles"
+CREATE POLICY "Authenticated users can create own articles"
 ON articles
 FOR INSERT
-WITH CHECK (true);
+TO authenticated
+WITH CHECK (
+  auth.uid() IS NOT NULL
+  AND author_id = auth.uid()
+  AND status IN ('draft', 'pending')
+);
 
 CREATE POLICY "Authors can update own articles"
 ON articles
 FOR UPDATE
+TO authenticated
 USING (auth.uid() = author_id)
-WITH CHECK (auth.uid() = author_id);
+WITH CHECK (
+  auth.uid() = author_id
+  AND status IN ('draft', 'pending')
+);
 
 CREATE POLICY "Admins can update all articles"
 ON articles
