@@ -4,7 +4,7 @@
 
 1. 在隔离数据库按顺序执行 `migrations/`，再运行 `tests/security_hardening.sql`。
 2. 生产变更前备份数据库，并记录当前 Git 提交与迁移版本。
-3. 将 `202607100001_security_hardening.sql` 应用于生产数据库。
+3. 基线迁移全部完成并验证后，将 `202607109999_security_hardening.sql` 应用于生产数据库。
 4. 为 GitHub Pages 配置 `VITE_SUPABASE_URL` 与 `VITE_SUPABASE_PUBLISHABLE_KEY`，确认登录、普通用户、社员和管理员路径。
 5. 完成下述密钥轮换；不要把新秘密复制到仓库、浏览器变量或聊天记录。
 

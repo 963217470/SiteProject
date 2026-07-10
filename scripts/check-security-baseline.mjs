@@ -1,13 +1,17 @@
 import { readFile } from 'node:fs/promises'
 
 const files = {
-  migration: await readFile('supabase/migrations/202607100001_security_hardening.sql', 'utf8'),
+  profilesBaseline: await readFile('supabase/migrations/202607100000_profiles_baseline.sql', 'utf8'),
+  articlesBaseline: await readFile('supabase/migrations/202607100002_articles_baseline.sql', 'utf8'),
+  migration: await readFile('supabase/migrations/202607109999_security_hardening.sql', 'utf8'),
   permissionTests: await readFile('supabase/tests/security_hardening.sql', 'utf8'),
   restClient: await readFile('docs/public/supabase-rest.js', 'utf8'),
   resourcesPage: await readFile('docs/internal/index.md', 'utf8')
 }
 
 const requirements = [
+  ['profiles baseline precedes hardening', files.profilesBaseline, /create table if not exists public\.profiles/i],
+  ['articles baseline precedes hardening', files.articlesBaseline, /create table if not exists public\.articles/i],
   ['profile role trigger', files.migration, /before update of role on public\.profiles/i],
   ['authenticated article insert', files.migration, /author_id\s*=\s*auth\.uid\(\)[\s\S]*status in \('draft', 'pending'\)/i],
   ['likes RLS', files.migration, /alter table public\.article_likes enable row level security/i],

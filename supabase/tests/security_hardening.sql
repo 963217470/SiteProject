@@ -1,5 +1,5 @@
 -- Run against a disposable database after all migrations through
--- 202607100001_security_hardening.sql.
+-- 202607109999_security_hardening.sql.
 -- The transaction always rolls back. Replace the UUIDs only if they collide.
 
 begin;

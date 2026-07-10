@@ -1,5 +1,5 @@
 -- Batch 1 security hardening.
--- Apply after the legacy schema scripts and before exposing write operations.
+-- Apply after all Batch 2 baseline migrations and before exposing write operations.
 
 begin;
 

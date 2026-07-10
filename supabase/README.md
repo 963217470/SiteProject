@@ -15,7 +15,8 @@
 ## 当前迁移顺序
 
 1. `202607100000_profiles_baseline.sql`：创建用户资料、角色约束、新用户触发器与 RLS。
-2. `202607100001_security_hardening.sql`：在基线表之上收紧文章、互动和内部资源权限。
+2. `202607100002_articles_baseline.sql`：创建文章、审核字段、状态/可见性约束与 RLS。
+3. `202607109999_security_hardening.sql`：在全部基线表之上收紧文章、互动和内部资源权限。
 
 数据库测试脚本位于 `tests/`，只允许对临时 Supabase/Postgres 环境执行；脚本使用事务并在结束时回滚。
 
