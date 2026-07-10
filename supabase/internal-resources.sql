@@ -100,14 +100,18 @@ using (
 grant select, insert, update, delete on public.internal_resources to authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit)
-values ('resources', 'resources', true, 524288000)
+values ('resources', 'resources', false, 524288000)
 on conflict (id) do update
-set public = true,
+set public = false,
     file_size_limit = 524288000;
+
+alter table public.internal_resources
+alter column file_url drop not null;
 
 drop policy if exists "Members can download resource files" on storage.objects;
 drop policy if exists "Admins can upload resource files" on storage.objects;
 drop policy if exists "Admins can manage resource files" on storage.objects;
+drop policy if exists "Admins can delete resource files" on storage.objects;
 
 create policy "Members can download resource files"
 on storage.objects
@@ -148,6 +152,20 @@ using (
   )
 )
 with check (
+  bucket_id = 'resources'
+  and exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role = 'admin'
+  )
+);
+
+create policy "Admins can delete resource files"
+on storage.objects
+for delete
+to authenticated
+using (
   bucket_id = 'resources'
   and exists (
     select 1

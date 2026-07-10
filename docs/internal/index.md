@@ -13,6 +13,7 @@ const articles = ref([])
 const resources = ref([])
 const resourceError = ref('')
 const resourceBusy = ref(false)
+const resourceDownloadBusy = ref('')
 const resourceFile = ref(null)
 const selectedTags = ref([])
 const sortOrder = ref('newest')
@@ -69,7 +70,7 @@ async function loadResources() {
   try {
     const { data, error } = await supabase
       .from('internal_resources')
-      .select('id, title, description, category, version, file_url, file_name, file_size, created_at')
+      .select('id, title, description, category, version, file_path, file_name, file_size, created_at')
       .eq('status', 'published')
       .order('created_at', { ascending: false })
     if (error) {
@@ -115,13 +116,12 @@ async function publishResource() {
 
     const upload = await supabase.storage.from('resources').upload(path, file)
     if (upload.error) throw new Error(upload.error.message || '文件上传失败')
-    const publicUrl = supabase.storage.from('resources').getPublicUrl(path).data.publicUrl
     const insert = await supabase.from('internal_resources').insert({
       title,
       description: resourceForm.value.description.trim(),
       category: resourceForm.value.category.trim(),
       version: resourceForm.value.version.trim(),
-      file_url: publicUrl,
+      file_url: null,
       file_path: path,
       file_name: file.name,
       file_size: file.size,
@@ -138,6 +138,23 @@ async function publishResource() {
     resourceError.value = '资源发布失败：' + (e.message || '未知错误')
   } finally {
     resourceBusy.value = false
+  }
+}
+
+async function downloadResource(item) {
+  if (!item.file_path || resourceDownloadBusy.value) return
+  resourceDownloadBusy.value = item.id
+  resourceError.value = ''
+  try {
+    const result = await supabase.storage.from('resources').createSignedUrl(item.file_path, 60)
+    if (result.error || !result.data?.signedUrl) {
+      throw new Error(result.error?.message || '无法创建临时下载链接')
+    }
+    window.location.assign(result.data.signedUrl)
+  } catch (e) {
+    resourceError.value = '资源下载失败：' + (e.message || '未知错误')
+  } finally {
+    resourceDownloadBusy.value = ''
   }
 }
 </script>
@@ -182,7 +199,7 @@ async function publishResource() {
 </div>
 </div>
 </div>
-<a class="download-btn" :href="item.file_url" :download="item.file_name || item.title" target="_blank" rel="noreferrer">下载</a>
+<button class="download-btn" type="button" :disabled="resourceDownloadBusy === item.id" @click="downloadResource(item)">{{ resourceDownloadBusy === item.id ? '准备中...' : '下载' }}</button>
 </article>
 </div>
 <div v-else-if="!resourceError" class="no-resources">暂无内部资源</div>
