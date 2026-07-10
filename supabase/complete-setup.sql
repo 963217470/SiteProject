@@ -25,10 +25,27 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- 2. 开启 profiles RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO anon, authenticated;
+
 -- 3. 重建 profiles 策略
 DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
 DROP POLICY IF EXISTS "Anyone can view profiles" ON profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
+DROP POLICY IF EXISTS "Admins can insert profiles" ON profiles;
 DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
 
 CREATE POLICY "Anyone can view profiles"
@@ -39,28 +56,49 @@ USING (true);
 CREATE POLICY "Users can update their own profile"
 ON profiles
 FOR UPDATE
+TO authenticated
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Admins can insert profiles"
+ON profiles
+FOR INSERT
+TO authenticated
+WITH CHECK (public.is_admin());
 
 CREATE POLICY "Admins can update all profiles"
 ON profiles
 FOR UPDATE
+TO authenticated
 USING (
-  EXISTS (
-    SELECT 1
-    FROM profiles
-    WHERE profiles.id = auth.uid()
-      AND profiles.role = 'admin'
-  )
+  public.is_admin()
 )
 WITH CHECK (
-  EXISTS (
-    SELECT 1
-    FROM profiles
-    WHERE profiles.id = auth.uid()
-      AND profiles.role = 'admin'
-  )
+  public.is_admin()
 );
+
+-- RLS cannot compare OLD/NEW values, so a trigger protects the role column.
+CREATE OR REPLACE FUNCTION public.protect_profile_role()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role
+     AND auth.uid() IS NOT NULL
+     AND NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Only administrators can change profile roles'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS protect_profile_role_update ON public.profiles;
+CREATE TRIGGER protect_profile_role_update
+BEFORE UPDATE OF role ON public.profiles
+FOR EACH ROW EXECUTE FUNCTION public.protect_profile_role();
 
 -- 4. 可选：手动设置管理员
 -- 将 USER_ID_HERE 替换成目标用户的真实 UUID 后再执行。
