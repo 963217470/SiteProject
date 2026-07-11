@@ -10,6 +10,7 @@ export default defineConfig({
   ],
 
   vite: {
+    envDir: '..',
     optimizeDeps: {
       include: ['@vueuse/core', 'vue', '@vueuse/integrations/useFocusTrap']
     },

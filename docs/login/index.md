@@ -4,39 +4,23 @@ layout: page
 ---
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useAuth } from '../.vitepress/theme/composables/useAuth'
 
-const loading = ref(true)
-const isLoggedIn = ref(false)
-const username = ref('')
-const errorMsg = ref('')
+const auth = useAuth()
+const loading = auth.loading
+const isLoggedIn = auth.isLoggedIn
+const username = computed(() => auth.profile.value?.username || auth.user.value?.email || '用户')
+const errorMsg = computed(() => auth.error.value?.message || '')
 
-onMounted(() => {
-  if (!window.getSupabaseClient?.()) {
-    errorMsg.value = '系统未加载，请刷新页面'
-    loading.value = false
-    return
-  }
-
-  window.getSupabaseClient?.().auth.getSession().then(r => {
-    if (r.data.session) {
-      isLoggedIn.value = true
-      username.value = r.data.session.user.email || '用户'
-    }
-  }).catch(() => {}).finally(() => {
-    loading.value = false
-  })
-})
+onMounted(auth.initializeAuth)
 
 function doLogin() {
-  var origin = window.location.origin
-  window.location.href = 'https://jenrgzwwowgfqbwcozbi.supabase.co/auth/v1/authorize?provider=github&redirect_to=' + encodeURIComponent(origin + '/auth/callback')
+  return auth.loginWithGitHub()
 }
 
-async function logout() {
-  if (window.getSupabaseClient?.()) await window.getSupabaseClient?.().auth.signOut()
-  isLoggedIn.value = false
-  username.value = ''
+function logout() {
+  return auth.logout()
 }
 </script>
 

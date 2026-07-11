@@ -34,16 +34,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useAuth } from '../composables/useAuth'
 
-const loading = ref(true)
-const isLoggedIn = ref(false)
-const isAdmin = ref(false)
-const displayName = ref('')
-const avatar = ref('/images/default-avatar.svg')
+const { user, profile, loading, isLoggedIn, initializeAuth, logout: signOut } = useAuth()
 const showMenu = ref(false)
 
-let supabase = null
+const isAdmin = computed(() => profile.value?.role === 'admin')
+const displayName = computed(() => profile.value?.username || getMetaName(user.value))
+const avatar = computed(() => profile.value?.avatar_url || getMetaAvatar(user.value))
 
 function go(url) { window.location.href = url }
 
@@ -62,35 +61,7 @@ function handleClickOutside(e) {
 }
 
 onMounted(() => {
-  if (typeof window === 'undefined' || !window.__supabase) { loading.value = false; return }
-  supabase = window.__supabase
-
-  supabase.auth.getSession().then(function(r) {
-    if (r.data && r.data.session) {
-      isLoggedIn.value = true
-      var user = r.data.session.user
-      displayName.value = getMetaName(user)
-      avatar.value = getMetaAvatar(user)
-      
-      if (!user.id) return null;
-
-      return supabase
-        .from('profiles')
-        .select('username, avatar_url, role')
-        .eq('id', user.id)
-        .maybeSingle();
-    }
-  }).then(function(r) {
-    if (!r || !r.data) return
-    if (r.data.username) displayName.value = r.data.username
-    if (r.data.avatar_url) avatar.value = r.data.avatar_url
-    if (r.data.role === 'admin') isAdmin.value = true
-  }).catch(function(e) {
-    console.log('获取用户资料失败:', e)
-  }).finally(function() {
-    loading.value = false
-  })
-
+  initializeAuth()
   document.addEventListener('click', handleClickOutside)
 })
 
@@ -98,15 +69,10 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 
-function logout() {
-  if (supabase) {
-    supabase.auth.signOut().then(function() {
-      isLoggedIn.value = false
-      displayName.value = ''
-      showMenu.value = false
-      window.location.href = '/'
-    })
-  }
+async function logout() {
+  await signOut()
+  showMenu.value = false
+  window.location.href = '/'
 }
 </script>
 
