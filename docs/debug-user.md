@@ -55,12 +55,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     errorEl.style.display = 'none';
     if (initialMsgEl) initialMsgEl.style.display = 'none';
     
-    if (!window.__supabase) {
+    if (!window.getSupabaseClient?.()) {
       showError('Supabase未加载，请刷新页面');
       return;
     }
     
-    window.__supabase.auth.getSession().then(function(r) {
+    window.getSupabaseClient?.().auth.getSession().then(function(r) {
       if (!r.data || !r.data.session) {
         showError('您还未登录，请先登录');
         return;
@@ -77,7 +77,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       if (userIdEl) userIdEl.textContent = user.id;
       
       // 获取profile信息
-      return window.__supabase
+      return window.getSupabaseClient?.()
         .from('profiles')
         .select('*')
         .eq('id', user.id)

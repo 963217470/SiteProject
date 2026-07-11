@@ -23,7 +23,7 @@ function renderShell() {
 
 async function waitSupabase() {
   for (var i = 0; i < 30; i++) {
-    if (window.__supabase) return window.__supabase
+    if (window.getSupabaseClient?.()) return window.getSupabaseClient?.()
     await new Promise(function(resolve) { setTimeout(resolve, 100) })
   }
   return null

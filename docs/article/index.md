@@ -229,10 +229,10 @@ function knowledgeBranchPath(branch, branches) {
 
 async function hydrateWikiLinks() {
   var links = Array.prototype.slice.call(document.querySelectorAll('.article-body .wiki-link[data-wiki-title]'))
-  if (!links.length || !window.__supabase) return
+  if (!links.length || !window.getSupabaseClient?.()) return
 
   if (!articleState.knowledgeBranches) {
-    var result = await window.__supabase
+    var result = await window.getSupabaseClient?.()
       .from('knowledge_branches')
       .select('id, parent_id, name')
     articleState.knowledgeBranches = result.error ? [] : (result.data || [])
@@ -413,7 +413,7 @@ function setVisible(id, visible) {
 async function waitForSupabase(maxAttempts) {
   maxAttempts = maxAttempts || 30
   for (var i = 0; i < maxAttempts; i++) {
-    if (typeof window !== 'undefined' && window.__supabase) return window.__supabase
+    if (typeof window !== 'undefined' && window.getSupabaseClient?.()) return window.getSupabaseClient?.()
     await new Promise(function(resolve) { setTimeout(resolve, 100) })
   }
   return null
@@ -823,7 +823,7 @@ async function refreshArticleCounts(supabase) {
 }
 
 async function toggleLike() {
-  var supabase = window.__supabase
+  var supabase = window.getSupabaseClient?.()
   var sessionResult = await supabase.auth.getSession()
   var session = sessionResult.data.session
   if (!session || !isUuid(session.user.id)) {
@@ -853,7 +853,7 @@ async function toggleLike() {
 }
 
 async function toggleFavorite() {
-  var supabase = window.__supabase
+  var supabase = window.getSupabaseClient?.()
   var sessionResult = await supabase.auth.getSession()
   var session = sessionResult.data.session
 
@@ -887,7 +887,7 @@ async function submitComment() {
   var content = input ? input.value.trim() : ''
   if (!content) return
 
-  var supabase = window.__supabase
+  var supabase = window.getSupabaseClient?.()
   var sessionResult = await supabase.auth.getSession()
   var session = sessionResult.data.session
   if (!session || !isUuid(session.user.id)) {

@@ -7,7 +7,7 @@ import type { Theme } from 'vitepress'
 import { supabase } from './lib/supabase'
 
 if (typeof window !== 'undefined' && supabase) {
-  window.__supabase = supabase
+  window.getSupabaseClient = () => supabase
 }
 
 export default {

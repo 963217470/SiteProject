@@ -156,7 +156,7 @@ function showArticles(data) {
 
 async function waitForSupabase(maxAttempts = 30) {
   for (let i = 0; i < maxAttempts; i++) {
-    if (typeof window !== 'undefined' && window.__supabase) {
+    if (typeof window !== 'undefined' && window.getSupabaseClient?.()) {
       return true
     }
     await new Promise(resolve => setTimeout(resolve, 100))
@@ -180,7 +180,7 @@ async function loadArticles() {
     }
 
     console.log('Supabase loaded, fetching articles...')
-    const supabase = window.__supabase
+    const supabase = window.getSupabaseClient?.()
 
     let query = supabase
       .from('articles')

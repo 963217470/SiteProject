@@ -106,7 +106,7 @@ function normalizeRequestPath(value) {
 async function waitForSupabase(maxAttempts) {
   maxAttempts = maxAttempts || 30
   for (var i = 0; i < maxAttempts; i++) {
-    if (typeof window !== 'undefined' && window.__supabase) return window.__supabase
+    if (typeof window !== 'undefined' && window.getSupabaseClient?.()) return window.getSupabaseClient?.()
     await new Promise(function(resolve) { setTimeout(resolve, 100) })
   }
   return null

@@ -29,8 +29,8 @@ const availableTags = ['Unity', 'Godot', 'Unreal Engine', 'Cocos Creator', 'C#',
 
 onMounted(async () => {
   try {
-    if (!window.__supabase) { loading.value = false; return }
-    supabase = window.__supabase
+    if (!window.getSupabaseClient?.()) { loading.value = false; return }
+    supabase = window.getSupabaseClient?.()
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { notMember.value = true; loading.value = false; return }
     const profileResult = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle()

@@ -12,13 +12,13 @@ const username = ref('')
 const errorMsg = ref('')
 
 onMounted(() => {
-  if (!window.__supabase) {
+  if (!window.getSupabaseClient?.()) {
     errorMsg.value = '系统未加载，请刷新页面'
     loading.value = false
     return
   }
 
-  window.__supabase.auth.getSession().then(r => {
+  window.getSupabaseClient?.().auth.getSession().then(r => {
     if (r.data.session) {
       isLoggedIn.value = true
       username.value = r.data.session.user.email || '用户'
@@ -34,7 +34,7 @@ function doLogin() {
 }
 
 async function logout() {
-  if (window.__supabase) await window.__supabase.auth.signOut()
+  if (window.getSupabaseClient?.()) await window.getSupabaseClient?.().auth.signOut()
   isLoggedIn.value = false
   username.value = ''
 }

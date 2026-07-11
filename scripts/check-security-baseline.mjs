@@ -5,7 +5,7 @@ const files = {
   articlesBaseline: await readFile('supabase/migrations/202607100002_articles_baseline.sql', 'utf8'),
   migration: await readFile('supabase/migrations/202607109999_security_hardening.sql', 'utf8'),
   permissionTests: await readFile('supabase/tests/security_hardening.sql', 'utf8'),
-  restClient: await readFile('docs/public/supabase-rest.js', 'utf8'),
+  supabaseClient: await readFile('docs/.vitepress/theme/lib/supabase.ts', 'utf8'),
   resourcesPage: await readFile('docs/internal/index.md', 'utf8')
 }
 
@@ -18,7 +18,7 @@ const requirements = [
   ['comments RLS', files.migration, /alter table public\.comments enable row level security/i],
   ['favorites RLS', files.migration, /alter table public\.article_favorites enable row level security/i],
   ['private resource bucket', files.migration, /update storage\.buckets[\s\S]*set public = false[\s\S]*where id = 'resources'/i],
-  ['signed URL client', files.restClient, /createSignedUrl/],
+  ['official Supabase SDK singleton', files.supabaseClient, /createClient\(supabaseUrl, supabasePublicKey/],
   ['signed URL download flow', files.resourcesPage, /createSignedUrl\(item\.file_path, 60\)/],
   ['anonymous denial test', files.permissionTests, /expected anonymous article insertion to be rejected/],
   ['role escalation denial test', files.permissionTests, /expected profile role escalation to be rejected/],

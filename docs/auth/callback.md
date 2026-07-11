@@ -34,13 +34,13 @@ onMounted(async () => {
       }
     }
 
-    if (!window.__supabase) {
+    if (!window.getSupabaseClient?.()) {
       status.value = '系统未加载'
       setTimeout(() => { window.location.href = '/login' }, 2000)
       return
     }
 
-    const { data } = await window.__supabase.auth.getSession()
+    const { data } = await window.getSupabaseClient?.().auth.getSession()
     if (data.session) {
       status.value = '登录成功！正在跳转...'
       var redirectPath = localStorage.getItem('redirectAfterLogin') || '/'

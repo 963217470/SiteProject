@@ -14,7 +14,7 @@ interface ImportMeta {
 
 declare global {
   interface Window {
-    __supabase?: SupabaseClient
+    getSupabaseClient?: () => SupabaseClient | null
   }
 }
 
