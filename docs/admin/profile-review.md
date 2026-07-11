@@ -359,11 +359,11 @@ async function updateChangeStatus(id, status) {
   }
   if (!await requireAdmin(supabase)) return false
 
-  var result = await supabase
-    .from('profile_changes')
-    .update({ status: status })
-    .eq('id', id)
-    .select('id')
+  var result = await supabase.rpc('review_profile_change', {
+    p_change_id: id,
+    p_decision: status,
+    p_review_note: null
+  })
 
   if (result.error) {
     alert('操作失败：' + result.error.message)
@@ -402,40 +402,6 @@ async function approveProfileChange(id) {
       return
     }
     if (!await requireAdmin(supabase)) return
-
-    var profile = getProfile(change.user_id)
-    var updateData = {}
-    if (change.username) updateData.username = change.username
-    if (change.avatar_url) updateData.avatar_url = change.avatar_url
-    if (Object.prototype.hasOwnProperty.call(change, 'bio')) updateData.bio = change.bio || ''
-
-    if (!Object.keys(updateData).length) {
-      alert('这条记录没有可写入的资料字段')
-      return
-    }
-
-    var profileResult = await supabase
-      .from('profiles')
-      .update(updateData)
-      .eq('id', change.user_id)
-      .select('id')
-
-    if (profileResult.error) {
-      alert('写入资料失败：' + profileResult.error.message)
-      return
-    }
-
-    if (!profileResult.data || profileResult.data.length === 0) {
-      var insertData = Object.assign({ id: change.user_id, role: profile.role || 'member' }, updateData)
-      profileResult = await supabase
-        .from('profiles')
-        .insert(insertData)
-        .select('id')
-      if (profileResult.error) {
-        alert('创建资料失败：' + profileResult.error.message)
-        return
-      }
-    }
 
     if (await updateChangeStatus(id, 'approved')) {
       alert('已通过，资料已更新')

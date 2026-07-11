@@ -20,7 +20,8 @@
 4. `202607100004_atomic_interaction_counts.sql`：由数据库触发器原子维护点赞数和评论数。
 5. `202607100005_knowledge_base.sql`：创建知识分支、分支申请、文章关联与审批权限。
 6. `202607100006_internal_resources.sql`：创建资源元数据、私有 bucket、文件边界与 Storage RLS。
-7. `202607109999_security_hardening.sql`：在全部基线表之上收紧文章、互动和内部资源权限。
+7. `202607100007_profile_review.sql`：创建资料变更申请与原子审批函数。
+8. `202607109999_security_hardening.sql`：在全部基线表之上收紧文章、互动和内部资源权限。
 
 数据库测试脚本位于 `tests/`，只允许对临时 Supabase/Postgres 环境执行；脚本使用事务并在结束时回滚。
 
