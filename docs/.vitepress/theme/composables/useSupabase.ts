@@ -1,11 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
 import { ref, onMounted } from 'vue'
+import { requireSupabase, supabase } from '../lib/supabase'
 
-// Supabase 配置
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export { supabase }
 
 // 用户状态
 const user = ref(null)
@@ -16,7 +12,8 @@ export function useAuth() {
   // 获取当前用户
   async function getUser() {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const client = requireSupabase()
+      const { data: { user: authUser } } = await client.auth.getUser()
       user.value = authUser
 
       if (authUser) {
@@ -32,7 +29,7 @@ export function useAuth() {
   // 获取用户资料
   async function getProfile(userId: string) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await requireSupabase()
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -48,7 +45,7 @@ export function useAuth() {
   // GitHub 登录
   async function loginWithGitHub() {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await requireSupabase().auth.signInWithOAuth({
         provider: 'github',
         options: {
           redirectTo: window.location.origin
@@ -64,7 +61,7 @@ export function useAuth() {
   // 退出登录
   async function logout() {
     try {
-      const { error } = await supabase.auth.signOut()
+      const { error } = await requireSupabase().auth.signOut()
       if (error) throw error
       user.value = null
       profile.value = null
@@ -94,6 +91,7 @@ export function useAuth() {
     getUser()
 
     // 监听登录状态变化
+    if (!supabase) return
     supabase.auth.onAuthStateChange((event, session) => {
       user.value = session?.user || null
       if (session?.user) {
