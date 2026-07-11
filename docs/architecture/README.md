@@ -17,4 +17,4 @@
 | `tests/unit/` | 纯函数与组件逻辑测试 | 真实生产凭据 |
 | `tests/permissions/` | 端到端权限允许与拒绝路径 | 仅靠 UI 隐藏的权限判断 |
 
-架构决策从 [`ADR-0001`](./adr/0001-current-platform-boundaries.md) 开始。新增重大架构选择时先复制 [`ADR 模板`](./adr/0000-template.md) 并分配连续编号。
+完整的产品、运行、维护与交接背景见[项目白皮书](../项目白皮书.md)。架构决策从 [`ADR-0001`](./adr/0001-current-platform-boundaries.md) 开始。新增重大架构选择时先复制 [`ADR 模板`](./adr/0000-template.md) 并分配连续编号。
