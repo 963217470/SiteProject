@@ -25,20 +25,44 @@
 
 数据库测试脚本位于 `tests/`，只允许对临时 Supabase/Postgres 环境执行；脚本使用事务并在结束时回滚。
 
-## 本地验证
+## 从零启动
 
-首次启动只需核心服务即可验证数据库迁移：
+1. 启动 Docker Desktop。
+2. 在仓库根目录安装依赖：`npm ci`。
+3. 首次启动核心 Supabase 服务：
 
 ```powershell
 npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,realtime,storage-api
 ```
 
-在后续表基线尚未完成时，按任务版本重置，避免执行依赖尚不存在表的迁移：
+4. 从空库执行全部迁移和数据库测试：
 
 ```powershell
-npx supabase db reset --local --version 202607100000 --no-seed
-docker cp supabase/tests/profiles_baseline.sql supabase_db_SiteProject:/tmp/profiles_baseline.sql
-docker exec supabase_db_SiteProject psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/profiles_baseline.sql
+npm run test:db
 ```
 
-完成测试后可运行 `npx supabase stop` 停止本地服务。CLI 输出的本地密钥只能用于开发环境，不得复制到生产配置或提交到仓库。
+需要知识库初始分类时，显式启用可选 seed：
+
+```powershell
+npx supabase db reset --local --sql-paths ./seed.example.sql
+```
+
+默认重置不执行 seed，避免测试依赖示例内容。完成测试后可运行 `npx supabase stop` 停止本地服务。CLI 输出的本地密钥只能用于开发环境，不得复制到生产配置或提交到仓库。
+
+## 初始化管理员
+
+先通过 Auth 注册目标账号，再从 Dashboard 或受控的 PostgreSQL 管理连接执行：
+
+```sql
+update public.profiles
+set role = 'admin'
+where id = '<auth.users 中的目标 UUID>';
+```
+
+执行后必须确认只影响一行。普通浏览器会被 `protect_profile_role` 触发器拒绝，不能用前端会话初始化管理员。生产环境执行前需备份数据库并记录 Git 提交与迁移版本。
+
+## 生产迁移边界
+
+- `supabase/migrations/` 是唯一迁移入口，按文件名顺序执行；根目录 SQL 仅为迁移完成前保留的历史兼容脚本。
+- 不对生产项目运行 `db reset` 或测试脚本；生产只使用受审查的增量迁移。
+- `DB-001` 的生产 Schema 快照完成前，必须先在生产备份或 staging 副本验证迁移，处理现有约束、重复 username 和历史互动数据。
