@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { derivePermissions, normalizeRole, roleDescription, roleLabel } from './lib/permissions'
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
@@ -15,6 +16,12 @@ interface ImportMeta {
 declare global {
   interface Window {
     getSupabaseClient?: () => SupabaseClient | null
+    RDPermissions?: {
+      derivePermissions: typeof derivePermissions
+      normalizeRole: typeof normalizeRole
+      roleDescription: typeof roleDescription
+      roleLabel: typeof roleLabel
+    }
   }
 }
 

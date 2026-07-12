@@ -36,11 +36,12 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
+import { usePermissions } from '../composables/usePermissions'
 
 const { user, profile, loading, isLoggedIn, initializeAuth, logout: signOut } = useAuth()
 const showMenu = ref(false)
 
-const isAdmin = computed(() => profile.value?.role === 'admin')
+const { isAdmin } = usePermissions(profile)
 const displayName = computed(() => profile.value?.username || getMetaName(user.value))
 const avatar = computed(() => profile.value?.avatar_url || getMetaAvatar(user.value))
 

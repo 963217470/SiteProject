@@ -222,7 +222,7 @@ function renderProfileReviews() {
     var profile = getProfile(group.userId)
     var userName = escapeHtml(getName(profile, group.userId))
     var avatar = escapeHtml(getAvatar(profile))
-    var role = escapeHtml(profile.role || 'member')
+    var role = escapeHtml(window.RDPermissions?.normalizeRole(profile.role) || 'user')
     var items = group.changes.map(function(change) {
       var status = change.status || 'pending'
       var busy = profileReviewState.busyId === change.id
@@ -294,7 +294,7 @@ async function requireAdmin(supabase) {
     return false
   }
 
-  if (!profileResult.data || profileResult.data.role !== 'admin') {
+  if (!profileResult.data || !window.RDPermissions?.derivePermissions(profileResult.data.role).isAdmin) {
     showError('当前账号没有管理员权限')
     return false
   }

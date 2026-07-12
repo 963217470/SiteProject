@@ -69,6 +69,10 @@ layout: page
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(20, 184, 166, 0.14));
 }
 
+.user-frame {
+  background: var(--vp-c-bg-soft);
+}
+
 .admin-frame {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.24), rgba(239, 68, 68, 0.12));
 }
@@ -121,6 +125,11 @@ layout: page
 .member-role {
   background: rgba(37, 99, 235, 0.1);
   color: #1d4ed8;
+}
+
+.user-role {
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
 }
 
 .bio {

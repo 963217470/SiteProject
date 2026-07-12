@@ -124,7 +124,7 @@ async function requireAdmin(supabase) {
     .maybeSingle()
 
   if (profileResult.error) throw new Error('读取权限失败：' + profileResult.error.message)
-  if (!profileResult.data || profileResult.data.role !== 'admin') throw new Error('当前账号没有管理员权限')
+  if (!profileResult.data || !window.RDPermissions?.derivePermissions(profileResult.data.role).isAdmin) throw new Error('当前账号没有管理员权限')
   return user
 }
 

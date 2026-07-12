@@ -269,7 +269,7 @@ async function requireAdmin(supabase) {
     return false
   }
 
-  if (!profileResult.data || profileResult.data.role !== 'admin') {
+  if (!profileResult.data || !window.RDPermissions?.derivePermissions(profileResult.data.role).isAdmin) {
     showError('当前账号没有管理员权限')
     return false
   }

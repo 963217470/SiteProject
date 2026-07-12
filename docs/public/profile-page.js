@@ -41,14 +41,20 @@ function setTab(tab) {
   window.history.replaceState({}, '', url.toString())
 }
 
-function roleText(role) { return role === 'admin' ? '管理员' : '社员' }
-function roleDesc(role) { return role === 'admin' ? '拥有审核与后台管理权限' : '可以发布文章、收藏内容和参与讨论' }
+function permissionModel(role) {
+  return window.RDPermissions
+    ? window.RDPermissions.derivePermissions(role)
+    : { role: role === 'admin' || role === 'member' ? role : 'user', isAdmin: role === 'admin' }
+}
+function roleText(role) { return window.RDPermissions ? window.RDPermissions.roleLabel(role) : ({ user: '普通用户', member: '社员', admin: '管理员' })[permissionModel(role).role] }
+function roleDesc(role) { return window.RDPermissions ? window.RDPermissions.roleDescription(role) : ({ user: '可以维护资料、收藏内容和参与讨论', member: '可以发布文章、访问内部资源和参与讨论', admin: '拥有审核与后台管理权限' })[permissionModel(role).role] }
 
 function setProfile(session, profile) {
   var meta = session.user.user_metadata || {}
   var name = profile.username || meta.full_name || meta.user_name || meta.name || meta.preferred_username || session.user.email || '社团成员'
   var avatar = profile.avatar_url || meta.avatar_url || meta.picture || '/images/default-avatar.svg'
-  var role = profile.role || 'member'
+  var role = permissionModel(profile.role).role
+  var permissions = permissionModel(role)
   state.profile = { username: name, avatar: avatar, bio: profile.bio || '', role: role, email: session.user.email || '' }
   $('profile-avatar').src = avatar
   $('profile-name').textContent = name
@@ -56,8 +62,8 @@ function setProfile(session, profile) {
   $('profile-bio').textContent = state.profile.bio || '还没有填写个人简介'
   $('role-label').textContent = roleText(role)
   $('role-desc').textContent = roleDesc(role)
-  $('avatar-frame').className = 'avatar-frame ' + (role === 'admin' ? 'admin-frame' : 'member-frame')
-  $('role-block').className = 'role-block ' + (role === 'admin' ? 'admin-role' : 'member-role')
+  $('avatar-frame').className = 'avatar-frame ' + (permissions.isAdmin ? 'admin-frame' : permissions.isMember ? 'member-frame' : 'user-frame')
+  $('role-block').className = 'role-block ' + (permissions.isAdmin ? 'admin-role' : permissions.isMember ? 'member-role' : 'user-role')
 }
 
 async function loadProfile() {

@@ -5,10 +5,14 @@ layout: page
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useAuth } from '../.vitepress/theme/composables/useAuth'
+import { usePermissions } from '../.vitepress/theme/composables/usePermissions'
+import { requireSupabase } from '../.vitepress/theme/lib/supabase'
 
 const loading = ref(true)
 const notMember = ref(false)
-const isAdmin = ref(false)
+const auth = useAuth()
+const { isAdmin, canAccessInternal } = usePermissions(auth.profile)
 const articles = ref([])
 const resources = ref([])
 const resourceError = ref('')
@@ -29,14 +33,9 @@ const availableTags = ['Unity', 'Godot', 'Unreal Engine', 'Cocos Creator', 'C#',
 
 onMounted(async () => {
   try {
-    if (!window.getSupabaseClient?.()) { loading.value = false; return }
-    supabase = window.getSupabaseClient?.()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { notMember.value = true; loading.value = false; return }
-    const profileResult = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle()
-    const role = profileResult.data?.role || 'user'
-    if (!['member', 'admin'].includes(role)) { notMember.value = true; loading.value = false; return }
-    isAdmin.value = role === 'admin'
+    await auth.initializeAuth()
+    supabase = requireSupabase()
+    if (!canAccessInternal.value) { notMember.value = true; return }
     const { data } = await supabase.from('articles').select('id, title, summary, cover_url, tags, created_at, profiles!articles_author_id_fkey(username)').eq('status', 'published').eq('visibility', 'internal').order('created_at', { ascending: false })
     articles.value = data || []
     await loadResources()
@@ -107,10 +106,10 @@ async function publishResource() {
   resourceBusy.value = true
   resourceError.value = ''
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) throw new Error('请先登录')
+    const currentUser = auth.user.value
+    if (!currentUser) throw new Error('请先登录')
     const path = [
-      session.user.id,
+      currentUser.id,
       Date.now() + '-' + safePathName(file.name)
     ].join('/')
 
@@ -126,7 +125,7 @@ async function publishResource() {
       file_name: file.name,
       file_size: file.size,
       status: 'published',
-      created_by: session.user.id
+      created_by: currentUser.id
     }).select('id').single()
     if (insert.error) throw new Error(insert.error.message || '资源发布失败')
     resourceForm.value = { title: '', description: '', category: '', version: '' }
