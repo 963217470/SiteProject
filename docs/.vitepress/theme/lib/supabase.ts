@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { AppError } from './errors'
+import type { Database } from '../types/database'
 
 const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').trim()
 const supabasePublicKey = String(
@@ -10,8 +11,8 @@ const supabasePublicKey = String(
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublicKey)
 
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabasePublicKey, {
+export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
+  ? createClient<Database>(supabaseUrl, supabasePublicKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -20,7 +21,7 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
     })
   : null
 
-export function requireSupabase(): SupabaseClient {
+export function requireSupabase(): SupabaseClient<Database> {
   if (!supabase) {
     throw new AppError('config')
   }
