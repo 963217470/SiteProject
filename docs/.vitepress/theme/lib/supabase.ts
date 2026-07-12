@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { AppError } from './errors'
 
 const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').trim()
 const supabasePublicKey = String(
@@ -21,7 +22,7 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
 
 export function requireSupabase(): SupabaseClient {
   if (!supabase) {
-    throw new Error('Supabase 公开配置缺失，请设置 VITE_SUPABASE_URL 和 VITE_SUPABASE_PUBLISHABLE_KEY')
+    throw new AppError('config')
   }
   return supabase
 }

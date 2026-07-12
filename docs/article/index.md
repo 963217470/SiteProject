@@ -645,7 +645,7 @@ async function generateArticlePackage() {
       : '下载包已生成，可以下载。'
     renderArticle()
   } catch (error) {
-    articleState.downloadStatus = '下载包生成失败：' + (error.message || '未知错误')
+    articleState.downloadStatus = window.RDErrors?.toUserMessage(error) || '下载包生成失败，请稍后重试'
     renderArticle()
   }
 }
@@ -835,14 +835,14 @@ async function toggleLike() {
   if (articleState.liked) {
     var deletion = await supabase.from('article_likes').delete().eq('article_id', articleState.id).eq('user_id', userId)
     if (deletion.error) {
-      alert('取消点赞失败：' + deletion.error.message)
+      alert(window.RDErrors?.toUserMessage(deletion.error) || '取消点赞失败，请稍后重试')
       return
     }
     articleState.liked = false
   } else {
     var insertion = await supabase.from('article_likes').insert({ article_id: articleState.id, user_id: userId })
     if (insertion.error && insertion.error.code !== '23505') {
-      alert('点赞失败：' + insertion.error.message)
+      alert(window.RDErrors?.toUserMessage(insertion.error) || '点赞失败，请稍后重试')
       return
     }
     articleState.liked = true
@@ -901,7 +901,7 @@ async function submitComment() {
     .select('id, article_id, user_id, content, created_at, updated_at')
 
   if (insert.error) {
-    alert('评论失败：' + insert.error.message)
+    alert(window.RDErrors?.toUserMessage(insert.error) || '评论失败，请稍后重试')
     return
   }
 
@@ -950,7 +950,7 @@ async function loadArticle() {
       ? await loadArticleRecord(supabase, articleState.id)
       : await loadArticleByTitle(supabase, articleTitle)
 
-    if (result.error) throw new Error(result.error.message)
+    if (result.error) throw result.error
     if (!result.data) {
       setVisible('loading', false)
       setVisible('article-not-found', true)
@@ -982,7 +982,7 @@ async function loadArticle() {
   } catch (error) {
     setVisible('loading', false)
     setVisible('error', true)
-    document.getElementById('error-message').textContent = '加载失败：' + (error.message || '未知错误')
+    document.getElementById('error-message').textContent = window.RDErrors?.toUserMessage(error) || '加载失败，请稍后重试'
   }
 }
 

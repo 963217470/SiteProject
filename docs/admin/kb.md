@@ -123,7 +123,7 @@ async function requireAdmin(supabase) {
     .eq('id', user.id)
     .maybeSingle()
 
-  if (profileResult.error) throw new Error('读取权限失败：' + profileResult.error.message)
+  if (profileResult.error) throw profileResult.error
   if (!profileResult.data || !window.RDPermissions?.derivePermissions(profileResult.data.role).isAdmin) throw new Error('当前账号没有管理员权限')
   return user
 }
@@ -312,7 +312,7 @@ async function saveBranch() {
   }
 
   if (result.error) {
-    alert('保存失败：' + result.error.message)
+    alert(window.RDErrors?.toUserMessage(result.error) || '保存失败，请稍后重试')
     return
   }
 
@@ -333,7 +333,7 @@ async function deleteBranch() {
 
   var result = await kbAdminState.sb.from('knowledge_branches').delete().eq('id', id).select('id')
   if (result.error) {
-    alert('删除失败：' + result.error.message)
+    alert(window.RDErrors?.toUserMessage(result.error) || '删除失败，请稍后重试')
     return
   }
 
@@ -349,7 +349,7 @@ async function assignArticleBranch(articleId, branchId) {
   }
   var result = await kbAdminState.sb.from('articles').update(payload).eq('id', articleId).select('id')
   if (result.error) {
-    alert('调整失败：' + result.error.message)
+    alert(window.RDErrors?.toUserMessage(result.error) || '调整失败，请稍后重试')
     return
   }
   var article = kbAdminState.articles.find(function(item) { return item.id === articleId })
@@ -376,7 +376,7 @@ async function createBranch(parentId, name) {
     .select('id, parent_id, name, slug, description, sort_order')
     .single()
 
-  if (result.error) throw new Error('创建分支失败：' + result.error.message)
+  if (result.error) throw result.error
   var branch = Array.isArray(result.data) ? result.data[0] : result.data
   kbAdminState.branches.push(branch)
   return branch
@@ -417,7 +417,7 @@ async function approveBranchRequest(id) {
       .eq('id', request.article_id)
       .select('id')
 
-    if (articleResult.error) throw new Error('更新文章分支失败：' + articleResult.error.message)
+    if (articleResult.error) throw articleResult.error
 
     var updateResult = await kbAdminState.sb
       .from('knowledge_branch_requests')
@@ -425,10 +425,10 @@ async function approveBranchRequest(id) {
       .eq('id', id)
       .select('id')
 
-    if (updateResult.error) throw new Error('更新申请状态失败：' + updateResult.error.message)
+    if (updateResult.error) throw updateResult.error
     await loadKbAdmin()
   } catch (error) {
-    alert(error.message || '通过失败')
+    alert(window.RDErrors?.toUserMessage(error) || '通过失败，请稍后重试')
   }
 }
 
@@ -443,7 +443,7 @@ async function rejectBranchRequest(id) {
     .select('id')
 
   if (updateResult.error) {
-    alert('拒绝失败：' + updateResult.error.message)
+    alert(window.RDErrors?.toUserMessage(updateResult.error) || '拒绝失败，请稍后重试')
     return
   }
   await loadKbAdmin()
@@ -464,20 +464,20 @@ async function loadKbAdmin() {
       .from('knowledge_branches')
       .select('id, parent_id, name, slug, description, sort_order')
       .order('sort_order', { ascending: true })
-    if (branchResult.error) throw new Error('知识库分支读取失败：' + branchResult.error.message + '。请先执行 supabase/knowledge-base.sql')
+    if (branchResult.error) throw branchResult.error
 
     var articleResult = await supabase
       .from('articles')
       .select('id, title, summary, status, kb_enabled, kb_branch_id, kb_sort_order, created_at')
       .order('created_at', { ascending: false })
-    if (articleResult.error) throw new Error('文章读取失败：' + articleResult.error.message)
+    if (articleResult.error) throw articleResult.error
 
     var requestResult = await supabase
       .from('knowledge_branch_requests')
       .select('id, article_id, requester_id, requested_path, status, review_note, created_at')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
-    if (requestResult.error) throw new Error('分支申请读取失败：' + requestResult.error.message + '。请重新执行最新版 supabase/knowledge-base.sql')
+    if (requestResult.error) throw requestResult.error
 
     kbAdminState.branches = branchResult.data || []
     kbAdminState.articles = articleResult.data || []
@@ -489,7 +489,7 @@ async function loadKbAdmin() {
     show('loading', false)
     var el = document.getElementById('error')
     if (el) {
-      el.textContent = error.message || '加载失败'
+      el.textContent = window.RDErrors?.toUserMessage(error) || '加载失败，请稍后重试'
       el.style.display = 'block'
     }
   }

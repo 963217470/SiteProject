@@ -8,6 +8,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../.vitepress/theme/composables/useAuth'
 import { usePermissions } from '../.vitepress/theme/composables/usePermissions'
 import { requireSupabase } from '../.vitepress/theme/lib/supabase'
+import { AppError, toUserMessage } from '../.vitepress/theme/lib/errors'
 
 const loading = ref(true)
 const notMember = ref(false)
@@ -39,7 +40,7 @@ onMounted(async () => {
     const { data } = await supabase.from('articles').select('id, title, summary, cover_url, tags, created_at, profiles!articles_author_id_fkey(username)').eq('status', 'published').eq('visibility', 'internal').order('created_at', { ascending: false })
     articles.value = data || []
     await loadResources()
-  } catch (e) { console.error('Internal articles error:', e) }
+  } catch (e) { resourceError.value = toUserMessage(e) }
   finally { loading.value = false }
 })
 
@@ -74,12 +75,12 @@ async function loadResources() {
       .order('created_at', { ascending: false })
     if (error) {
       resources.value = []
-      resourceError.value = '资源库还没有初始化，请管理员执行 supabase/internal-resources.sql'
+      resourceError.value = toUserMessage(error)
       return
     }
     resources.value = data || []
   } catch (e) {
-    resourceError.value = '资源加载失败：' + (e.message || '未知错误')
+    resourceError.value = toUserMessage(e)
   }
 }
 
@@ -107,14 +108,14 @@ async function publishResource() {
   resourceError.value = ''
   try {
     const currentUser = auth.user.value
-    if (!currentUser) throw new Error('请先登录')
+    if (!currentUser) throw new AppError('auth')
     const path = [
       currentUser.id,
       Date.now() + '-' + safePathName(file.name)
     ].join('/')
 
     const upload = await supabase.storage.from('resources').upload(path, file)
-    if (upload.error) throw new Error(upload.error.message || '文件上传失败')
+    if (upload.error) throw upload.error
     const insert = await supabase.from('internal_resources').insert({
       title,
       description: resourceForm.value.description.trim(),
@@ -127,14 +128,14 @@ async function publishResource() {
       status: 'published',
       created_by: currentUser.id
     }).select('id').single()
-    if (insert.error) throw new Error(insert.error.message || '资源发布失败')
+    if (insert.error) throw insert.error
     resourceForm.value = { title: '', description: '', category: '', version: '' }
     resourceFile.value = null
     const input = document.getElementById('resource-file')
     if (input) input.value = ''
     await loadResources()
   } catch (e) {
-    resourceError.value = '资源发布失败：' + (e.message || '未知错误')
+    resourceError.value = toUserMessage(e)
   } finally {
     resourceBusy.value = false
   }
@@ -147,11 +148,11 @@ async function downloadResource(item) {
   try {
     const result = await supabase.storage.from('resources').createSignedUrl(item.file_path, 60)
     if (result.error || !result.data?.signedUrl) {
-      throw new Error(result.error?.message || '无法创建临时下载链接')
+      throw result.error || new AppError('unknown')
     }
     window.location.assign(result.data.signedUrl)
   } catch (e) {
-    resourceError.value = '资源下载失败：' + (e.message || '未知错误')
+    resourceError.value = toUserMessage(e)
   } finally {
     resourceDownloadBusy.value = ''
   }

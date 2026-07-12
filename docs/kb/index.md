@@ -244,7 +244,7 @@ async function loadKnowledgeBase() {
       .eq('status', 'published')
       .eq('kb_enabled', true)
       .order('kb_sort_order', { ascending: true })
-    if (articleResult.error) throw new Error('知识库文章读取失败：' + articleResult.error.message)
+    if (articleResult.error) throw articleResult.error
 
     kbState.branches = branchResult.data || []
     kbState.articles = articleResult.data || []
@@ -256,7 +256,7 @@ async function loadKnowledgeBase() {
     show('loading', false)
     var el = document.getElementById('error')
     if (el) {
-      el.textContent = error.message || '加载失败'
+      el.textContent = window.RDErrors?.toUserMessage(error) || '加载失败，请稍后重试'
       el.style.display = 'block'
     }
   }

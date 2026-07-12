@@ -6,9 +6,11 @@ import 'katex/dist/katex.min.css'
 import type { Theme } from 'vitepress'
 import { supabase } from './lib/supabase'
 import { derivePermissions, normalizeRole, roleDescription, roleLabel } from './lib/permissions'
+import { toAppError, toUserMessage } from './lib/errors'
 
 if (typeof window !== 'undefined') {
   window.RDPermissions = { derivePermissions, normalizeRole, roleDescription, roleLabel }
+  window.RDErrors = { toAppError, toUserMessage }
   if (supabase) window.getSupabaseClient = () => supabase
 }
 

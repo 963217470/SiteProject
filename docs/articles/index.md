@@ -196,7 +196,7 @@ async function loadArticles() {
 
     if (error) {
       console.error('Database error:', error)
-      showError('数据库错误：' + error.message)
+      showError(window.RDErrors?.toUserMessage(error) || '加载失败，请稍后重试')
       return
     }
 
@@ -209,7 +209,7 @@ async function loadArticles() {
 
   } catch (e) {
     console.error('Unexpected error:', e)
-    showError('加载失败：' + e.message)
+    showError(window.RDErrors?.toUserMessage(e) || '加载失败，请稍后重试')
   }
 }
 

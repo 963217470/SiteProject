@@ -265,7 +265,7 @@ async function requireAdmin(supabase) {
     .maybeSingle()
 
   if (profileResult.error) {
-    showError('读取用户权限失败：' + profileResult.error.message)
+    showError(window.RDErrors?.toUserMessage(profileResult.error) || '权限读取失败，请稍后重试')
     return false
   }
 
@@ -298,14 +298,14 @@ async function loadArticles() {
       .order('created_at', { ascending: false })
 
     if (result.error) {
-      showError('数据库查询失败：' + result.error.message)
+      showError(window.RDErrors?.toUserMessage(result.error) || '加载失败，请稍后重试')
       return
     }
 
     adminState.articles = result.data || []
     renderArticles(adminState.articles)
   } catch (error) {
-    showError('加载失败：' + (error.message || '未知错误'))
+    showError(window.RDErrors?.toUserMessage(error) || '加载失败，请稍后重试')
   }
 }
 
@@ -345,7 +345,7 @@ async function updateArticleStatus(id, status, rejectReason) {
       .select('id')
 
     if (result.error) {
-      alert('操作失败：' + result.error.message)
+      alert(window.RDErrors?.toUserMessage(result.error) || '操作失败，请稍后重试')
       return false
     }
 
@@ -356,7 +356,7 @@ async function updateArticleStatus(id, status, rejectReason) {
 
     return true
   } catch (error) {
-    alert('操作失败：' + (error.message || '未知错误'))
+    alert(window.RDErrors?.toUserMessage(error) || '操作失败，请稍后重试')
     return false
   } finally {
     setActionBusy(id, false)
@@ -410,7 +410,7 @@ async function deleteArticle(id) {
       .select('id')
 
     if (result.error) {
-      alert('删除失败：' + result.error.message)
+      alert(window.RDErrors?.toUserMessage(result.error) || '删除失败，请稍后重试')
       return
     }
 
@@ -422,7 +422,7 @@ async function deleteArticle(id) {
     alert('已删除')
     loadArticles()
   } catch (error) {
-    alert('删除失败：' + (error.message || '未知错误'))
+    alert(window.RDErrors?.toUserMessage(error) || '删除失败，请稍后重试')
   }
 }
 
@@ -445,7 +445,7 @@ async function testConnection() {
     .limit(5)
 
   if (result.error) {
-    alert('连接失败：' + result.error.message)
+    alert(window.RDErrors?.toUserMessage(result.error) || '连接失败，请稍后重试')
     return
   }
 

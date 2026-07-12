@@ -172,7 +172,7 @@ async function loadArticles() {
       .eq('author_id', session.user.id)
       .order('created_at', { ascending: false })
 
-    if (result.error) throw new Error(result.error.message)
+    if (result.error) throw result.error
 
     myArticles = result.data || []
     setVisible('loading', false)
@@ -180,7 +180,7 @@ async function loadArticles() {
     setActiveTab(activeTab)
   } catch (error) {
     setVisible('loading', false)
-    document.getElementById('loading').innerHTML = '<p>加载失败：' + escapeHtml(error.message || '未知错误') + '</p>'
+    document.getElementById('loading').innerHTML = '<p>' + escapeHtml(window.RDErrors?.toUserMessage(error) || '加载失败，请稍后重试') + '</p>'
     setVisible('loading', true)
   }
 }
@@ -189,7 +189,7 @@ async function deleteArticle(id) {
   if (!confirm('确定要删除这篇文章吗？')) return
   var result = await supabaseClient.from('articles').delete().eq('id', id)
   if (result.error) {
-    alert('删除失败：' + result.error.message)
+    alert(window.RDErrors?.toUserMessage(result.error) || '删除失败，请稍后重试')
     return
   }
   myArticles = myArticles.filter(function(article) { return article.id !== id })
@@ -203,7 +203,7 @@ async function resubmitArticle(id) {
     .eq('id', id)
 
   if (result.error) {
-    alert('重新提交失败：' + result.error.message)
+    alert(window.RDErrors?.toUserMessage(result.error) || '重新提交失败，请稍后重试')
     return
   }
 
@@ -223,7 +223,7 @@ async function withdrawArticle(id) {
     .eq('id', id)
 
   if (result.error) {
-    alert('撤回失败：' + result.error.message)
+    alert(window.RDErrors?.toUserMessage(result.error) || '撤回失败，请稍后重试')
     return
   }
 

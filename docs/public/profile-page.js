@@ -74,7 +74,7 @@ async function loadProfile() {
 async function loadArticles() {
   var r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count, views_count, reject_reason').eq('author_id', state.uid).order('created_at', { ascending: false })
   if (r.error) r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count, reject_reason').eq('author_id', state.uid).order('created_at', { ascending: false })
-  if (r.error) throw new Error(r.error.message)
+  if (r.error) throw r.error
   state.articles = r.data || []
 }
 
@@ -181,7 +181,7 @@ async function uploadAvatar(e) {
     $('settings-avatar').src = url
     $('settings-avatar').dataset.uploadedUrl = url
   } catch (err) {
-    settingError('头像上传失败：' + (err.message || '未知错误'))
+    settingError(window.RDErrors?.toUserMessage(err) || '头像上传失败，请稍后重试')
   } finally {
     if (button) button.childNodes[0].nodeValue = '点击或拖拽上传头像'
     if (e.target) e.target.value = ''
@@ -204,7 +204,7 @@ async function saveSettings() {
     state.profileChanges.unshift(payload)
     settingSuccess('资料修改已提交，等待管理员审核后生效')
   } catch (err) {
-    settingError('提交失败：' + (err.message || '未知错误'))
+    settingError(window.RDErrors?.toUserMessage(err) || '提交失败，请稍后重试')
   } finally {
     button.disabled = false
     button.textContent = '提交审核'
@@ -236,7 +236,7 @@ async function init() {
     setTab(state.tab)
   } catch (err) {
     show('loading', false)
-    $('profile-error').textContent = '加载失败：' + (err.message || '未知错误')
+    $('profile-error').textContent = window.RDErrors?.toUserMessage(err) || '加载失败，请稍后重试'
     show('profile-error', true)
     show('profile-app', true)
   }

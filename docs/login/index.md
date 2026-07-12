@@ -11,7 +11,7 @@ const auth = useAuth()
 const loading = auth.loading
 const isLoggedIn = auth.isLoggedIn
 const username = computed(() => auth.profile.value?.username || auth.user.value?.email || '用户')
-const errorMsg = computed(() => auth.error.value?.message || '')
+const errorMsg = computed(() => auth.error.value?.userMessage || '')
 
 onMounted(auth.initializeAuth)
 

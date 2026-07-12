@@ -6,6 +6,7 @@ layout: page
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useAuth } from '../.vitepress/theme/composables/useAuth'
+import { toUserMessage } from '../.vitepress/theme/lib/errors'
 
 const status = ref('正在处理...')
 const auth = useAuth()
@@ -23,7 +24,7 @@ onMounted(async () => {
       setTimeout(() => { window.location.href = '/login' }, 2000)
     }
   } catch (e) {
-    status.value = '登录失败：' + e.message
+    status.value = toUserMessage(e, 'auth')
     setTimeout(() => { window.location.href = '/login' }, 2000)
   }
 })

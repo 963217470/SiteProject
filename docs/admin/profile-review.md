@@ -290,7 +290,7 @@ async function requireAdmin(supabase) {
     .maybeSingle()
 
   if (profileResult.error) {
-    showError('读取用户权限失败：' + profileResult.error.message)
+    showError(window.RDErrors?.toUserMessage(profileResult.error) || '权限读取失败，请稍后重试')
     return false
   }
 
@@ -339,7 +339,7 @@ async function loadProfileReviews() {
       .order('created_at', { ascending: false })
 
     if (result.error) {
-      showError('数据库查询失败：' + result.error.message)
+      showError(window.RDErrors?.toUserMessage(result.error) || '加载失败，请稍后重试')
       return
     }
 
@@ -347,7 +347,7 @@ async function loadProfileReviews() {
     await loadProfiles(supabase, profileReviewState.changes.map(function(change) { return change.user_id }))
     renderProfileReviews()
   } catch (error) {
-    showError('加载失败：' + (error.message || '未知错误'))
+    showError(window.RDErrors?.toUserMessage(error) || '加载失败，请稍后重试')
   }
 }
 
@@ -366,7 +366,7 @@ async function updateChangeStatus(id, status) {
   })
 
   if (result.error) {
-    alert('操作失败：' + result.error.message)
+    alert(window.RDErrors?.toUserMessage(result.error) || '操作失败，请稍后重试')
     return false
   }
 
@@ -408,7 +408,7 @@ async function approveProfileChange(id) {
       loadProfileReviews()
     }
   } catch (error) {
-    alert('操作失败：' + (error.message || '未知错误'))
+    alert(window.RDErrors?.toUserMessage(error) || '操作失败，请稍后重试')
   } finally {
     setBusy(id, false)
   }

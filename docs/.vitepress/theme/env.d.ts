@@ -2,6 +2,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { derivePermissions, normalizeRole, roleDescription, roleLabel } from './lib/permissions'
+import type { toAppError, toUserMessage } from './lib/errors'
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
@@ -21,6 +22,10 @@ declare global {
       normalizeRole: typeof normalizeRole
       roleDescription: typeof roleDescription
       roleLabel: typeof roleLabel
+    }
+    RDErrors?: {
+      toAppError: typeof toAppError
+      toUserMessage: typeof toUserMessage
     }
   }
 }
