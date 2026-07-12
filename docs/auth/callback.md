@@ -7,23 +7,33 @@ layout: page
 import { ref, onMounted } from 'vue'
 import { useAuth } from '../.vitepress/theme/composables/useAuth'
 import { toUserMessage } from '../.vitepress/theme/lib/errors'
+import { takeLoginRedirect } from '../.vitepress/theme/lib/authRedirect'
 
 const status = ref('正在处理...')
 const auth = useAuth()
 
 onMounted(async () => {
   try {
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('error')) {
+      takeLoginRedirect()
+      status.value = 'GitHub 授权未完成，请重新登录'
+      setTimeout(() => { window.location.href = '/login' }, 2000)
+      return
+    }
+
     await auth.initializeAuth()
     if (auth.user.value) {
       status.value = '登录成功！正在跳转...'
-      var redirectPath = localStorage.getItem('redirectAfterLogin') || '/'
-      localStorage.removeItem('redirectAfterLogin')
+      var redirectPath = takeLoginRedirect()
       setTimeout(() => { window.location.href = redirectPath }, 800)
     } else {
+      takeLoginRedirect()
       status.value = '登录失败，请重试'
       setTimeout(() => { window.location.href = '/login' }, 2000)
     }
   } catch (e) {
+    takeLoginRedirect()
     status.value = toUserMessage(e, 'auth')
     setTimeout(() => { window.location.href = '/login' }, 2000)
   }

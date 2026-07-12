@@ -6,6 +6,7 @@ layout: page
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useAuth } from '../.vitepress/theme/composables/useAuth'
+import { rememberLoginRedirect } from '../.vitepress/theme/lib/authRedirect'
 
 const auth = useAuth()
 const loading = auth.loading
@@ -13,7 +14,11 @@ const isLoggedIn = auth.isLoggedIn
 const username = computed(() => auth.profile.value?.username || auth.user.value?.email || '用户')
 const errorMsg = computed(() => auth.error.value?.userMessage || '')
 
-onMounted(auth.initializeAuth)
+onMounted(() => {
+  const redirect = new URLSearchParams(window.location.search).get('redirect')
+  if (redirect) rememberLoginRedirect(redirect)
+  return auth.initializeAuth()
+})
 
 function doLogin() {
   return auth.loginWithGitHub()
