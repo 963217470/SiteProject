@@ -2,15 +2,9 @@ import type { AuthChangeEvent, Session, Subscription, User } from '@supabase/sup
 import { computed, readonly, shallowRef } from 'vue'
 import { requireSupabase, supabase } from '../lib/supabase'
 import { type AppError, toAppError } from '../lib/errors'
+import { getProfile, type Profile } from '../services/profiles'
 
-export interface UserProfile {
-  id: string
-  username: string | null
-  full_name: string | null
-  avatar_url: string | null
-  bio: string | null
-  role: 'user' | 'member' | 'admin'
-}
+export type UserProfile = Profile
 
 const session = shallowRef<Session | null>(null)
 const user = shallowRef<User | null>(null)
@@ -23,14 +17,7 @@ let initialization: Promise<void> | null = null
 let subscription: Subscription | null = null
 
 async function loadProfile(userId: string) {
-  const result = await requireSupabase()
-    .from('profiles')
-    .select('id, username, full_name, avatar_url, bio, role')
-    .eq('id', userId)
-    .maybeSingle()
-
-  if (result.error) throw result.error
-  profile.value = result.data as UserProfile | null
+  profile.value = await getProfile(userId)
 }
 
 async function applySession(nextSession: Session | null) {

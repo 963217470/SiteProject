@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './types/database'
 import type { derivePermissions, normalizeRole, roleDescription, roleLabel } from './lib/permissions'
 import type { toAppError, toUserMessage } from './lib/errors'
+import type * as profilesService from './services/profiles'
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
@@ -28,6 +29,7 @@ declare global {
       toAppError: typeof toAppError
       toUserMessage: typeof toUserMessage
     }
+    RDProfiles?: typeof profilesService
   }
 }
 

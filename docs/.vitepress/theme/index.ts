@@ -7,10 +7,12 @@ import type { Theme } from 'vitepress'
 import { supabase } from './lib/supabase'
 import { derivePermissions, normalizeRole, roleDescription, roleLabel } from './lib/permissions'
 import { toAppError, toUserMessage } from './lib/errors'
+import * as profilesService from './services/profiles'
 
 if (typeof window !== 'undefined') {
   window.RDPermissions = { derivePermissions, normalizeRole, roleDescription, roleLabel }
   window.RDErrors = { toAppError, toUserMessage }
+  window.RDProfiles = profilesService
   if (supabase) window.getSupabaseClient = () => supabase
 }
 

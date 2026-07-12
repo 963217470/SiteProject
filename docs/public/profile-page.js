@@ -67,8 +67,8 @@ function setProfile(session, profile) {
 }
 
 async function loadProfile() {
-  var r = await state.sb.from('profiles').select('id, username, avatar_url, bio, role').eq('id', state.uid).maybeSingle()
-  return r.data || {}
+  if (!window.RDProfiles) throw new Error('Profiles service unavailable')
+  return (await window.RDProfiles.getProfile(state.uid)) || {}
 }
 
 async function loadArticles() {
@@ -111,8 +111,8 @@ async function loadRecent() {
 }
 
 async function loadProfileChanges() {
-  var r = await state.sb.from('profile_changes').select('id, username, avatar_url, bio, status, created_at').eq('user_id', state.uid).eq('status', 'pending').order('created_at', { ascending: false })
-  state.profileChanges = r.error ? [] : (r.data || [])
+  if (!window.RDProfiles) throw new Error('Profiles service unavailable')
+  state.profileChanges = await window.RDProfiles.getPendingProfileChanges(state.uid)
 }
 
 function renderStats() {
@@ -199,9 +199,9 @@ async function saveSettings() {
     var username = $('settings-username').value.trim()
     if (!username) throw new Error('昵称不能为空')
     var payload = { user_id: state.uid, username: username, avatar_url: avatar.dataset.uploadedUrl || null, bio: $('settings-bio').value.trim(), status: 'pending' }
-    var r = await state.sb.from('profile_changes').insert(payload)
-    if (r.error) throw r.error
-    state.profileChanges.unshift(payload)
+    if (!window.RDProfiles) throw new Error('Profiles service unavailable')
+    var created = await window.RDProfiles.submitProfileChange(payload)
+    state.profileChanges.unshift(created)
     settingSuccess('资料修改已提交，等待管理员审核后生效')
   } catch (err) {
     settingError(window.RDErrors?.toUserMessage(err) || '提交失败，请稍后重试')

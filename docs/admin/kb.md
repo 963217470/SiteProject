@@ -117,14 +117,8 @@ async function requireAdmin(supabase) {
   var user = sessionResult && sessionResult.data && sessionResult.data.session && sessionResult.data.session.user
   if (!user || !user.id) throw new Error('请先登录管理员账号')
 
-  var profileResult = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (profileResult.error) throw profileResult.error
-  if (!profileResult.data || !window.RDPermissions?.derivePermissions(profileResult.data.role).isAdmin) throw new Error('当前账号没有管理员权限')
+  if (!window.RDProfiles) throw new Error('Profiles service unavailable')
+  await window.RDProfiles.requireAdminProfile(user.id)
   return user
 }
 

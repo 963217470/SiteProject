@@ -258,18 +258,10 @@ async function requireAdmin(supabase) {
     return false
   }
 
-  var profileResult = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (profileResult.error) {
-    showError(window.RDErrors?.toUserMessage(profileResult.error) || '权限读取失败，请稍后重试')
-    return false
-  }
-
-  if (!profileResult.data || !window.RDPermissions?.derivePermissions(profileResult.data.role).isAdmin) {
+  try {
+    if (!window.RDProfiles) throw new Error('Profiles service unavailable')
+    await window.RDProfiles.requireAdminProfile(user.id)
+  } catch (error) {
     showError('当前账号没有管理员权限')
     return false
   }

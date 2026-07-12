@@ -283,18 +283,10 @@ async function requireAdmin(supabase) {
     return false
   }
 
-  var profileResult = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (profileResult.error) {
-    showError(window.RDErrors?.toUserMessage(profileResult.error) || '权限读取失败，请稍后重试')
-    return false
-  }
-
-  if (!profileResult.data || !window.RDPermissions?.derivePermissions(profileResult.data.role).isAdmin) {
+  try {
+    if (!window.RDProfiles) throw new Error('Profiles service unavailable')
+    await window.RDProfiles.requireAdminProfile(user.id)
+  } catch (error) {
     showError('当前账号没有管理员权限')
     return false
   }
@@ -307,13 +299,9 @@ async function loadProfiles(supabase, userIds) {
   profileReviewState.profiles = {}
   if (!userIds.length) return
 
-  var result = await supabase
-    .from('profiles')
-    .select('id, username, avatar_url, bio, role')
-    .in('id', userIds)
-
-  if (result.error) return
-  ;(result.data || []).forEach(function(profile) {
+  if (!window.RDProfiles) return
+  var profiles = await window.RDProfiles.getProfiles(userIds)
+  profiles.forEach(function(profile) {
     profileReviewState.profiles[profile.id] = profile
   })
 }
@@ -333,17 +321,8 @@ async function loadProfileReviews() {
 
     if (!await requireAdmin(supabase)) return
 
-    var result = await supabase
-      .from('profile_changes')
-      .select('id, user_id, username, avatar_url, bio, status, created_at')
-      .order('created_at', { ascending: false })
-
-    if (result.error) {
-      showError(window.RDErrors?.toUserMessage(result.error) || '加载失败，请稍后重试')
-      return
-    }
-
-    profileReviewState.changes = result.data || []
+    if (!window.RDProfiles) throw new Error('Profiles service unavailable')
+    profileReviewState.changes = await window.RDProfiles.listProfileChanges()
     await loadProfiles(supabase, profileReviewState.changes.map(function(change) { return change.user_id }))
     renderProfileReviews()
   } catch (error) {
@@ -359,23 +338,14 @@ async function updateChangeStatus(id, status) {
   }
   if (!await requireAdmin(supabase)) return false
 
-  var result = await supabase.rpc('review_profile_change', {
-    p_change_id: id,
-    p_decision: status,
-    p_review_note: null
-  })
-
-  if (result.error) {
-    alert(window.RDErrors?.toUserMessage(result.error) || '操作失败，请稍后重试')
+  try {
+    if (!window.RDProfiles) throw new Error('Profiles service unavailable')
+    await window.RDProfiles.reviewProfileChange(id, status)
+    return true
+  } catch (error) {
+    alert(window.RDErrors?.toUserMessage(error) || '操作失败，请稍后重试')
     return false
   }
-
-  if (!result.data || result.data.length === 0) {
-    alert('操作失败：数据库没有更新任何审核记录')
-    return false
-  }
-
-  return true
 }
 
 function findChange(id) {

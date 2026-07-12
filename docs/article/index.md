@@ -736,20 +736,9 @@ function renderArticle() {
 async function loadProfiles(supabase, userIds) {
   var ids = Array.from(new Set(userIds.filter(Boolean)))
   if (!ids.length) return
-
-  var result = await withTimeout(
-    supabase
-      .from('profiles')
-      .select('id, username, avatar_url')
-      .in('id', ids),
-    { data: [], error: { message: 'profiles timeout' } }
-  )
-
-  if (!result.error && result.data) {
-    result.data.forEach(function(profile) {
-      articleState.profiles[profile.id] = profile
-    })
-  }
+  if (!window.RDProfiles) return
+  var profiles = await window.RDProfiles.getProfiles(ids)
+  profiles.forEach(function(profile) { articleState.profiles[profile.id] = profile })
 }
 
 async function loadInteractionState(supabase) {
