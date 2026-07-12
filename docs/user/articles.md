@@ -166,15 +166,8 @@ async function loadArticles() {
       return
     }
 
-    var result = await supabaseClient
-      .from('articles')
-      .select('id, title, status, visibility, created_at, likes_count, comments_count, reject_reason')
-      .eq('author_id', session.user.id)
-      .order('created_at', { ascending: false })
-
-    if (result.error) throw result.error
-
-    myArticles = result.data || []
+    if (!window.RDArticles) throw new Error('Articles service unavailable')
+    myArticles = await window.RDArticles.listAuthorArticles(session.user.id)
     setVisible('loading', false)
     setVisible('my-articles', true)
     setActiveTab(activeTab)
@@ -187,25 +180,17 @@ async function loadArticles() {
 
 async function deleteArticle(id) {
   if (!confirm('确定要删除这篇文章吗？')) return
-  var result = await supabaseClient.from('articles').delete().eq('id', id)
-  if (result.error) {
-    alert(window.RDErrors?.toUserMessage(result.error) || '删除失败，请稍后重试')
-    return
-  }
+  if (!window.RDArticles) return
+  try { await window.RDArticles.deleteArticle(id) }
+  catch (error) { alert(window.RDErrors?.toUserMessage(error) || '删除失败，请稍后重试'); return }
   myArticles = myArticles.filter(function(article) { return article.id !== id })
   renderArticles()
 }
 
 async function resubmitArticle(id) {
-  var result = await supabaseClient
-    .from('articles')
-    .update({ status: 'pending', reject_reason: null, updated_at: new Date().toISOString() })
-    .eq('id', id)
-
-  if (result.error) {
-    alert(window.RDErrors?.toUserMessage(result.error) || '重新提交失败，请稍后重试')
-    return
-  }
+  if (!window.RDArticles) return
+  try { await window.RDArticles.submitForReview(id) }
+  catch (error) { alert(window.RDErrors?.toUserMessage(error) || '重新提交失败，请稍后重试'); return }
 
   var article = myArticles.find(function(item) { return item.id === id })
   if (article) {
@@ -217,15 +202,9 @@ async function resubmitArticle(id) {
 
 async function withdrawArticle(id) {
   if (!confirm('确定要撤回这篇文章吗？')) return
-  var result = await supabaseClient
-    .from('articles')
-    .update({ status: 'draft', updated_at: new Date().toISOString() })
-    .eq('id', id)
-
-  if (result.error) {
-    alert(window.RDErrors?.toUserMessage(result.error) || '撤回失败，请稍后重试')
-    return
-  }
+  if (!window.RDArticles) return
+  try { await window.RDArticles.saveDraft(id) }
+  catch (error) { alert(window.RDErrors?.toUserMessage(error) || '撤回失败，请稍后重试'); return }
 
   var article = myArticles.find(function(item) { return item.id === id })
   if (article) article.status = 'draft'

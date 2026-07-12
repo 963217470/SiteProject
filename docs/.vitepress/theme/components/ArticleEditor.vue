@@ -185,6 +185,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import MarkdownIt from 'markdown-it'
 import katexPlugin from '@vscode/markdown-it-katex'
+import { createArticle } from '../services/articles'
+import { toUserMessage } from '../lib/errors'
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
 md.use(katexPlugin.default || katexPlugin, { throwOnError: false })
@@ -966,18 +968,7 @@ async function saveArticle(status) {
       articleData.kb_branch_id = article.kbEnabled ? article.kbBranchId : null
     }
 
-    const { data, error } = await supabase
-      .from('articles')
-      .insert(articleData)
-      .select('id')
-      .single()
-
-    if (error) {
-      showStatus('保存失败：' + error.message, 'error')
-      return
-    }
-
-    const insertedArticle = Array.isArray(data) ? data[0] : data
+    const insertedArticle = await createArticle(articleData)
 
     if (!insertedArticle?.id) {
       showStatus('保存失败：数据库没有返回文章 ID', 'error')
@@ -1009,7 +1000,7 @@ async function saveArticle(status) {
       }, 1200)
     }
   } catch (error) {
-    showStatus('保存失败：' + (error?.message || '未知错误'), 'error')
+    showStatus(toUserMessage(error), 'error')
   } finally {
     submitting.value = false
   }

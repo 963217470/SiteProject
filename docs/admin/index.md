@@ -284,17 +284,8 @@ async function loadArticles() {
 
     if (!await requireAdmin(supabase)) return
 
-    var result = await supabase
-      .from('articles')
-      .select('id, title, summary, status, visibility, created_at, updated_at, published_at, reject_reason')
-      .order('created_at', { ascending: false })
-
-    if (result.error) {
-      showError(window.RDErrors?.toUserMessage(result.error) || '加载失败，请稍后重试')
-      return
-    }
-
-    adminState.articles = result.data || []
+    if (!window.RDArticles) throw new Error('Articles service unavailable')
+    adminState.articles = await window.RDArticles.listAdminArticles()
     renderArticles(adminState.articles)
   } catch (error) {
     showError(window.RDErrors?.toUserMessage(error) || '加载失败，请稍后重试')
@@ -312,39 +303,11 @@ async function updateArticleStatus(id, status, rejectReason) {
 
     if (!await requireAdmin(supabase)) return false
 
-    var updateData = {
-      status: status,
-      updated_at: new Date().toISOString()
-    }
-
-    if (status === 'published') {
-      updateData.published_at = new Date().toISOString()
-      updateData.reject_reason = null
-    }
-
-    if (status === 'pending') {
-      updateData.reject_reason = null
-    }
-
-    if (status === 'rejected') {
-      updateData.reject_reason = rejectReason || ''
-    }
-
-    var result = await supabase
-      .from('articles')
-      .update(updateData)
-      .eq('id', id)
-      .select('id')
-
-    if (result.error) {
-      alert(window.RDErrors?.toUserMessage(result.error) || '操作失败，请稍后重试')
-      return false
-    }
-
-    if (!result.data || result.data.length === 0) {
-      alert('操作失败：数据库没有更新任何文章，请确认当前账号有管理员权限')
-      return false
-    }
+    if (!window.RDArticles) throw new Error('Articles service unavailable')
+    if (status === 'published') await window.RDArticles.publishArticle(id)
+    else if (status === 'rejected') await window.RDArticles.rejectArticle(id, rejectReason || '')
+    else if (status === 'pending') await window.RDArticles.submitForReview(id)
+    else await window.RDArticles.updateArticle(id, { status: status })
 
     return true
   } catch (error) {
@@ -395,21 +358,8 @@ async function deleteArticle(id) {
 
     if (!await requireAdmin(supabase)) return
 
-    var result = await supabase
-      .from('articles')
-      .delete()
-      .eq('id', id)
-      .select('id')
-
-    if (result.error) {
-      alert(window.RDErrors?.toUserMessage(result.error) || '删除失败，请稍后重试')
-      return
-    }
-
-    if (!result.data || result.data.length === 0) {
-      alert('删除失败：数据库没有删除任何文章，请确认当前账号有管理员权限')
-      return
-    }
+    if (!window.RDArticles) throw new Error('Articles service unavailable')
+    await window.RDArticles.deleteArticle(id)
 
     alert('已删除')
     loadArticles()
@@ -431,17 +381,9 @@ async function testConnection() {
 
   if (!await requireAdmin(supabase)) return
 
-  var result = await supabase
-    .from('articles')
-    .select('id, title, status')
-    .limit(5)
-
-  if (result.error) {
-    alert(window.RDErrors?.toUserMessage(result.error) || '连接失败，请稍后重试')
-    return
-  }
-
-  alert('连接正常，当前可读取 ' + (result.data || []).length + ' 篇文章')
+  if (!window.RDArticles) return
+  var articles = await window.RDArticles.listAdminArticles()
+  alert('连接正常，当前可读取 ' + articles.length + ' 篇文章')
 }
 
 if (typeof window !== 'undefined') {

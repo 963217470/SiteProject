@@ -341,9 +341,10 @@ async function assignArticleBranch(articleId, branchId) {
     kb_branch_id: branchId || null,
     updated_at: new Date().toISOString()
   }
-  var result = await kbAdminState.sb.from('articles').update(payload).eq('id', articleId).select('id')
-  if (result.error) {
-    alert(window.RDErrors?.toUserMessage(result.error) || '调整失败，请稍后重试')
+  try {
+    await window.RDArticles.updateArticle(articleId, payload)
+  } catch (error) {
+    alert(window.RDErrors?.toUserMessage(error) || '调整失败，请稍后重试')
     return
   }
   var article = kbAdminState.articles.find(function(item) { return item.id === articleId })
@@ -405,13 +406,7 @@ async function approveBranchRequest(id) {
 
   try {
     var branchId = await ensureBranchPath(request.requested_path)
-    var articleResult = await kbAdminState.sb
-      .from('articles')
-      .update({ kb_enabled: true, kb_branch_id: branchId, updated_at: new Date().toISOString() })
-      .eq('id', request.article_id)
-      .select('id')
-
-    if (articleResult.error) throw articleResult.error
+    await window.RDArticles.updateArticle(request.article_id, { kb_enabled: true, kb_branch_id: branchId, updated_at: new Date().toISOString() })
 
     var updateResult = await kbAdminState.sb
       .from('knowledge_branch_requests')
@@ -460,11 +455,8 @@ async function loadKbAdmin() {
       .order('sort_order', { ascending: true })
     if (branchResult.error) throw branchResult.error
 
-    var articleResult = await supabase
-      .from('articles')
-      .select('id, title, summary, status, kb_enabled, kb_branch_id, kb_sort_order, created_at')
-      .order('created_at', { ascending: false })
-    if (articleResult.error) throw articleResult.error
+    if (!window.RDArticles) throw new Error('Articles service unavailable')
+    var articles = await window.RDArticles.listAdminArticles()
 
     var requestResult = await supabase
       .from('knowledge_branch_requests')
@@ -474,7 +466,7 @@ async function loadKbAdmin() {
     if (requestResult.error) throw requestResult.error
 
     kbAdminState.branches = branchResult.data || []
-    kbAdminState.articles = articleResult.data || []
+    kbAdminState.articles = articles
     kbAdminState.branchRequests = requestResult.data || []
     renderAll()
     show('loading', false)

@@ -115,40 +115,20 @@ function saveRecentArticle(article) {
 }
 
 async function loadArticleRecord(supabase, id) {
-  var result = await supabase
-    .from('articles')
-    .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count, views_count')
-    .eq('id', id)
-    .single()
-
-  if (!result.error) return result
-
-  return supabase
-    .from('articles')
-    .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count')
-    .eq('id', id)
-    .single()
+  if (!window.RDArticles) throw new Error('Articles service unavailable')
+  return window.RDArticles.getArticle(id)
 }
 
 async function loadArticleByTitle(supabase, title) {
-  return supabase
-    .from('articles')
-    .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count, views_count')
-    .eq('title', title)
-    .eq('status', 'published')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  if (!window.RDArticles) throw new Error('Articles service unavailable')
+  return window.RDArticles.getPublishedArticleByTitle(title)
 }
 
 async function updateViewCountIfAvailable(supabase) {
   if (!articleState.article || typeof articleState.article.views_count === 'undefined') return
   var nextCount = Number(articleState.article.views_count || 0) + 1
   articleState.article.views_count = nextCount
-  await supabase
-    .from('articles')
-    .update({ views_count: nextCount })
-    .eq('id', articleState.id)
+  if (window.RDArticles) await window.RDArticles.incrementViewCount(articleState.id, nextCount - 1)
 }
 
 function renderInlineMarkdown(value) {
@@ -799,16 +779,10 @@ async function loadComments(supabase) {
 }
 
 async function refreshArticleCounts(supabase) {
-  var result = await supabase
-    .from('articles')
-    .select('likes_count, comments_count')
-    .eq('id', articleState.id)
-    .limit(1)
-
-  if (!result.error && result.data && result.data[0]) {
-    articleState.article.likes_count = result.data[0].likes_count
-    articleState.article.comments_count = result.data[0].comments_count
-  }
+  if (!window.RDArticles) return
+  var counts = await window.RDArticles.getArticleCounts(articleState.id)
+  articleState.article.likes_count = counts.likes_count
+  articleState.article.comments_count = counts.comments_count
 }
 
 async function toggleLike() {
@@ -935,18 +909,17 @@ async function loadArticle() {
     }
     articleState.session = sessionResult.data.session
 
-    var result = articleState.id
+    var article = articleState.id
       ? await loadArticleRecord(supabase, articleState.id)
       : await loadArticleByTitle(supabase, articleTitle)
 
-    if (result.error) throw result.error
-    if (!result.data) {
+    if (!article) {
       setVisible('loading', false)
       setVisible('article-not-found', true)
       return
     }
 
-    articleState.article = result.data
+    articleState.article = article
     articleState.id = articleState.article.id
     saveRecentArticle(articleState.article)
     updateViewCountIfAvailable(supabase).catch(function(error) {

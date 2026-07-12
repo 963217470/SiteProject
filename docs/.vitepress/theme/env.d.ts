@@ -5,6 +5,7 @@ import type { Database } from './types/database'
 import type { derivePermissions, normalizeRole, roleDescription, roleLabel } from './lib/permissions'
 import type { toAppError, toUserMessage } from './lib/errors'
 import type * as profilesService from './services/profiles'
+import type * as articlesService from './services/articles'
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
@@ -30,6 +31,7 @@ declare global {
       toUserMessage: typeof toUserMessage
     }
     RDProfiles?: typeof profilesService
+    RDArticles?: typeof articlesService
   }
 }
 

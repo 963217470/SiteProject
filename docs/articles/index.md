@@ -179,26 +179,10 @@ async function loadArticles() {
       return
     }
 
-    console.log('Supabase loaded, fetching articles...')
-    const supabase = window.getSupabaseClient?.()
-
-    let query = supabase
-      .from('articles')
-      .select('id, title, summary, content, cover_url, tags, visibility, status, created_at, likes_count, comments_count')
-      .eq('status', 'published')
-      .order('created_at', { ascending: false })
-
-    if (currentFilter !== 'all') {
-      query = query.eq('visibility', currentFilter)
-    }
-
-    const { data, error } = await query
-
-    if (error) {
-      console.error('Database error:', error)
-      showError(window.RDErrors?.toUserMessage(error) || '加载失败，请稍后重试')
-      return
-    }
+    if (!window.RDArticles) throw new Error('Articles service unavailable')
+    const publicArticles = currentFilter === 'internal' ? [] : await window.RDArticles.listPublicArticles()
+    const internalArticles = currentFilter === 'public' ? [] : await window.RDArticles.listInternalArticles()
+    const data = publicArticles.concat(internalArticles).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
     const filteredData = activeTag
       ? (data || []).filter(article => Array.isArray(article.tags) && article.tags.some(tag => String(tag).toLowerCase() === activeTag.toLowerCase()))

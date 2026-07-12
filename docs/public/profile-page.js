@@ -72,20 +72,17 @@ async function loadProfile() {
 }
 
 async function loadArticles() {
-  var r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count, views_count, reject_reason').eq('author_id', state.uid).order('created_at', { ascending: false })
-  if (r.error) r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count, reject_reason').eq('author_id', state.uid).order('created_at', { ascending: false })
-  if (r.error) throw r.error
-  state.articles = r.data || []
+  if (!window.RDArticles) throw new Error('Articles service unavailable')
+  state.articles = await window.RDArticles.listAuthorArticles(state.uid)
 }
 
 async function fetchByIds(ids, rows, idKey) {
   ids = Array.from(new Set((ids || []).filter(Boolean)))
   if (!ids.length) return []
-  var r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count, views_count').in('id', ids)
-  if (r.error) r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count').in('id', ids)
-  if (r.error) return []
+  if (!window.RDArticles) return []
+  var articles = await window.RDArticles.getArticles(ids)
   var map = {}
-  ;(r.data || []).forEach(function(a) { map[a.id] = a })
+  ;(articles || []).forEach(function(a) { map[a.id] = a })
   var order = rows && rows.length ? rows : ids.map(function(id) { return { id: id } })
   return order.map(function(row) {
     var id = idKey ? row[idKey] : row.id

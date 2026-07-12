@@ -238,16 +238,11 @@ async function loadKnowledgeBase() {
       .order('sort_order', { ascending: true })
     if (branchResult.error) throw new Error('知识库还没有初始化，请管理员执行 supabase/knowledge-base.sql')
 
-    var articleResult = await supabase
-      .from('articles')
-      .select('id, title, summary, content, cover_url, visibility, created_at, likes_count, comments_count, kb_enabled, kb_branch_id, kb_sort_order')
-      .eq('status', 'published')
-      .eq('kb_enabled', true)
-      .order('kb_sort_order', { ascending: true })
-    if (articleResult.error) throw articleResult.error
+    if (!window.RDArticles) throw new Error('Articles service unavailable')
+    var articles = await window.RDArticles.listKnowledgeArticles()
 
     kbState.branches = branchResult.data || []
-    kbState.articles = articleResult.data || []
+    kbState.articles = articles
     applyInitialBranchFromUrl()
     renderPage()
     show('loading', false)

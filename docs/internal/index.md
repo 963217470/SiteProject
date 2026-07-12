@@ -9,6 +9,7 @@ import { useAuth } from '../.vitepress/theme/composables/useAuth'
 import { usePermissions } from '../.vitepress/theme/composables/usePermissions'
 import { requireSupabase } from '../.vitepress/theme/lib/supabase'
 import { AppError, toUserMessage } from '../.vitepress/theme/lib/errors'
+import { listInternalArticles } from '../.vitepress/theme/services/articles'
 
 const loading = ref(true)
 const notMember = ref(false)
@@ -37,8 +38,7 @@ onMounted(async () => {
     await auth.initializeAuth()
     supabase = requireSupabase()
     if (!canAccessInternal.value) { notMember.value = true; return }
-    const { data } = await supabase.from('articles').select('id, title, summary, cover_url, tags, created_at, profiles!articles_author_id_fkey(username)').eq('status', 'published').eq('visibility', 'internal').order('created_at', { ascending: false })
-    articles.value = data || []
+    articles.value = await listInternalArticles()
     await loadResources()
   } catch (e) { resourceError.value = toUserMessage(e) }
   finally { loading.value = false }

@@ -27,6 +27,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { listPublicArticles } from '../services/articles'
 
 const latestArticles = ref([])
 
@@ -34,16 +35,7 @@ function formatDate(d) { return new Date(d).toLocaleDateString('zh-CN') }
 
 onMounted(async () => {
   try {
-    if (!window.__supabase) return
-    const supabase = window.__supabase
-    const { data } = await supabase
-      .from('articles')
-      .select('id, title, summary, cover_url, tags, created_at, profiles!articles_author_id_fkey(username)')
-      .eq('status', 'published')
-      .eq('visibility', 'public')
-      .order('created_at', { ascending: false })
-      .limit(3)
-    latestArticles.value = data || []
+    latestArticles.value = await listPublicArticles(3)
   } catch (e) { console.error('Home articles load error:', e) }
 })
 </script>
