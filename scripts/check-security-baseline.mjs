@@ -18,7 +18,7 @@ const requirements = [
   ['comments RLS', files.migration, /alter table public\.comments enable row level security/i],
   ['favorites RLS', files.migration, /alter table public\.article_favorites enable row level security/i],
   ['private resource bucket', files.migration, /update storage\.buckets[\s\S]*set public = false[\s\S]*where id = 'resources'/i],
-  ['official Supabase SDK singleton', files.supabaseClient, /createClient\(supabaseUrl, supabasePublicKey/],
+  ['official Supabase SDK singleton', files.supabaseClient, /createClient(?:<[^>]+>)?\(supabaseUrl, supabasePublicKey/],
   ['signed URL download flow', files.resourcesPage, /createSignedUrl\(item\.file_path, 60\)/],
   ['anonymous denial test', files.permissionTests, /expected anonymous article insertion to be rejected/],
   ['role escalation denial test', files.permissionTests, /expected profile role escalation to be rejected/],

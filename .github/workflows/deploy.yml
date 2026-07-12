@@ -41,6 +41,9 @@ jobs:
       - name: Check security baseline
         run: npm run check:security
 
+      - name: Typecheck Vue and TypeScript
+        run: npm run typecheck
+
       - name: Build with VitePress
         run: npm run build
         env:

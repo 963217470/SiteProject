@@ -7,6 +7,7 @@
     "dev": "vitepress dev docs",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitepress build docs",
     "preview": "vitepress preview docs",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:secrets:build": "node scripts/check-secrets.mjs --include-generated",
     "check:security": "node scripts/check-security-baseline.mjs",
@@ -28,6 +29,8 @@
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
-    "vite": "^5.4.21"
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vue-tsc": "^3.3.7"
   }
 }
