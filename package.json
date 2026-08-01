@@ -12,6 +12,7 @@
     "check:secrets:build": "node scripts/check-secrets.mjs --include-generated",
     "check:security": "node scripts/check-security-baseline.mjs",
     "test:auth-redirect": "node scripts/test-auth-redirect.mjs",
+    "test:article-editor": "node scripts/test-article-editor.mjs",
     "db:reset": "npx supabase db reset --local --no-seed",
     "test:db": "node scripts/test-database.mjs"
   },

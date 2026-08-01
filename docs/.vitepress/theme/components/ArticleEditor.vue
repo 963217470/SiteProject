@@ -185,8 +185,11 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import MarkdownIt from 'markdown-it'
 import katexPlugin from '@vscode/markdown-it-katex'
-import { createArticle } from '../services/articles'
 import { toUserMessage } from '../lib/errors'
+import { useArticleSubmission } from './article-editor/articleSubmission'
+import { flattenKnowledgeBranches } from './article-editor/knowledgeBranches'
+import { createSafeFileName, imageAltFromPath, isImagePath, normalizeMediaPath, replaceRelativeImages } from './article-editor/articleMedia'
+import { parseArticleFrontmatter } from './article-editor/articleMetadata'
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
 md.use(katexPlugin.default || katexPlugin, { throwOnError: false })
@@ -207,6 +210,7 @@ const customTag = ref('')
 const kbBranches = ref([])
 const kbLoading = ref(false)
 const kbError = ref('')
+const { submit: submitArticleDraft } = useArticleSubmission()
 
 const presetTags = ['Unity', 'Godot', 'Unreal Engine', 'C#', '教程', '入门', '进阶', '2D游戏', '3D游戏', '团队合作']
 const selectedTags = ref([])
@@ -243,7 +247,7 @@ const article = reactive({
 
 const tags = computed(() => selectedTags.value)
 const previewHtml = computed(() => renderMarkdownPreview(article.content))
-const flatBranches = computed(() => flattenBranches(kbBranches.value))
+const flatBranches = computed(() => flattenKnowledgeBranches(kbBranches.value))
 
 onMounted(loadKnowledgeBranches)
 
@@ -315,28 +319,6 @@ function addCustomTag() {
   if (!tag) return
   if (!selectedTags.value.includes(tag)) selectedTags.value.push(tag)
   customTag.value = ''
-}
-
-function flattenBranches(branches, parentId = null, depth = 0) {
-  return branches
-    .filter(branch => (branch.parent_id || null) === parentId)
-    .sort((a, b) => (Number(a.sort_order || 0) - Number(b.sort_order || 0)) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN'))
-    .flatMap(branch => {
-      const prefix = depth > 0 ? '　'.repeat(depth) + '└ ' : ''
-      return [
-        { ...branch, label: prefix + branch.name },
-        ...flattenBranches(branches, branch.id, depth + 1)
-      ]
-    })
-}
-
-function normalizeBranchPath(value) {
-  return String(value || '')
-    .split('/')
-    .map(part => part.trim())
-    .filter(Boolean)
-    .filter(part => part !== '知识库总览')
-    .join('/')
 }
 
 function escapeHtml(value) {
@@ -496,33 +478,8 @@ function normalizeCssColor(color) {
   return '#' + rgb.slice(1).map(part => Number(part).toString(16).padStart(2, '0')).join('')
 }
 
-function parseFrontmatter(text) {
-  const result = {}
-  const match = text.match(/^---\n([\s\S]*?)\n---\n?/)
-  if (!match) return { data: result, content: text }
-
-  for (const line of match[1].split('\n')) {
-    const item = line.match(/^([\w-]+):\s*(.+)$/)
-    if (!item) continue
-    const key = item[1].toLowerCase()
-    const rawValue = item[2].trim().replace(/^["']|["']$/g, '')
-
-    if (key === 'tags') {
-      result.tags = rawValue
-        .replace(/^\[|\]$/g, '')
-        .split(',')
-        .map(tag => tag.trim().replace(/^["']|["']$/g, ''))
-        .filter(Boolean)
-    } else {
-      result[key] = rawValue
-    }
-  }
-
-  return { data: result, content: text.replace(/^---\n[\s\S]*?\n---\n?/, '') }
-}
-
 function applyImportedMarkdown(text, sourceName) {
-  const parsed = parseFrontmatter(text)
+  const parsed = parseArticleFrontmatter(text)
   const frontmatter = parsed.data
   let content = parsed.content
 
@@ -631,15 +588,15 @@ async function handleFolderUpload(event) {
     for (const file of files) {
       if (!file.type.startsWith('image/')) continue
       const imageUrl = await uploadArticleImage(supabase, file)
-      const fullPath = normalizePath(file.webkitRelativePath)
+      const fullPath = normalizeMediaPath(file.webkitRelativePath)
       const relativePath = fullPath.split('/').slice(1).join('/')
       imageMap.set(fullPath, imageUrl)
       imageMap.set(relativePath, imageUrl)
-      imageMap.set(normalizePath(file.name), imageUrl)
+      imageMap.set(normalizeMediaPath(file.name), imageUrl)
     }
 
     let markdown = await readFileAsText(markdownFile)
-    const baseDir = normalizePath(markdownFile.webkitRelativePath).split('/').slice(0, -1).join('/')
+    const baseDir = normalizeMediaPath(markdownFile.webkitRelativePath).split('/').slice(0, -1).join('/')
     markdown = replaceRelativeImages(markdown, baseDir, imageMap)
 
     applyImportedMarkdown(markdown, markdownFile.name)
@@ -651,38 +608,10 @@ async function handleFolderUpload(event) {
   }
 }
 
-function normalizePath(path) {
-  return String(path || '')
-    .trim()
-    .replace(/^["']|["']$/g, '')
-    .replace(/\\/g, '/')
-    .replace(/^\.\//, '')
-    .replace(/\/+/g, '/')
-}
-
-function isImagePath(path) {
-  return /\.(png|jpe?g|gif|webp|svg)([?#].*)?$/i.test(normalizePath(path))
-}
-
-function imageAltFromPath(path) {
-  const name = normalizePath(path).split('/').pop() || 'image'
-  return name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'image'
-}
-
-function safeFileName(name) {
-  const ext = (String(name || '').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
-  const base = String(name || 'image')
-    .replace(/\.[^.]+$/, '')
-    .replace(/[^\w.-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48) || 'image'
-  return base + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
-}
-
 async function uploadArticleImage(supabase, file) {
   const sessionResult = await supabase.auth.getSession()
   const userId = sessionResult?.data?.session?.user?.id || 'anonymous'
-  const path = 'article-images/' + userId + '/' + safeFileName(file.name)
+  const path = 'article-images/' + userId + '/' + createSafeFileName(file.name)
   const upload = await supabase.storage.from('avatars').upload(path, file)
   if (upload.error) throw new Error('图片上传失败：' + upload.error.message)
   return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
@@ -691,48 +620,10 @@ async function uploadArticleImage(supabase, file) {
 async function uploadArticleAttachment(supabase, file) {
   const sessionResult = await supabase.auth.getSession()
   const userId = sessionResult?.data?.session?.user?.id || 'anonymous'
-  const path = 'article-attachments/' + userId + '/' + safeFileName(file.name)
+  const path = 'article-attachments/' + userId + '/' + createSafeFileName(file.name)
   const upload = await supabase.storage.from('avatars').upload(path, file)
   if (upload.error) throw new Error('附件上传失败：' + upload.error.message)
   return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
-}
-
-function findImageUrl(src, baseDir, imageMap) {
-  if (/^(https?:|data:|\/)/i.test(src)) return ''
-  const normalizedSrc = normalizePath(src).replace(/[?#].*$/, '')
-  const withBase = normalizePath((baseDir ? baseDir + '/' : '') + normalizedSrc)
-  const fileName = normalizedSrc.split('/').pop()
-  if (imageMap.get(withBase)) return imageMap.get(withBase)
-  if (imageMap.get(normalizedSrc)) return imageMap.get(normalizedSrc)
-  if (imageMap.get(fileName)) return imageMap.get(fileName)
-
-  for (const [key, value] of imageMap.entries()) {
-    if (key.endsWith('/' + normalizedSrc) || (fileName && key.endsWith('/' + fileName))) return value
-  }
-  return ''
-}
-
-function replaceRelativeImages(markdown, baseDir, imageMap) {
-  return markdown
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, src) {
-      const imageUrl = findImageUrl(src, baseDir, imageMap)
-      return imageUrl ? '![' + (alt || imageAltFromPath(src)) + '](' + imageUrl + ')' : match
-    })
-    .split('\n')
-    .map(function(line) {
-      const trimmed = line.trim()
-      const brokenImage = trimmed.match(/^!\[([^\]\n]*)\]?[^()\n]*\(([^)\n]+\.(?:png|jpe?g|gif|webp|svg)(?:[?#][^)]+)?)\)\s*$/i)
-      if (brokenImage) {
-        const imageUrl = findImageUrl(brokenImage[2], baseDir, imageMap)
-        return imageUrl ? '![' + (brokenImage[1] || imageAltFromPath(brokenImage[2])) + '](' + imageUrl + ')' : line
-      }
-      if (isImagePath(trimmed) && !/^\s*!\[/.test(line)) {
-        const imageUrl = findImageUrl(trimmed, baseDir, imageMap)
-        return imageUrl ? '![' + imageAltFromPath(trimmed) + '](' + imageUrl + ')' : line
-      }
-      return line
-    })
-    .join('\n')
 }
 
 async function handleImageUpload(event) {
@@ -913,23 +804,7 @@ async function saveArticle(status) {
 
   addCustomTag()
 
-  if (!article.title.trim()) {
-    showStatus('请输入标题', 'error')
-    return
-  }
-
-  if (!article.content.trim()) {
-    showStatus('请输入内容', 'error')
-    return
-  }
-
   if (article.visibility === 'internal') syncVisibilityMode()
-
-  const requestedBranchPath = normalizeBranchPath(article.kbBranchPath)
-  if (article.visibility !== 'internal' && article.kbEnabled && !article.kbBranchId && !requestedBranchPath) {
-    showStatus('请选择已有知识库分支，或输入要申请的新分支路径', 'error')
-    return
-  }
 
   submitting.value = true
   showStatus(status === 'pending' ? '正在提交...' : '正在保存草稿...', 'info')
@@ -948,50 +823,17 @@ async function saveArticle(status) {
       return
     }
 
-    if (/!\[[^\]]*\]\(data:image\//i.test(article.content)) {
-      showStatus('正在将内嵌图片转为线上图片...', 'info')
-      article.content = await replaceInlineDataImages(article.content)
-    }
-
-    const articleData = {
-      title: article.title.trim(),
-      summary: article.summary.trim() || buildSummary(article.content),
-      content: article.content,
+    const result = await submitArticleDraft({
+      article,
       tags: tags.value,
-      visibility: article.visibility,
       status: status === 'draft' ? 'draft' : 'pending',
-      author_id: userId
-    }
-
-    if (article.visibility !== 'internal' && (article.kbEnabled || kbBranches.value.length > 0)) {
-      articleData.kb_enabled = !!article.kbEnabled && !requestedBranchPath
-      articleData.kb_branch_id = article.kbEnabled ? article.kbBranchId : null
-    }
-
-    const insertedArticle = await createArticle(articleData)
-
-    if (!insertedArticle?.id) {
-      showStatus('保存失败：数据库没有返回文章 ID', 'error')
-      return
-    }
-
-    if (article.visibility !== 'internal' && article.kbEnabled && requestedBranchPath) {
-      const requestResult = await supabase
-        .from('knowledge_branch_requests')
-        .insert({
-          article_id: insertedArticle.id,
-          requester_id: userId,
-          requested_path: requestedBranchPath,
-          status: 'pending'
-        })
-        .select('id')
-        .single()
-
-      if (requestResult.error) {
-        showStatus('文章已提交，但新分支申请失败：' + requestResult.error.message + '。请确认已执行 supabase/knowledge-base.sql', 'error')
-        return
-      }
-    }
+      userId,
+      supabase,
+      hasKnowledgeBranches: kbBranches.value.length > 0,
+      replaceInlineImages: replaceInlineDataImages,
+      notify: showStatus
+    })
+    if (!result.ok) return
 
     showStatus(status === 'pending' ? '提交成功，文章已进入待审核' : '草稿保存成功', 'success')
     if (status === 'pending') {
@@ -1004,16 +846,6 @@ async function saveArticle(status) {
   } finally {
     submitting.value = false
   }
-}
-
-function buildSummary(content) {
-  return content
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/[#>*_`-]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 120)
 }
 
 function showStatus(message, type) {
