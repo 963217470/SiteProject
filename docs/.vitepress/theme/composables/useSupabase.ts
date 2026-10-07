@@ -1,11 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
 import { ref, onMounted } from 'vue'
 
-// Supabase 配置
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = typeof window === 'undefined' ? null : window.__api
 
 // 用户状态
 const user = ref(null)
@@ -51,7 +46,7 @@ export function useAuth() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: window.location.origin + '/auth/callback'
         }
       })
       if (error) throw error

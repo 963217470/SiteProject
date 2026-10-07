@@ -1,0 +1,35 @@
+import { DatabaseSync } from 'node:sqlite'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+import session from 'express-session'
+
+export function openDatabase(path) {
+  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+  const db = new DatabaseSync(path)
+  db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;')
+  db.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'))
+  return db
+}
+
+export class SQLiteSessionStore extends session.Store {
+  constructor(db) { super(); this.db = db }
+  get(sid, callback) {
+    try {
+      const row = this.db.prepare('SELECT data FROM sessions WHERE sid=? AND expires>?').get(sid, Date.now())
+      callback(null, row ? JSON.parse(row.data) : null)
+    } catch (error) { callback(error) }
+  }
+  set(sid, value, callback = () => {}) {
+    try {
+      const expires = value.cookie.expires ? new Date(value.cookie.expires).getTime() : Date.now() + 86400000
+      this.db.prepare('INSERT OR REPLACE INTO sessions(sid,data,expires) VALUES(?,?,?)').run(sid, JSON.stringify(value), expires)
+      this.db.prepare('DELETE FROM sessions WHERE expires<?').run(Date.now())
+      callback()
+    } catch (error) { callback(error) }
+  }
+  destroy(sid, callback = () => {}) {
+    try { this.db.prepare('DELETE FROM sessions WHERE sid=?').run(sid); callback() }
+    catch (error) { callback(error) }
+  }
+  touch(sid, value, callback) { this.set(sid, value, callback) }
+}

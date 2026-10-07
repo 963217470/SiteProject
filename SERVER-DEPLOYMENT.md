@@ -1,59 +1,64 @@
-# RD STUDIO 服务器部署
+# RD STUDIO self-hosted deployment
 
-站点：https://rd-studio.club/
-服务器：47.108.67.83（Ubuntu 22.04 / 宝塔 Nginx）
+Production: https://rd-studio.club (Aliyun 47.108.67.83, Ubuntu 22.04, Nginx).
 
-## 路径
+## Architecture
 
-- 网站目录：`/www/wwwroot/rd-studio.club/current`
-- 发布版本：`/www/wwwroot/rd-studio.club/releases/`
-- Nginx 配置：`/www/server/panel/vhost/nginx/rd-studio.club.conf`
-- 证书：`/etc/letsencrypt/live/rd-studio.club/`
-- 续期后重载脚本：`/etc/letsencrypt/renewal-hooks/deploy/rd-studio-nginx.sh`
+- VitePress static site: `/www/wwwroot/rd-studio.club/current`.
+- Node.js 24 backend: `/opt/rd-studio/current/server`; service `rd-studio` listens on loopback port 3100.
+- Nginx proxies `/api/` to the backend. No Supabase service is used.
+- SQLite database, persistent sessions and uploads: `/var/lib/rd-studio/`.
+- Root-only configuration: `/etc/rd-studio.env`.
+- GitHub accounts are identified by immutable numeric IDs; sessions use HttpOnly, Secure, SameSite cookies.
+- Public readers see published public articles. Members can read internal articles and download internal files. Only admins can publish, review profiles, manage knowledge branches and resources. Authors submit drafts and pending articles.
 
-证书通过 Certbot 自动续期；HTTP 自动跳转 HTTPS。现有其他站点配置未修改。
+This deployment starts with a new database as requested; cloud data is not imported.
 
-## 本次验证
+## GitHub OAuth App
 
-生产构建成功；产物中未发现旧 Supabase 项目地址或 service_role 密钥。
-首页、文章页、知识库页、登录页、OAuth 回调和前端 API 脚本返回 HTTP 200；不存在的页面返回 404。
-公网 HTTPS 返回 200，证书验证通过。
+Create an app at https://github.com/settings/developers:
 
-## Supabase 待完成事项
+- Homepage URL: `https://rd-studio.club`
+- Authorization callback URL: `https://rd-studio.club/api/auth/github/callback`
 
-当前项目：`uulmgatzihdtbzrqaocc`。公开密钥已接入；浏览器请求只使用公开密钥和已登录用户的令牌。
+Configure `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` directly in `/etc/rd-studio.env` and restart:
 
-- 新项目尚未启用 GitHub Auth。需要在 Supabase 配置 GitHub OAuth，Site URL 设置为 `https://rd-studio.club`，允许重定向 `https://rd-studio.club/auth/callback`。
-- 只读接口检查确认缺少：`knowledge_branches`、`knowledge_branch_requests`、`internal_resources`、`article_favorites`。相关功能需要完成数据库迁移和 RLS 策略配置后验证。
-- 未迁移旧项目的文章和用户数据，未变更数据库访问策略。
-- 旧项目曾在前端公开 service_role 管理密钥，需要在原 Supabase 控制台轮换。
+```bash
+sudoedit /etc/rd-studio.env
+sudo systemctl restart rd-studio
+```
 
-## 更新网站
+`ADMIN_GITHUB_IDS` is a comma-separated list of numeric GitHub user IDs allowed to bootstrap admin access. GitHub usernames are not IDs. There is no automatic first-user admin. Users can be promoted after their first login:
 
-本地运行 `npm run build`，检查生产产物不含管理密钥，仅上传 `docs/.vitepress/dist/` 到服务器新版本目录，原子切换 `current` 链接。不要上传 `.env`、源代码或 SSH 密码。
+```bash
+sudo -u rd-studio env DATA_DIR=/var/lib/rd-studio /opt/rd-studio/node/bin/node /opt/rd-studio/current/server/admin.mjs GITHUB_ID member
+```
 
-## GitHub 登录配置
+OAuth credentials and session secrets must never be committed or put in frontend environment variables.
 
-在 GitHub Settings > Developer settings > OAuth Apps 新建网站专用 OAuth App：
+## Build And Deploy
 
-- Homepage URL：`https://rd-studio.club`
-- Authorization callback URL：`https://uulmgatzihdtbzrqaocc.supabase.co/auth/v1/callback`
+```bash
+npm ci --prefix server
+npm test --prefix server
+node --test tests/api-client.test.mjs
+npm run build
+```
 
-在新 Supabase 项目的 Authentication > Sign In / Providers > GitHub 中启用 Provider，填写该 OAuth App 的 Client ID 和 Client Secret 并保存。Secret 只保存在 Supabase 后台。
+Package only the `server` source, lockfile, deployment scripts, and built frontend. Exclude `.env`, private keys, `node_modules`, databases and uploaded files. Upload backend and web archives as `/tmp/RELEASE-backend.tgz` and `/tmp/RELEASE-web.tgz`. Extract `deploy/install.sh` from the backend archive and run it with the release ID as its argument. The installer verifies the Node download checksum, tests the backend, preserves configuration, and switches release symlinks after health checks. Previous releases remain available; Nginx configuration is backed up.
 
-在 Authentication > URL Configuration 设置：
+Uploads default to 100 MB. If changing `MAX_UPLOAD_MB`, update Nginx `client_max_body_size` as well. Internal resources are downloaded through the authenticated API, never directly from a public directory.
 
-- Site URL：`https://rd-studio.club`
-- Redirect URLs：`https://rd-studio.club/auth/callback`
+GitHub Actions builds and tests the frontend and backend, and uploads a website artifact. It no longer publishes to GitHub Pages. Git push alone cannot update the Aliyun server; use the release installer. System Nginx loads this site's configuration through `/etc/nginx/sites-enabled/rd-studio.club.conf`, linked to `/www/server/panel/vhost/nginx/rd-studio.club.conf`.
 
-两处 callback 不同：GitHub 把授权结果交给 Supabase，Supabase 再把登录会话交给网站。`Unsupported provider: provider is not enabled` 表示第一步 Provider 尚未启用，修改前端地址不能解决。
+## Operations
 
-## 功能验证与数据库迁移
+```bash
+systemctl status rd-studio
+journalctl -u rd-studio --since '10 minutes ago'
+curl https://rd-studio.club/api/health
+```
 
-2026-10-07 只读接口检查：articles、profiles、article_likes、comments、profile_changes 可访问；knowledge_branches、knowledge_branch_requests、internal_resources、article_favorites 返回 PGRST205，尚未暴露或未创建。
+Back up the database and uploads together. For a simple consistent backup, briefly stop the service, copy the entire `/var/lib/rd-studio` directory and root-only configuration to protected backup storage, then restart. Never copy a live SQLite file without its WAL or a SQLite backup tool.
 
-需要管理员在新项目检查并执行对应的 `supabase/knowledge-base.sql`、`supabase/internal-resources.sql` 和 `supabase/article-interactions.sql`，保留 RLS，再验证知识库、内部资源、收藏功能。不要通过公开前端密钥执行迁移。
-
-前端回归测试：`node --test tests/supabase-rest.test.mjs`。覆盖登录跳转、过期会话刷新、认证上传、匿名上传拒绝和文章提交令牌。
-
-当前 `.github/workflows/deploy.yml` 仍发布到 GitHub Pages。推送 Git 不会更新阿里云的 `current` 目录，阿里云更新必须通过上述服务器发布流程完成。
+Schema version 1 initializes all application tables automatically. Future schema changes require explicit migrations. Deployment rollback changes code and web symlinks, not database contents.

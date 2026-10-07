@@ -1,17 +1,16 @@
-name: Deploy
+name: Build And Test
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages"
+  group: "build-${{ github.ref }}"
   cancel-in-progress: false
 
 jobs:
@@ -26,31 +25,28 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: 'npm'
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix server
+
+      - name: Test backend and frontend client
+        run: |
+          npm test --prefix server
+          node --test tests/api-client.test.mjs
 
       - name: Build with VitePress
         run: npm run build
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
+          name: rd-studio-web
           path: docs/.vitepress/dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    name: Deploy
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

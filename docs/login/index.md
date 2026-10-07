@@ -12,6 +12,7 @@ const username = ref('')
 const errorMsg = ref('')
 
 onMounted(() => {
+  if (new URLSearchParams(window.location.search).has('error')) errorMsg.value = 'GitHub 登录未成功，请重试'
   if (!window.__supabase) {
     errorMsg.value = '系统未加载，请刷新页面'
     loading.value = false

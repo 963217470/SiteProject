@@ -681,18 +681,20 @@ async function uploadArticleImage(supabase, file) {
   const sessionResult = await supabase.auth.getSession()
   const userId = sessionResult?.data?.session?.user?.id || 'anonymous'
   const path = 'article-images/' + userId + '/' + safeFileName(file.name)
-  const upload = await supabase.storage.from('avatars').upload(path, file)
+  const bucket = article.visibility === 'internal' ? 'internal' : 'avatars'
+  const upload = await supabase.storage.from(bucket).upload(path, file)
   if (upload.error) throw new Error('图片上传失败：' + upload.error.message)
-  return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
 }
 
 async function uploadArticleAttachment(supabase, file) {
   const sessionResult = await supabase.auth.getSession()
   const userId = sessionResult?.data?.session?.user?.id || 'anonymous'
   const path = 'article-attachments/' + userId + '/' + safeFileName(file.name)
-  const upload = await supabase.storage.from('avatars').upload(path, file)
+  const bucket = article.visibility === 'internal' ? 'internal' : 'avatars'
+  const upload = await supabase.storage.from(bucket).upload(path, file)
   if (upload.error) throw new Error('附件上传失败：' + upload.error.message)
-  return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
 }
 
 function findImageUrl(src, baseDir, imageMap) {

@@ -19,43 +19,14 @@ function returnAfterLogin() {
 
 onMounted(async () => {
   try {
-    const hash = window.location.hash
-    const callbackParams = new URLSearchParams(hash.substring(1))
-    if (callbackParams.has('error')) {
-      status.value = '登录失败：' + (callbackParams.get('error_description') || callbackParams.get('error'))
-      window.history.replaceState(null, '', window.location.pathname)
-      return
-    }
-    if (hash && hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.substring(1))
-      const accessToken = params.get('access_token')
-      const refreshToken = params.get('refresh_token')
-      const expiresIn = parseInt(params.get('expires_in') || '3600', 10)
-      const tokenType = params.get('token_type') || 'bearer'
-
-      if (accessToken) {
-        const sessionData = {
-          access_token: accessToken,
-          refresh_token: refreshToken || '',
-          expires_in: expiresIn,
-          expires_at: Math.floor(Date.now() / 1000 + expiresIn),
-          token_type: tokenType
-        }
-        localStorage.setItem('sb-auth-token', JSON.stringify(sessionData))
-        window.history.replaceState(null, '', window.location.pathname)
-        status.value = '登录成功！正在跳转...'
-        returnAfterLogin()
-        return
-      }
-    }
-
     if (!window.__supabase) {
       status.value = '系统未加载'
       setTimeout(() => { window.location.href = '/login' }, 2000)
       return
     }
 
-    const { data } = await window.__supabase.auth.getSession()
+    const { data, error } = await window.__api.auth.getSession()
+    if (error) throw error
     if (data.session) {
       status.value = '登录成功！正在跳转...'
       returnAfterLogin()
