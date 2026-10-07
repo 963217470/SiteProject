@@ -1,7 +1,7 @@
 // Supabase REST API helper — no SDK dependency needed
 ;(function() {
-var URL = 'https://jenrgzwwowgfqbwcozbi.supabase.co'
-var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplbnJnend3b3dnZnFid2NvemJpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODgwNjM1NCwiZXhwIjoyMDk0MzgyMzU0fQ.-qioHuE8nqf-9fhwNsJmh0fPlMSt7ysc0LtFlxulh6s'
+var URL = 'https://uulmgatzihdtbzrqaocc.supabase.co'
+var KEY = 'sb_publishable_YV-R0fJ1Sxv7bCn1Qbvm5A_xSqdtmHf'
 var STORAGE_KEY = 'sb-auth-token'
 var session = null
 var listeners = []
@@ -12,7 +12,6 @@ function getLocalSession() {
     if (!raw) return null
     var data = JSON.parse(raw)
     if (!data.access_token) return null
-    if (data.expires_at && data.expires_at * 1000 < Date.now()) return null
     return data
   } catch (e) { return null }
 }
@@ -148,7 +147,9 @@ window.__supabase = {
     from: function(bucket) {
       return {
         upload: async function(path, file) {
-          var headers = { 'apikey': KEY, 'authorization': 'Bearer ' + KEY }
+          var sess = await ensureSession()
+          if (!sess) return { data: null, error: { message: '请先登录后再上传文件' } }
+          var headers = { 'apikey': KEY, 'authorization': 'Bearer ' + sess.access_token }
           if (file && file.type) headers['Content-Type'] = file.type
           var res = await fetch(URL + '/storage/v1/object/' + bucket + '/' + encodeURI(path), {
             method: 'POST',
@@ -193,7 +194,6 @@ function QueryBuilder(table) {
   this._maybeSingle = false
   this._countOpts = null
   this._body = null
-  this._useServiceRole = false
 }
 
 QueryBuilder.prototype.select = function(cols) { this._selectCols = cols || '*'; return this }
@@ -214,16 +214,17 @@ QueryBuilder.prototype.offset = function(n) { this._offsetVal = n; return this }
 QueryBuilder.prototype.single = function() { this._single = true; return this }
 QueryBuilder.prototype.maybeSingle = function() { this._maybeSingle = true; return this }
 QueryBuilder.prototype.selectCount = function(opts) { this._countOpts = opts; return this }
-QueryBuilder.prototype.useServiceRole = function() { this._useServiceRole = true; return this }
+// Compatibility alias: authorization always uses the signed-in user.
+QueryBuilder.prototype.useServiceRole = function() { return this }
 
 QueryBuilder.prototype.execute = async function() {
   var sess = await ensureSession()
-  var token = this._useServiceRole ? KEY : (sess ? sess.access_token : KEY)
+  var token = sess ? sess.access_token : null
 
   if (this._countOpts) {
     var countUrl = '/rest/v1/' + this._table + '?select=*&' + this._filters.join('&')
     var countHeaders = { 'apikey': KEY, 'Prefer': 'count=' + (this._countOpts.exact || this._countOpts.planned || 'exact') }
-    countHeaders['Authorization'] = 'Bearer ' + token
+    if (token) countHeaders['Authorization'] = 'Bearer ' + token
     var countRes = await fetch(URL + countUrl, { headers: countHeaders })
     var count = countRes.headers.get('content-range')
     if (count) {
@@ -235,7 +236,7 @@ QueryBuilder.prototype.execute = async function() {
 
   if (this._method === 'POST' || this._method === 'PATCH' || this._method === 'DELETE') {
     var headers = { 'apikey': KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
-    headers['Authorization'] = 'Bearer ' + KEY
+    if (token) headers['Authorization'] = 'Bearer ' + token
     var path = '/rest/v1/' + this._table
     var params = []
     if (this._selectCols) params.push('select=' + encodeURIComponent(this._selectCols))

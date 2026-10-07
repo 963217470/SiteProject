@@ -6,7 +6,7 @@ export default defineConfig({
   base: '/',
 
   head: [
-    ['script', { src: '/supabase-rest.js?v=20260523-review-guard' }],
+    ['script', { src: '/supabase-rest.js?v=20261007-auth-upload' }],
     ['script', { src: '/profile-page.js?v=20260523-profile-wireframe' }]
   ],
 

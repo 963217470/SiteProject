@@ -8,9 +8,24 @@ import { ref, onMounted } from 'vue'
 
 const status = ref('正在处理...')
 
+function returnAfterLogin() {
+  const stored = localStorage.getItem('redirectAfterLogin') || '/'
+  localStorage.removeItem('redirectAfterLogin')
+  const target = new URL(stored, window.location.origin)
+  const redirect = target.origin === window.location.origin
+    ? target.pathname + target.search + target.hash : '/'
+  setTimeout(() => { window.location.href = redirect }, 800)
+}
+
 onMounted(async () => {
   try {
     const hash = window.location.hash
+    const callbackParams = new URLSearchParams(hash.substring(1))
+    if (callbackParams.has('error')) {
+      status.value = '登录失败：' + (callbackParams.get('error_description') || callbackParams.get('error'))
+      window.history.replaceState(null, '', window.location.pathname)
+      return
+    }
     if (hash && hash.includes('access_token')) {
       const params = new URLSearchParams(hash.substring(1))
       const accessToken = params.get('access_token')
@@ -27,9 +42,9 @@ onMounted(async () => {
           token_type: tokenType
         }
         localStorage.setItem('sb-auth-token', JSON.stringify(sessionData))
-        window.location.hash = ''
+        window.history.replaceState(null, '', window.location.pathname)
         status.value = '登录成功！正在跳转...'
-        setTimeout(() => { window.location.href = '/' }, 800)
+        returnAfterLogin()
         return
       }
     }
@@ -43,9 +58,7 @@ onMounted(async () => {
     const { data } = await window.__supabase.auth.getSession()
     if (data.session) {
       status.value = '登录成功！正在跳转...'
-      var redirectPath = localStorage.getItem('redirectAfterLogin') || '/'
-      localStorage.removeItem('redirectAfterLogin')
-      setTimeout(() => { window.location.href = redirectPath }, 800)
+      returnAfterLogin()
     } else {
       status.value = '登录失败，请重试'
       setTimeout(() => { window.location.href = '/login' }, 2000)

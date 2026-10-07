@@ -28,9 +28,18 @@ onMounted(() => {
   })
 })
 
-function doLogin() {
-  var origin = window.location.origin
-  window.location.href = 'https://jenrgzwwowgfqbwcozbi.supabase.co/auth/v1/authorize?provider=github&redirect_to=' + encodeURIComponent(origin + '/auth/callback')
+async function doLogin() {
+  errorMsg.value = ''
+  try {
+    if (!window.__supabase) throw new Error('系统未加载，请刷新页面')
+    const { error } = await window.__supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: { redirectTo: window.location.origin + '/auth/callback' }
+    })
+    if (error) throw error
+  } catch (error) {
+    errorMsg.value = error.message || '登录失败，请重试'
+  }
 }
 
 async function logout() {
