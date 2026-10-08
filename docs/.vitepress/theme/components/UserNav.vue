@@ -26,7 +26,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vitepress'
-import { Bookmark, ChevronDown, FileText, History, LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-vue-next'
+import { Bookmark, ChevronDown, FileText, History, LogIn, LogOut, Settings, ShieldCheck, UserRound, ListChecks } from 'lucide-vue-next'
 
 const route = useRoute()
 const root = ref(null)
@@ -45,6 +45,7 @@ const items = [
   { label: '我的发布', href: '/user/profile?tab=articles', icon: FileText },
   { label: '我的收藏', href: '/user/profile?tab=favorites', icon: Bookmark },
   { label: '浏览记录', href: '/user/profile?tab=recent', icon: History },
+  { label: '我的任务', href: '/tasks', icon: ListChecks },
   { label: '个人设置', href: '/user/profile?tab=settings', icon: Settings }
 ]
 let client

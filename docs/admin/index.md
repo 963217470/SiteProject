@@ -20,6 +20,7 @@ sidebar: false
     <a class="active" href="/admin">文章审核</a>
     <a href="/admin/profile-review">个人信息审核</a>
     <a href="/admin/kb">知识库管理</a>
+    <a href="/admin/tasks">任务管理</a>
   </nav>
 
   <section class="review-summary" aria-label="审核统计">

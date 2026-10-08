@@ -14,9 +14,10 @@ import { fileTypeFromBuffer } from 'file-type'
 import { SQLiteSessionStore } from './database.mjs'
 import { Repository, fail, member } from './repository.mjs'
 import { installReadingRoutes } from './reading.mjs'
+import { installTaskRoutes } from './tasks.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
-const buckets = new Set(['avatars', 'resources', 'internal'])
+const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence'])
 
 export function createApp(db, config) {
   const app = express()
@@ -72,6 +73,7 @@ export function createApp(db, config) {
   })
   app.use(express.json({ limit: '3mb' }))
   installReadingRoutes(app, db, repository, config.now || Date.now)
+  installTaskRoutes(app, db, repository, config.now || Date.now)
   app.get('/api/health', (_req, res) => { db.prepare('SELECT 1').get(); res.json({ ok: true, version: 1 }) })
   app.get('/api/auth/settings', (_req, res) => res.json({ github: Boolean(config.githubClientId && config.githubClientSecret) }))
   app.get('/api/auth/session', (req, res) => {
@@ -138,6 +140,7 @@ export function createApp(db, config) {
     const { bucket, path } = fileLocation(req)
     if (bucket === 'resources' && req.user.role !== 'admin') fail(403, '需要管理员权限')
     if (bucket === 'internal' && !member(req.user)) fail(403, '需要成员权限')
+    if (bucket === 'task-evidence' && db.prepare("SELECT coalesce(sum(size),0) n FROM files WHERE owner_id=? AND bucket='task-evidence'").get(req.user.id).n >= 500 * 1024 * 1024) fail(413, '任务证明存储已达上限')
     const parts = path.split('/')
     if (parts[0] !== req.user.id && !(['avatars', 'article-images', 'article-attachments'].includes(parts[0]) && parts[1] === req.user.id)) fail(403, '只能上传自己的文件')
     if (db.prepare('SELECT id FROM files WHERE bucket=? AND path=?').get(bucket, path)) fail(409, '文件已存在')
@@ -159,8 +162,11 @@ export function createApp(db, config) {
       const type = size ? await fileTypeFromBuffer(buffer).catch(() => null) : null
       const mime = type && rasterTypes.has(type.mime) ? type.mime : 'application/octet-stream'
       if (parts[0] === 'avatars' && (mime === 'application/octet-stream' || size > 2 * 1024 * 1024)) fail(400, '头像需要是 2MB 以内的图片')
-      db.prepare('INSERT INTO files(id,bucket,path,owner_id,mime,size) VALUES(?,?,?,?,?,?)').run(id, bucket, path, req.user.id, mime, size)
-      res.status(201).json({ path })
+      repository.transaction(() => {
+        if (bucket === 'task-evidence' && db.prepare("SELECT coalesce(sum(size),0) n FROM files WHERE owner_id=? AND bucket='task-evidence'").get(req.user.id).n + size > 500 * 1024 * 1024) fail(413, '任务证明存储已达上限')
+        db.prepare('INSERT INTO files(id,bucket,path,owner_id,mime,size) VALUES(?,?,?,?,?,?)').run(id, bucket, path, req.user.id, mime, size)
+      })
+      res.status(201).json({ path, id, mime, size })
     } catch (error) { await unlink(file).catch(() => {}); throw error }
   })
   app.get('/api/files/:bucket/*path', (req, res) => {
@@ -168,6 +174,7 @@ export function createApp(db, config) {
     if (['resources', 'internal'].includes(bucket) && !member(req.user)) fail(req.user ? 403 : 401, '需要成员权限')
     const file = db.prepare('SELECT * FROM files WHERE bucket=? AND path=?').get(bucket, path)
     if (!file) fail(404, '文件不存在')
+    if (bucket === 'task-evidence' && (!req.user || (req.user.id !== file.owner_id && req.user.role !== 'admin'))) fail(req.user ? 403 : 401, '证明文件仅提交者和管理员可见')
     res.type(file.mime)
     res.set('Content-Security-Policy', "default-src 'none'; sandbox")
     if (file.mime === 'application/octet-stream') res.attachment(basename(path))
@@ -178,6 +185,7 @@ export function createApp(db, config) {
     if (!buckets.has(req.params.bucket) || !Array.isArray(req.body?.prefixes) || req.body.prefixes.length > 100) fail(400, '无效的文件列表')
     const files = req.body.prefixes.map(path => db.prepare('SELECT * FROM files WHERE bucket=? AND path=?').get(req.params.bucket, path)).filter(Boolean)
     if (files.some(file => file.owner_id !== req.user.id && req.user.role !== 'admin')) fail(403, '只能删除自己的文件')
+    if (files.some(file => db.prepare('SELECT 1 FROM task_submissions s,json_each(s.files) f WHERE f.value=? LIMIT 1').get(file.id))) fail(409, '已提交的证明文件不能删除')
     for (const file of files) {
       await unlink(join(uploadDir, file.id))
       db.prepare('DELETE FROM files WHERE id=?').run(file.id)

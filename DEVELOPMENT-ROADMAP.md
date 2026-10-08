@@ -51,6 +51,7 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 - President/vice-president are appointed offices, not automatically acquired administrator privileges. Keep progression, membership access, moderation permissions, and offices independent.
 - Disciplines: art, technical art, design, programming, operations; allow admin-managed additions.
 - Acceptance: concurrent completion cannot issue rewards twice; rejected evidence gives no reward; permissions never escalate from XP.
+- Completed and deployed as `rd-20261009-02`: task lifecycle/templates, progress, private evidence review, experience ledger/reversals, configurable levels, disciplines and independently appointed offices. 49 automated tests and production build passed. See `TASKS-RELEASE.md` for semantics, backup, recovery and verification limits. Discipline-extension administration remains a follow-up.
 
 ## Phase 6: Games And Tools
 
@@ -84,8 +85,8 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 ## Current External Inputs
 
 - GitHub OAuth credentials are configured directly in `/etc/rd-studio.env`; never copy secrets into this repository. Real browser authorization/callback verification is still pending.
-- Administrator GitHub account/immutable ID must be specified.
-- Domain ICP filing or Aliyun filing access must be completed.
+- The user-authorized existing GitHub account `Wind-Celeste`, immutable ID `286876625`, has administrator role on production.
+- Domain filing status has not been verified; earlier test-network restrictions do not prove a missing filing. The user reports working domain access.
 - Git push requires an authenticated account with write access to `963217470/SiteProject`.
 - Video2MD source is available at `E:/Coding/项目/Video2MD-master`; its desktop/core architecture was inspected. Integration and licensing notes are in `VIDEO2MD-INTEGRATION.md`.
 
@@ -98,4 +99,4 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 - Pre-increment backup: `/var/backups/rd-studio/20261008T020555Z-6792`; checksums passed.
 - Phase 4 first increment: private account-level reading history, bounded effective reading time, foreground/idle handling, shared multi-tab credit clock, history pagination/removal/clear, and independent unavailable-history state deployed as `rd-20261008-04`. Existing publications and favorites retained. Schema v2 preserves v1 data. Eleven backend/migration tests, nine UI tests, and six client tests passed (26 total). Real OAuth sign-in acceptance is pending; authenticated feature tests use isolated signed test sessions, not a production login bypass.
 - Pre-reading/migration snapshot: `/var/backups/rd-studio/20261008T050914Z-8492`; checksums passed.
-- Phase 4 comments/replies/moderation and phases 5 through 9 are pending, not claimed complete. Video2MD assessment is complete; importer and worker are not yet implemented.
+- Phase 5 is complete; Phase 4 comments/replies/moderation and phases 6 through 9 are pending, not claimed complete. Video2MD assessment is complete; importer and worker are not yet implemented.

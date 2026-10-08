@@ -17,6 +17,7 @@ sidebar: false
   </div>
 
   <nav class="admin-section-nav" aria-label="审核类型">
+    <a href="/admin/tasks">任务管理</a>
     <a href="/admin">文章审核</a>
     <a class="active" href="/admin/profile-review">个人信息审核</a>
     <a href="/admin/kb">知识库管理</a>

@@ -53,6 +53,14 @@ function setProfile(session, profile) {
   state.profile = { username: name, avatar: avatar, bio: profile.bio || '', role: role, email: session.user.email || '' }
   $('profile-avatar').src = avatar
   $('profile-name').textContent = name
+  var identity = document.createElement('a')
+  identity.id = 'profile-experience'
+  identity.className = 'profile-experience'
+  identity.href = '/tasks'
+  identity.textContent = '任务与经验'
+  var previous = $('profile-experience')
+  if (previous) previous.remove()
+  $('profile-name').insertAdjacentElement('afterend', identity)
   $('profile-email').textContent = session.user.email || ''
   $('profile-bio').textContent = state.profile.bio || '还没有填写个人简介'
   $('role-label').textContent = roleText(role)
@@ -107,6 +115,23 @@ async function loadRecent() {
   if (result.error) { state.recent = []; state.historyError = result.error.message; return }
   state.recent = result.data.items
   state.hasMoreRecent = result.data.has_more
+}
+
+async function loadMemberIdentity() {
+  var uid = state.uid
+  var controller = new AbortController()
+  var timeout = setTimeout(function() { controller.abort() }, 5000)
+  try {
+    var response = await fetch('/api/tasks/me', { credentials: 'same-origin', signal: controller.signal })
+    if (!response.ok) return
+    var data = await response.json()
+    var el = $('profile-experience')
+    if (!el || state.uid !== uid) return
+    var branch = (data.disciplines || []).find(function(d) { return d.id === data.identity.discipline_id })
+    var office = { president: '会长', 'vice-president': '副会长' }[data.identity.office]
+    el.textContent = [data.level.title, data.xp + ' EXP', branch && branch.name, office].filter(Boolean).join(' · ')
+  } catch (_) { /* Identity service failure must not block the profile. */ }
+  finally { clearTimeout(timeout) }
 }
 
 function readingDuration(seconds) {
@@ -257,6 +282,7 @@ async function init() {
     }
     state.uid = session.user.id
     setProfile(session, await loadProfile())
+    loadMemberIdentity()
     await Promise.all([loadArticles(), loadFavorites(), loadRecent(), loadProfileChanges()])
     renderAll()
     show('loading', false)

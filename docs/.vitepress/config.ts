@@ -7,7 +7,7 @@ export default defineConfig({
 
   head: [
     ['script', { src: '/api-client.js?v=20261008-reading-history' }],
-    ['script', { src: '/profile-page.js?v=20261008-reading-history' }]
+    ['script', { src: '/profile-page.js?v=20261009-tasks' }]
   ],
 
   vite: {
@@ -27,6 +27,7 @@ export default defineConfig({
       { text: '首页', link: '/' },
       { text: '文章', link: '/articles' },
       { text: '知识库', link: '/kb' },
+      { text: '任务', link: '/tasks' },
       { text: '内部', link: '/internal' },
       { text: '关于', link: '/about' }
     ],

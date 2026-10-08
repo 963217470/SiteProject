@@ -13,6 +13,7 @@ sidebar: false
 <a href="/kb" class="btn-secondary">查看知识库</a>
 </div>
 <nav class="admin-section-nav" aria-label="管理后台导航">
+<a href="/admin/tasks">任务管理</a>
 <a href="/admin">文章审核</a>
 <a href="/admin/profile-review">个人信息审核</a>
 <a class="active" href="/admin/kb">知识库管理</a>
