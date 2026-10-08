@@ -10,7 +10,7 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 
 ## Phase 1: GitHub Login
 
-- GitHub OAuth backend is deployed. Credentials are still missing; real sign-in is not verified.
+- GitHub OAuth backend is deployed and credentials are configured in the root-only server environment file. Settings report enabled and the authorization endpoint returns a GitHub redirect with the expected callback and state. Real browser sign-in is not yet verified.
 - Callback: `https://rd-studio.club/api/auth/github/callback`.
 - Domain access is currently blocked by Aliyun ICP filing. Recheck before sign-in acceptance.
 - Acceptance: real login/logout, persistent cookie session, and correct user permissions.
@@ -79,7 +79,7 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 
 ## Current External Inputs
 
-- GitHub OAuth Client ID/Secret must be configured directly in `/etc/rd-studio.env`.
+- GitHub OAuth credentials are configured directly in `/etc/rd-studio.env`; never copy secrets into this repository. Real browser authorization/callback verification is still pending.
 - Administrator GitHub account/immutable ID must be specified.
 - Domain ICP filing or Aliyun filing access must be completed.
 - Git push requires an authenticated account with write access to `963217470/SiteProject`.
@@ -88,7 +88,7 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 ## Progress
 
 - Self-hosted backend and new database: deployed; seven backend tests and four client tests passed in the previous release.
-- GitHub OAuth activation: waiting for credentials and public-domain access.
+- GitHub OAuth activation: enabled on server; authorization redirect verified. Public HTTPS still resets from the tested network, so end-to-end user sign-in is pending.
 - Snapshot tooling: implemented and installed as `/usr/local/sbin/rd-studio-backup`; snapshot and isolated recovery checks passed. Off-server backup is still pending.
 - Phase 3 first increment: account navigation, keyboard/focus access, logout error handling, initialization timing, navigation cleanup, reduced motion, and responsive hero fixes deployed in release `rd-20261008-03`. Five account UI tests, six client tests, and seven backend tests passed; production build and desktop/mobile checks passed. Whole-site UI audit is still in progress.
 - Pre-increment backup: `/var/backups/rd-studio/20261008T020555Z-6792`; checksums passed.
