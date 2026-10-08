@@ -5,6 +5,7 @@
       <HeroSection />
     </template>
     <template #home-features-after>
+      <CommunityLinks />
       <HomeArticles />
     </template>
     <template #nav-bar-content-after>
@@ -37,6 +38,7 @@ import UserNav from './components/UserNav.vue'
 import ReadingTracker from './components/ReadingTracker.vue'
 import HeroSection from './components/HeroSection.vue'
 import HomeArticles from './components/HomeArticles.vue'
+import CommunityLinks from './components/CommunityLinks.vue'
 
 onMounted(() => {
   // 导航栏标题 RD/STUDIO 着色

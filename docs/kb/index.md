@@ -1,6 +1,7 @@
 ---
 title: 知识库
 layout: page
+sidebar: false
 ---
 
 <div id="kb-page">
@@ -11,8 +12,8 @@ layout: page
 </div>
 <a class="submit-link" href="/editor">投稿文章</a>
 </header>
-<div id="loading" class="state-panel">加载中...</div>
-<div id="error" class="state-panel error" style="display:none"></div>
+<div id="loading" class="state-panel" role="status">正在加载知识库...</div>
+<div id="error" class="state-panel error" style="display:none" role="alert"><p id="kb-error-message"></p><button class="rd-button" type="button" onclick="loadKnowledgeBase()">重试</button></div>
 <section id="kb-app" class="kb-layout" style="display:none">
 <aside class="kb-tree-panel">
 <div class="tree-title">分支目录</div>
@@ -230,13 +231,13 @@ async function loadKnowledgeBase() {
 
   try {
     var supabase = await waitForSupabase()
-    if (!supabase) throw new Error('Supabase 未加载，请刷新页面后重试')
+    if (!supabase) throw new Error('无法连接服务，请稍后重试')
 
     var branchResult = await supabase
       .from('knowledge_branches')
       .select('id, parent_id, name, description, sort_order')
       .order('sort_order', { ascending: true })
-    if (branchResult.error) throw new Error('知识库还没有初始化，请管理员执行 supabase/knowledge-base.sql')
+    if (branchResult.error) throw new Error('知识库分支读取失败，请稍后重试')
 
     var articleResult = await supabase
       .from('articles')
@@ -256,7 +257,7 @@ async function loadKnowledgeBase() {
     show('loading', false)
     var el = document.getElementById('error')
     if (el) {
-      el.textContent = error.message || '加载失败'
+      document.getElementById('kb-error-message').textContent = error.message || '加载失败'
       el.style.display = 'block'
     }
   }
@@ -267,7 +268,11 @@ if (typeof window !== 'undefined') {
   window.loadKnowledgeBase = loadKnowledgeBase
 }
 
-if (typeof document !== 'undefined') setTimeout(loadKnowledgeBase, 100)
+</script>
+
+<script setup>
+import { onMounted } from 'vue'
+onMounted(loadKnowledgeBase)
 </script>
 
 <style>

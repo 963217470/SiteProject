@@ -1,6 +1,7 @@
 ---
 title: 知识库管理
 layout: page
+sidebar: false
 ---
 
 <div id="kb-admin-page">

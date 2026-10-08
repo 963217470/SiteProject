@@ -1,6 +1,7 @@
 ---
 title: 文章审核
 layout: page
+sidebar: false
 ---
 
 <div id="admin-page">

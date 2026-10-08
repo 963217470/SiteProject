@@ -16,14 +16,4 @@ hero:
       text: 了解更多
       link: /about
 
-features:
-  - icon: 🎮
-    title: 技术分享
-    details: 分享游戏开发技术，包括引擎使用、编程技巧、美术制作等
-  - icon: 📚
-    title: 学习资源
-    details: 提供丰富的学习资源，帮助新手入门游戏开发
-  - icon: 🤝
-    title: 团队协作
-    details: 组织 Game Jam 活动，团队合作开发游戏项目
 ---

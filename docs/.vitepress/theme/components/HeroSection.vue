@@ -6,6 +6,8 @@
       <h1 class="hero-title">
         <span class="hero-rd">RD</span> <span class="hero-studio">STUDIO</span>
       </h1>
+      <p class="hero-tagline">创造 · 学习 · 分享</p>
+      <a class="hero-explore" href="/articles">探索文章<ArrowRight :size="18" aria-hidden="true" /></a>
     </div>
     <div class="hero-scroll-hint">
       <span>↓</span>
@@ -14,6 +16,7 @@
 </template>
 
 <script setup>
+import { ArrowRight } from 'lucide-vue-next'
 </script>
 
 <style scoped>
@@ -87,6 +90,9 @@
   .hero-title { font-size: 48px; }
   .hero-content { padding: 24px 16px; }
 }
+.hero-tagline { font-size: 16px; margin: 20px 0 28px; color: rgba(255,255,255,.85); }
+.hero-explore { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 18px; border: 1px solid rgba(255,255,255,.5); border-radius: 4px; font-size: 14px; color: white; }
+.hero-explore:hover { background: rgba(255,255,255,.12); }
 @media (max-width: 480px) { .hero-title { font-size: 36px; } }
 @media (max-width: 360px) { .hero-title { font-size: 32px; } }
 </style>

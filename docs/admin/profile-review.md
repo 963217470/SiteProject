@@ -1,6 +1,7 @@
 ---
 title: 个人信息审核
 layout: page
+sidebar: false
 ---
 
 <div id="profile-review-page">

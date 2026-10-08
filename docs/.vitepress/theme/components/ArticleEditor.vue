@@ -6,10 +6,10 @@
         <h1>编辑文章</h1>
       </div>
       <div class="editor-actions">
-        <button class="btn secondary" type="button" @click="goBack">返回列表</button>
-        <button class="btn secondary" type="button" :disabled="submitting" @click="saveDraft">保存草稿</button>
+        <button class="btn secondary" type="button" @click="goBack"><ArrowLeft :size="16" aria-hidden="true" />返回列表</button>
+        <button class="btn secondary" type="button" :disabled="submitting" @click="saveDraft"><Save :size="16" aria-hidden="true" />保存草稿</button>
         <button class="btn primary" type="button" :disabled="submitting" @click="submitArticle">
-          {{ submitting ? '提交中...' : '提交审核' }}
+          <Send :size="16" aria-hidden="true" />{{ submitting ? '提交中...' : '提交审核' }}
         </button>
       </div>
     </header>
@@ -55,7 +55,7 @@
           <span>投入知识库</span>
         </label>
         <div class="kb-targets">
-          <select v-model="article.kbBranchId" :disabled="!article.kbEnabled || !!article.kbBranchPath.trim() || kbLoading || kbBranches.length === 0">
+          <select v-model="article.kbBranchId" aria-label="知识库分支" :disabled="!article.kbEnabled || !!article.kbBranchPath.trim() || kbLoading || kbBranches.length === 0">
             <option value="">选择已有分支</option>
             <option v-for="branch in flatBranches" :key="branch.id" :value="branch.id">
               {{ branch.label }}
@@ -63,6 +63,7 @@
           </select>
           <input
             v-model="article.kbBranchPath"
+            aria-label="新分支路径"
             :disabled="!article.kbEnabled || !!article.kbBranchId"
             type="text"
             placeholder="申请新分支：知识库总览/02-方向学习/程序/蓝图/基础操作/移动"
@@ -126,9 +127,7 @@
             :aria-label="tool.label"
             @click="insertBlock(tool.type)"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path :d="tool.icon"></path>
-            </svg>
+            <component :is="formatIcons[tool.type]" :size="18" aria-hidden="true" />
           </button>
           <span class="toolbar-divider" aria-hidden="true"></span>
           <button
@@ -160,6 +159,9 @@
             ref="previewInput"
             class="preview-body editable-preview"
             contenteditable="true"
+            role="textbox"
+            aria-label="文章正文"
+            aria-multiline="true"
             spellcheck="true"
             data-placeholder="上传或输入内容后，这里会显示图片和排版效果。"
             @blur="syncPreviewEdit"
@@ -175,7 +177,7 @@
       <textarea v-model="article.summary" rows="3" placeholder="留空时会自动使用正文前 120 字"></textarea>
     </label>
 
-    <div v-if="statusMessage" :class="['status-message', statusType]">
+    <div v-if="statusMessage" :class="['status-message', statusType]" role="status" aria-live="polite">
       {{ statusMessage }}
     </div>
   </div>
@@ -183,6 +185,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { ArrowLeft, Save, Send, Heading2, Heading3, Bold, Italic, Quote, Code, List, ListOrdered, Link, Image, Minus } from 'lucide-vue-next'
 import MarkdownIt from 'markdown-it'
 import katexPlugin from '@vscode/markdown-it-katex'
 
@@ -208,6 +211,7 @@ const kbError = ref('')
 
 const presetTags = ['Unity', 'Godot', 'Unreal Engine', 'C#', '教程', '入门', '进阶', '2D游戏', '3D游戏', '团队合作']
 const selectedTags = ref([])
+const formatIcons = { h2: Heading2, h3: Heading3, bold: Bold, italic: Italic, quote: Quote, code: Code, ul: List, ol: ListOrdered, link: Link, image: Image, hr: Minus }
 const formatTools = [
   { type: 'h2', label: '二级标题', icon: 'M4 5h2v6h8V5h2v14h-2v-6H6v6H4V5Zm14 4h-3V7h8v2h-3v10h-2V9Z' },
   { type: 'h3', label: '三级标题', icon: 'M4 5h2v6h7V5h2v14h-2v-6H6v6H4V5Zm13 4.5c.2-.8 1-1.5 2.2-1.5 1.6 0 2.8 1 2.8 2.4 0 .9-.5 1.7-1.4 2.1 1 .4 1.7 1.2 1.7 2.5 0 1.7-1.4 3-3.4 3-1.7 0-3-.9-3.4-2.3l1.8-.6c.2.7.8 1.1 1.6 1.1.9 0 1.4-.5 1.4-1.2 0-.8-.6-1.2-1.6-1.2h-1v-1.7h.9c.9 0 1.4-.5 1.4-1.1 0-.7-.5-1.1-1.2-1.1-.7 0-1.1.3-1.3.9l-1.8-.3Z' },

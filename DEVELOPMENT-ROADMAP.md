@@ -12,7 +12,7 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 
 - GitHub OAuth backend is deployed and credentials are configured in the root-only server environment file. Settings report enabled and the authorization endpoint returns a GitHub redirect with the expected callback and state. Real browser sign-in is not yet verified.
 - Callback: `https://rd-studio.club/api/auth/github/callback`.
-- Domain access is currently blocked by Aliyun ICP filing. Recheck before sign-in acceptance.
+- Public access from this test network has returned an Aliyun filing restriction; the user reports domain access works. This is not proof of the domain's filing status. Recheck real browser sign-in separately.
 - Acceptance: real login/logout, persistent cookie session, and correct user permissions.
 
 ## Phase 2: Backup And Recovery
@@ -28,6 +28,10 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 - Introduce reusable controls using the current Vue/VitePress patterns and an icon library.
 - Add restrained transitions, reduced-motion support, keyboard focus, and stable layouts. No large visual redesign without reviewing a first representative screen.
 - Validate desktop/mobile screenshots and key workflows before expanding changes site-wide.
+- UI implementation completed: shared article feed with search, visibility/tag filters, sorting, list/grid modes, pagination and retry/empty states; homepage entry links; consistent spacing and restrained controls across knowledge, profile, editor, internal and admin pages. Existing red/black palette and permissions are preserved.
+- Verified 1440px desktop, 390px mobile and 320px narrow layouts; light/dark article views, loaded covers, search, knowledge branch selection and editor heading insertion. Removed duplicate business-page sidebars and narrow-screen horizontal overflow. Authenticated profile/admin visual acceptance still needs a real signed-in browser; their existing automated tests pass.
+- 32 automated tests passed (15 UI, 11 server, 6 API client), with a successful production build. Preview fixtures are restricted to a named local temporary database and excluded from deployment.
+- Deployed `rd-20261009-01`; pre-release backup `/var/backups/rd-studio/20261008T163736Z-12798` passed checksum validation. Server HTTPS static-page and health checks passed. See `UI-RELEASE.md` for verification limits and recovery notes.
 
 ## Phase 4: Personal Dashboard And Community
 

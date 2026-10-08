@@ -1,6 +1,7 @@
 ---
 title: Profile
 layout: page
+sidebar: false
 ---
 
 <div id="profile-page"></div>
