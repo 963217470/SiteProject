@@ -30,6 +30,7 @@ async function waitSupabase() {
 }
 
 function setTab(tab) {
+  if (!['articles', 'favorites', 'recent', 'settings'].includes(tab)) tab = 'articles'
   state.tab = tab
   Array.prototype.forEach.call(document.querySelectorAll('.profile-tabs button'), function(button) { button.classList.remove('active') })
   Array.prototype.forEach.call(document.querySelectorAll('.panel'), function(panel) { panel.style.display = 'none' })
@@ -100,8 +101,41 @@ async function loadFavorites() {
 }
 
 async function loadRecent() {
-  var rows = localList(RECENT_KEY).filter(function(row) { return row && row.id })
-  state.recent = await fetchByIds(rows.map(function(row) { return row.id }), rows, 'id')
+  state.historyError = ''
+  if (!state.sb.reading) { state.recent = []; state.historyError = '浏览记录暂不可用'; return }
+  var result = await state.sb.reading.history(state.recentOffset || 0)
+  if (result.error) { state.recent = []; state.historyError = result.error.message; return }
+  state.recent = result.data.items
+  state.hasMoreRecent = result.data.has_more
+}
+
+function readingDuration(seconds) {
+  seconds = Math.max(0, Number(seconds) || 0)
+  return seconds < 60 ? seconds + ' 秒' : Math.floor(seconds / 60) + ' 分 ' + (seconds % 60) + ' 秒'
+}
+function renderRecent() {
+  if (state.historyError) {
+    $('panel-recent').innerHTML = '<h2>浏览记录</h2><div class="empty-state" role="status">' + esc(state.historyError) + '</div><button type="button" id="retry-reading-history">重试</button>'
+    $('retry-reading-history').onclick = function() { reloadRecent(state.recentOffset || 0) }
+    return
+  }
+  var rows = state.recent.map(function(a) {
+    return '<article class="history-row"><a href="' + articleUrl(a.id) + '"><h3>' + esc(a.title) + '</h3><span>' + time(a.viewed_at) + ' · 阅读 ' + readingDuration(a.reading_seconds) + '</span></a><button type="button" data-remove-history="' + esc(a.id) + '" aria-label="移除这条浏览记录">移除</button></article>'
+  }).join('')
+  $('panel-recent').innerHTML = '<div class="panel-head"><h2>浏览记录</h2><button type="button" id="clear-reading-history">清空记录</button></div>' + (rows || '<div class="empty-state">暂无浏览记录</div>') + '<div class="history-pagination"><button type="button" id="history-prev" ' + (!state.recentOffset ? 'disabled' : '') + '>上一页</button><button type="button" id="history-next" ' + (!state.hasMoreRecent ? 'disabled' : '') + '>下一页</button></div>'
+  $('history-prev').onclick = function() { reloadRecent(Math.max(0, (state.recentOffset || 0) - 50)) }
+  $('history-next').onclick = function() { reloadRecent((state.recentOffset || 0) + 50) }
+  $('clear-reading-history').onclick = function() { if (window.confirm('清空当前账号的全部浏览记录？')) removeRecent() }
+  $('panel-recent').querySelectorAll('[data-remove-history]').forEach(function(button) { button.onclick = function() { removeRecent(button.dataset.removeHistory) } })
+}
+async function reloadRecent(offset) {
+  state.recentOffset = offset
+  try { await loadRecent(); renderRecent() } catch (error) { $('profile-error').textContent = error.message; show('profile-error', true) }
+}
+async function removeRecent(id) {
+  var result = await state.sb.reading.remove(id)
+  if (result.error) { $('profile-error').textContent = result.error.message; show('profile-error', true); return }
+  await reloadRecent(0)
 }
 
 async function loadProfileChanges() {
@@ -152,7 +186,7 @@ function renderAll() {
   renderStats()
   renderArticles()
   renderCards('panel-favorites', '我的收藏', state.favoriteTableReady ? '保存在账号下的收藏文章' : '当前显示本机浏览器收藏', state.favorites, '暂无收藏文章', '收藏于', 'favorited_at')
-  renderCards('panel-recent', '最近观看', '只记录当前浏览器中最近打开过的文章', state.recent, '暂无观看记录', '观看于', 'viewed_at')
+  renderRecent()
   renderSettings()
 }
 
@@ -213,7 +247,7 @@ async function init() {
   try {
     state.tab = new URLSearchParams(window.location.search).get('tab') || 'articles'
     state.sb = await waitSupabase()
-    if (!state.sb) throw new Error('Supabase 未加载，请刷新页面后重试')
+    if (!state.sb) throw new Error('服务未加载，请刷新页面后重试')
     var sr = await state.sb.auth.getSession()
     var session = sr.data && sr.data.session
     if (!session) {

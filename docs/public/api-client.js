@@ -61,6 +61,12 @@
   }
 
   const client = {
+    reading: {
+      start: article_id => request('/reading/start', json('POST', { article_id })),
+      tick: (id, state) => request('/reading/' + encodeURIComponent(id) + '/tick', { ...json('POST', state), keepalive: true }),
+      history: offset => request('/reading/history?offset=' + (offset || 0)),
+      remove: article_id => request('/reading/history', json('DELETE', article_id ? { article_id } : {}))
+    },
     auth: {
       getSession: () => request('/auth/session'),
       async getUser() {

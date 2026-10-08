@@ -6,6 +6,14 @@ layout: page
 <div id="profile-page"></div>
 
 <style>
+.history-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--vp-c-divider); }
+.history-row a { min-width: 0; overflow-wrap: anywhere; }
+.history-row h3 { margin: 0 0 6px; font-size: 16px; }
+.history-row span { color: var(--vp-c-text-2); font-size: 13px; }
+.history-row button { flex: none; color: var(--vp-c-text-2); padding: 8px; }
+.history-pagination { display: flex; justify-content: space-between; margin-top: 16px; }
+.history-pagination button { min-height: 40px; padding: 8px; }
+.history-pagination button:disabled { opacity: .4; }
 #profile-page {
   width: min(1120px, calc(100vw - 32px));
   margin: 0 auto;

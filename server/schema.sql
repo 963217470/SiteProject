@@ -135,4 +135,3 @@ END;
 CREATE TRIGGER IF NOT EXISTS comments_delete AFTER DELETE ON comments BEGIN
   UPDATE articles SET comments_count = MAX(0, comments_count - 1) WHERE id = OLD.article_id;
 END;
-PRAGMA user_version = 1;

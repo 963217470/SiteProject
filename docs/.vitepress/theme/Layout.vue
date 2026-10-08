@@ -1,4 +1,5 @@
 <template>
+  <ReadingTracker />
   <DefaultTheme.Layout>
     <template #home-hero-before>
       <HeroSection />
@@ -33,6 +34,7 @@ function goToEditor() {
   window.location.href = '/editor'
 }
 import UserNav from './components/UserNav.vue'
+import ReadingTracker from './components/ReadingTracker.vue'
 import HeroSection from './components/HeroSection.vue'
 import HomeArticles from './components/HomeArticles.vue'
 

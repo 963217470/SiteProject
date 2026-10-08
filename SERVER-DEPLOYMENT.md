@@ -65,7 +65,7 @@ The script briefly stops the backend only while copying database/uploads and res
 
 Before recovery, verify `sha256sum -c SHA256SUMS` and create a fresh safety snapshot. Extract into a private staging directory and inspect the manifest; do not untar blindly over `/`. For a code-only rollback, restore previous release symlinks and restart the service without replacing data. For full recovery, stop the backend, preserve the current data directory, restore database and uploads as one unit with owner `rd-studio` and private permissions, restore the matching release/configuration, validate `nginx -t`, then restart and check health/login. Full recovery loses changes made after the chosen snapshot. Test this procedure in isolation before performing a live full rollback.
 
-Schema version 1 initializes all application tables automatically. Future schema changes require explicit migrations. Deployment rollback changes code and web symlinks, not database contents.
+Schema version 2 adds private reading history and bounded reading sessions through `server/migrations/002-reading.sql`. Version 1 data is preserved; reopening version 2 is idempotent. Newer unknown versions fail startup rather than silently downgrade. Future schema changes require explicit migrations. Deployment rollback changes code and web symlinks, not database contents. For rollback to older code, check schema compatibility first; a full data restore must use a pre-migration snapshot and discards subsequent activity.
 
 ### Verified Baseline Snapshot
 

@@ -2,6 +2,8 @@
 
 ## Delivery Rules
 
+Continue in order without requiring a new approval message for each phase. Missing external credentials, filing, licenses, or infrastructure only block the dependent feature. Mark it pending and proceed with independent work. Unavailable modules must show an isolated empty/error state and never disable already-working workflows. Do not present future features as working controls.
+
 Keep the current color palette. Implement one phase at a time, with database migrations, focused tests, desktop/mobile UI checks, accessibility checks, a pre-deployment backup, and explicit release notes. Do not treat a UI placeholder as a working feature.
 
 Keep credentials and personal data out of Git. Existing generated files and unrelated working-tree changes are not part of these releases. Do not deploy schema changes without a tested recovery path. Full data recovery can discard activity since the snapshot; distinguish that from code-only rollback.
@@ -90,4 +92,6 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 - Snapshot tooling: implemented and installed as `/usr/local/sbin/rd-studio-backup`; snapshot and isolated recovery checks passed. Off-server backup is still pending.
 - Phase 3 first increment: account navigation, keyboard/focus access, logout error handling, initialization timing, navigation cleanup, reduced motion, and responsive hero fixes deployed in release `rd-20261008-03`. Five account UI tests, six client tests, and seven backend tests passed; production build and desktop/mobile checks passed. Whole-site UI audit is still in progress.
 - Pre-increment backup: `/var/backups/rd-studio/20261008T020555Z-6792`; checksums passed.
-- Phases 4 through 9: pending, not claimed complete. Video2MD assessment is complete; importer and worker are not yet implemented.
+- Phase 4 first increment: private account-level reading history, bounded effective reading time, foreground/idle handling, shared multi-tab credit clock, history pagination/removal/clear, and independent unavailable-history state deployed as `rd-20261008-04`. Existing publications and favorites retained. Schema v2 preserves v1 data. Eleven backend/migration tests, nine UI tests, and six client tests passed (26 total). Real OAuth sign-in acceptance is pending; authenticated feature tests use isolated signed test sessions, not a production login bypass.
+- Pre-reading/migration snapshot: `/var/backups/rd-studio/20261008T050914Z-8492`; checksums passed.
+- Phase 4 comments/replies/moderation and phases 5 through 9 are pending, not claimed complete. Video2MD assessment is complete; importer and worker are not yet implemented.

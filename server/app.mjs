@@ -13,6 +13,7 @@ import { Transform } from 'node:stream'
 import { fileTypeFromBuffer } from 'file-type'
 import { SQLiteSessionStore } from './database.mjs'
 import { Repository, fail, member } from './repository.mjs'
+import { installReadingRoutes } from './reading.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
 const buckets = new Set(['avatars', 'resources', 'internal'])
@@ -70,6 +71,7 @@ export function createApp(db, config) {
     next()
   })
   app.use(express.json({ limit: '3mb' }))
+  installReadingRoutes(app, db, repository, config.now || Date.now)
   app.get('/api/health', (_req, res) => { db.prepare('SELECT 1').get(); res.json({ ok: true, version: 1 }) })
   app.get('/api/auth/settings', (_req, res) => res.json({ github: Boolean(config.githubClientId && config.githubClientSecret) }))
   app.get('/api/auth/session', (req, res) => {

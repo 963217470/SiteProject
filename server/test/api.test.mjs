@@ -11,7 +11,56 @@ import { Repository } from '../repository.mjs'
 
 const secret = 'test-secret-at-least-thirty-two-characters'
 
-async function fixture(t) {
+test('reading time is bounded, deduplicated across tabs and inactive gaps earn nothing', async t => {
+  let time = 200000
+  const f = await fixture(t, () => time)
+  const article = f.article()
+  const start = async () => (await f.call('/reading/start', { role: 'member', method: 'POST', body: { article_id: article } })).body.id
+  const one = await start(), two = await start()
+  const tick = async (id, active = true) => f.call('/reading/' + id + '/tick', { role: 'member', method: 'POST', body: { active, seconds: 999999 } })
+  await tick(one); await tick(two)
+  time += 15000
+  assert.equal((await tick(one)).body.credited_seconds, 15)
+  assert.equal((await tick(two)).body.credited_seconds, 0)
+  assert.equal((await tick(one)).body.credited_seconds, 0)
+  await tick(one, false)
+  time += 15000
+  assert.equal((await tick(one)).body.credited_seconds, 0)
+  time += 120000
+  assert.equal((await tick(one)).body.credited_seconds, 0)
+  assert.equal((await f.call('/reading/history', { role: 'member' })).body.items[0].reading_seconds, 15)
+  assert.equal((await f.call('/reading/history', { role: 'other' })).body.items.length, 0)
+})
+
+test('reading history enforces identity and revoked article access', async t => {
+  const f = await fixture(t)
+  const article = f.article('internal')
+  f.db.prepare('UPDATE articles SET author_id=? WHERE id=?').run(f.ids.admin, article)
+  assert.equal((await f.call('/reading/start', { method: 'POST', body: { article_id: article } })).status, 401)
+  assert.equal((await f.call('/reading/start', { role: 'other', method: 'POST', body: { article_id: article } })).status, 404)
+  const created = await f.call('/reading/start', { role: 'member', method: 'POST', body: { article_id: article } })
+  assert.equal((await f.call('/reading/' + created.body.id + '/tick', { role: 'other', method: 'POST', body: { active: true } })).status, 404)
+  assert.equal((await f.call('/reading/history', { role: 'admin' })).body.items.length, 0)
+  f.db.prepare("UPDATE profiles SET role='user' WHERE id=?").run(f.ids.member)
+  assert.equal((await f.call('/reading/history', { role: 'member' })).body.items.length, 0)
+  assert.equal((await f.call('/reading/' + created.body.id + '/tick', { role: 'member', method: 'POST', body: { active: true } })).status, 404)
+})
+
+test('history removal is scoped, invalid input cannot clear records, and clear closes sessions', async t => {
+  const f = await fixture(t)
+  const article = f.article()
+  const start = role => f.call('/reading/start', { role, method: 'POST', body: { article_id: article } })
+  const created = await start('member'); await start('other')
+  assert.equal((await f.call('/reading/history', { role: 'member', method: 'DELETE', body: { article_id: '' } })).status, 400)
+  assert.equal((await f.call('/reading/history', { role: 'member' })).body.items.length, 1)
+  await f.call('/reading/history', { role: 'member', method: 'DELETE', body: {} })
+  assert.equal((await f.call('/reading/history', { role: 'member' })).body.items.length, 0)
+  assert.equal((await f.call('/reading/history', { role: 'other' })).body.items.length, 1)
+  assert.equal((await f.call('/reading/' + created.body.id + '/tick', { role: 'member', method: 'POST', body: { active: true } })).status, 404)
+  assert.equal((await f.call('/reading/history?offset=-1', { role: 'member' })).status, 400)
+})
+
+async function fixture(t, now) {
   const dataDir = mkdtempSync(join(tmpdir(), 'rd-api-'))
   const db = openDatabase(':memory:')
   const ids = {}
@@ -25,7 +74,7 @@ async function fixture(t) {
     const signed = sid + '.' + createHmac('sha256', secret).update(sid).digest('base64').replace(/=+$/, '')
     cookies[role] = 'rd.sid=' + encodeURIComponent('s:' + signed)
   }
-  const app = createApp(db, { dataDir, production: false, sessionSecret: secret, siteUrl: 'http://localhost', maxUploadMb: 1, adminGithubIds: [], githubClientId: 'test-client', githubClientSecret: 'test-secret' })
+  const app = createApp(db, { now, dataDir, production: false, sessionSecret: secret, siteUrl: 'http://localhost', maxUploadMb: 1, adminGithubIds: [], githubClientId: 'test-client', githubClientSecret: 'test-secret' })
   const server = app.listen(0, '127.0.0.1')
   await new Promise(resolve => server.once('listening', resolve))
   const base = 'http://127.0.0.1:' + server.address().port

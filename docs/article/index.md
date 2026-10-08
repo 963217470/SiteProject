@@ -98,20 +98,8 @@ function setLocalFavorite(id, enabled) {
 
 function saveRecentArticle(article) {
   if (!article || !article.id) return
-  try {
-    var key = 'rd_recent_articles'
-    var list = JSON.parse(localStorage.getItem(key) || '[]')
-    if (!Array.isArray(list)) list = []
-    list = list.filter(function(item) { return item && item.id !== article.id })
-    list.unshift({
-      id: article.id,
-      title: article.title,
-      cover_url: article.cover_url || '',
-      summary: article.summary || '',
-      viewed_at: new Date().toISOString()
-    })
-    localStorage.setItem(key, JSON.stringify(list.slice(0, 30)))
-  } catch (e) {}
+  var root = document.getElementById('article-page')
+  if (root) root.dataset.readingArticle = article.id
 }
 
 async function loadArticleRecord(supabase, id) {

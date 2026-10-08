@@ -6,8 +6,8 @@ export default defineConfig({
   base: '/',
 
   head: [
-    ['script', { src: '/api-client.js?v=20261008-local-server' }],
-    ['script', { src: '/profile-page.js?v=20260523-profile-wireframe' }]
+    ['script', { src: '/api-client.js?v=20261008-reading-history' }],
+    ['script', { src: '/profile-page.js?v=20261008-reading-history' }]
   ],
 
   vite: {
