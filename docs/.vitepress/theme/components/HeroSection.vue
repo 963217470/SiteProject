@@ -4,7 +4,7 @@
     <div class="hero-overlay"></div>
     <div class="hero-content">
       <h1 class="hero-title">
-        <span class="hero-rd">RD</span>&nbsp;<span class="hero-studio">STUDIO</span>
+        <span class="hero-rd">RD</span> <span class="hero-studio">STUDIO</span>
       </h1>
     </div>
     <div class="hero-scroll-hint">
@@ -20,8 +20,8 @@
 .hero-fullscreen {
   position: relative;
   width: 100%;
-  height: 100vh;
-  min-height: 500px;
+  height: calc(100svh - 112px);
+  min-height: 360px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -52,11 +52,13 @@
   text-align: center;
   color: white;
   padding: 2rem;
+  width: 100%;
+  min-width: 0;
 }
 .hero-title {
   font-size: 7rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   margin: 0;
   line-height: 1.1;
   text-shadow: 0 2px 30px rgba(0, 0, 0, 0.4);
@@ -82,6 +84,9 @@
   50% { transform: translateX(-50%) translateY(8px); }
 }
 @media (max-width: 768px) {
-  .hero-title { font-size: 3.5rem; }
+  .hero-title { font-size: 48px; }
+  .hero-content { padding: 24px 16px; }
 }
+@media (max-width: 480px) { .hero-title { font-size: 36px; } }
+@media (max-width: 360px) { .hero-title { font-size: 32px; } }
 </style>

@@ -8,10 +8,11 @@ import type { Theme } from 'vitepress'
 export default {
   extends: DefaultTheme,
   Layout,
-  enhanceApp({ app }) {
+  async enhanceApp({ app }) {
     app.component('ArticleEditor', ArticleEditor)
-    if (typeof window !== 'undefined' && window.__supabase) {
-      app.config.globalProperties.$supabase = window.__supabase
+    if (typeof window !== 'undefined') {
+      if (!window.__api) await import('../../public/api-client.js')
+      app.config.globalProperties.$supabase = window.__api
     }
   }
 } satisfies Theme

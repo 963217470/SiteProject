@@ -11,14 +11,23 @@
     </template>
   </DefaultTheme.Layout>
   
-  <button class="fab-button" @click="goToEditor">
-    <span class="fab-icon">+</span>
+  <button v-if="!isEditor" class="fab-button" aria-label="新建文章" title="新建文章" @click="goToEditor">
+    <Plus :size="24" aria-hidden="true" />
   </button>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute } from 'vitepress'
+import { Plus } from 'lucide-vue-next'
 import DefaultTheme from 'vitepress/theme'
+
+const route = useRoute()
+const isEditor = computed(() => /^\/editor(?:\/|\.html|$)/.test(route.path))
+let refreshNavigation = () => {}
+let cleanupNavigation = () => {}
+watch(() => route.path, async () => { await nextTick(); refreshNavigation() })
+onUnmounted(() => cleanupNavigation())
 
 function goToEditor() {
   window.location.href = '/editor'
@@ -43,7 +52,6 @@ onMounted(() => {
   var obs = new MutationObserver(splitNavTitle)
   obs.observe(document.body, { childList: true, subtree: true, characterData: true })
   splitNavTitle()
-  setInterval(splitNavTitle, 500)
 
   // 首页顶部搜索框样式重置（必须用 JS，CSS 无法覆盖 @docsearch/css）
   function setSearchTransparent(btn, transparent) {
@@ -96,16 +104,20 @@ onMounted(() => {
 
   window.addEventListener('scroll', handleScroll, { passive: true })
   handleScroll()
+  refreshNavigation = () => { splitNavTitle(); handleScroll(); removeHomeGap() }
+  cleanupNavigation = () => { obs.disconnect(); window.removeEventListener('scroll', handleScroll) }
 
   // 首页：强制去掉内容区顶部间距
   function removeHomeGap() {
     if (document.querySelector('.is-home')) {
       var vc = document.getElementById('VPContent')
       if (vc) vc.style.paddingTop = '0'
+    } else {
+      var vc = document.getElementById('VPContent')
+      if (vc) vc.style.paddingTop = ''
     }
   }
   removeHomeGap()
-  setInterval(removeHomeGap, 300)
 })
 
 </script>
@@ -117,7 +129,6 @@ onMounted(() => {
 }
 
 /* 首页去掉顶部空白 */
-.VPSkipLink,
 .Layout > span {
   display: none !important;
   height: 0 !important;
@@ -261,6 +272,15 @@ html, body {
   .fab-icon {
     font-size: 1.25rem;
   }
+}
+
+.VPNav.nav-at-top .VPNavBarTitle .nav-rd, .VPNav .VPNavBarTitle .nav-rd { color: var(--rd-color) !important; }
+.VPNav.nav-at-top .VPNavBarTitle .nav-studio, .VPNav .VPNavBarTitle .nav-studio { color: var(--studio-color) !important; }
+
+@media (max-width: 959px) {
+  .VPNav.nav-at-top .VPNavBar { background: var(--vp-c-bg) !important; }
+  .VPNav.nav-at-top :is(.VPNavBarTitle, .title, .VPNavBarHamburger, .VPNavBarHamburger span) { color: var(--vp-c-text-1) !important; }
+  .VPNav.nav-at-top .DocSearch-Button { color: var(--vp-c-text-2) !important; }
 }
 
 </style>

@@ -41,6 +41,7 @@ jobs:
         run: |
           npm test --prefix server
           node --test tests/api-client.test.mjs
+          npm run test:ui
 
       - name: Build with VitePress
         run: npm run build

@@ -1,4 +1,5 @@
 :root {
+  scroll-padding-top: 88px;
   /* 主题色 - 红黑配色（白天：偏黑，RD 偏红） */
   --vp-c-brand-1: #991b1b;
   --vp-c-brand-2: #7f1d1d;
@@ -12,6 +13,25 @@
   /* 暗色模式 */
   --vp-dark-bg: #0a0a0a;
   --vp-dark-card: #1a1a1a;
+}
+
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 3px;
+}
+
+button:disabled { cursor: not-allowed; }
+img { max-width: 100%; }
+.vp-doc :where(pre, table) { max-width: 100%; overflow-x: auto; }
+.vp-doc :where(p, li, a) { overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .dark {

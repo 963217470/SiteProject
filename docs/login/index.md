@@ -5,11 +5,13 @@ layout: page
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { LogIn } from 'lucide-vue-next'
 
 const loading = ref(true)
 const isLoggedIn = ref(false)
 const username = ref('')
 const errorMsg = ref('')
+const submitting = ref(false)
 
 onMounted(() => {
   if (new URLSearchParams(window.location.search).has('error')) errorMsg.value = 'GitHub 登录未成功，请重试'
@@ -20,7 +22,8 @@ onMounted(() => {
   }
 
   window.__supabase.auth.getSession().then(r => {
-    if (r.data.session) {
+    if (r.error) { errorMsg.value = r.error.message; return }
+    if (r.data?.session) {
       isLoggedIn.value = true
       username.value = r.data.session.user.email || '用户'
     }
@@ -30,6 +33,8 @@ onMounted(() => {
 })
 
 async function doLogin() {
+  if (submitting.value) return
+  submitting.value = true
   errorMsg.value = ''
   try {
     if (!window.__supabase) throw new Error('系统未加载，请刷新页面')
@@ -40,11 +45,13 @@ async function doLogin() {
     if (error) throw error
   } catch (error) {
     errorMsg.value = error.message || '登录失败，请重试'
-  }
+  } finally { submitting.value = false }
 }
 
 async function logout() {
-  if (window.__supabase) await window.__supabase.auth.signOut()
+  if (!window.__supabase) return
+  const result = await window.__supabase.auth.signOut()
+  if (result.error) { errorMsg.value = result.error.message; return }
   isLoggedIn.value = false
   username.value = ''
 }
@@ -53,7 +60,7 @@ async function logout() {
 <div class="login-page">
   <div class="login-card">
     <div class="login-header">
-      <h1>🎮 RD STUDIO</h1>
+      <h1>RD STUDIO</h1>
       <p v-if="loading">加载中...</p>
       <p v-else-if="isLoggedIn">已登录为 {{ username }}</p>
       <p v-else>使用 GitHub 账号登录</p>
@@ -61,22 +68,24 @@ async function logout() {
     <div class="login-content">
       <a v-if="isLoggedIn" href="/" class="github-login-btn" style="text-decoration:none;text-align:center;">进入首页</a>
       <button v-if="isLoggedIn" class="logout-btn" @click="logout">退出登录</button>
-      <button v-if="!isLoggedIn && !loading" class="github-login-btn" type="button" @click="doLogin">🔑 使用 GitHub 登录</button>
+      <button v-if="!isLoggedIn && !loading" class="github-login-btn" type="button" :disabled="submitting" @click="doLogin"><LogIn :size="20" aria-hidden="true" />{{ submitting ? '正在连接…' : '使用 GitHub 登录' }}</button>
       <p v-if="!isLoggedIn && !loading" class="login-hint">还没有账号？<br>登录后自动创建账号</p>
     </div>
-    <div v-if="errorMsg" class="login-error">{{ errorMsg }}</div>
+    <div v-if="errorMsg" class="login-error" role="alert">{{ errorMsg }}</div>
   </div>
 </div>
 
 <style scoped>
 .login-page { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
-.login-card { width: 100%; max-width: 400px; padding: 2rem; background: var(--vp-c-bg); border: 1px solid var(--vp-c-divider); border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
+.login-card { width: 100%; max-width: 400px; padding: 2rem; background: var(--vp-c-bg); border: 1px solid var(--vp-c-divider); border-radius: 8px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
 .login-header { text-align: center; margin-bottom: 2rem; }
 .login-header h1 { margin: 0 0 0.5rem 0; font-size: 1.75rem; }
 .login-header p { margin: 0; color: var(--vp-c-text-2); }
 .login-content { text-align: center; }
 .github-login-btn { display: block; width: 100%; padding: 1rem 2rem; font-size: 1rem; font-weight: 600; color: white; background: #24292e; border: none; border-radius: 8px; cursor: pointer; transition: background 0.3s ease; text-decoration: none; text-align: center; }
 .github-login-btn:hover { background: #2f363d; }
+.github-login-btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; }
+.github-login-btn:disabled { opacity: .6; cursor: wait; }
 .login-hint { margin-top: 1.5rem; font-size: 0.875rem; color: var(--vp-c-text-2); }
 .login-error { margin-top: 1rem; padding: 0.75rem; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; text-align: center; }
 .logout-btn { margin-top: 1rem; padding: 0.5rem 1.5rem; font-size: 0.875rem; color: var(--vp-c-text-2); background: transparent; border: 1px solid var(--vp-c-divider); border-radius: 8px; cursor: pointer; }

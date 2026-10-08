@@ -15,6 +15,7 @@ export default defineConfig({
       include: ['@vueuse/core', 'vue', '@vueuse/integrations/useFocusTrap']
     },
     server: {
+      proxy: { '^/api/': { target: process.env.RD_API_DEV_URL || 'http://127.0.0.1:3100' } },
       fs: {
         allow: ['.']
       }

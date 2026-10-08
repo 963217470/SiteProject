@@ -4,6 +4,17 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 const source = readFileSync(new URL('../docs/public/api-client.js', import.meta.url), 'utf8')
+test('loading the client twice preserves subscriptions and client identity', () => {
+  const existing = { auth: {} }
+  const context = { window: { __api: existing } }
+  vm.runInNewContext(source, context)
+  assert.equal(context.window.__api, existing)
+})
+test('blocked local storage does not prevent cookie-based client initialization', () => {
+  const context = { window: {}, localStorage: { removeItem() { throw new Error('storage denied') } } }
+  vm.runInNewContext(source, context)
+  assert.ok(context.window.__api.auth)
+})
 function fixture(result = []) {
   const calls = []
   const removed = []

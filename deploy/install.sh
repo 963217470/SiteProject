@@ -37,7 +37,7 @@ previous_backend=$(readlink "$base/current" || true)
 previous_web=$(readlink "$site/current" || true)
 cp -a "$nginx_config" "$nginx_config.$release.bak"
 created_nginx_link=false
-if ! nginx -T 2>&1 | grep -Fq "# configuration file $nginx_config:"; then
+if ! nginx -T 2>&1 | grep -F -e "# configuration file $nginx_config:" -e "# configuration file $nginx_link:" >/dev/null; then
     [[ ! -e "$nginx_link" && ! -L "$nginx_link" ]] || { echo 'Conflicting Nginx site configuration'; exit 1; }
     created_nginx_link=true
 fi

@@ -1,8 +1,9 @@
 ;(function() {
+  if (window.__api) return
   const root = '/api'
   const listeners = new Set()
   // Discard sessions issued by the previous cloud backend.
-  localStorage.removeItem('sb-auth-token')
+  try { localStorage.removeItem('sb-auth-token') } catch (_error) { /* Cookies do not require local storage. */ }
 
   async function request(path, options = {}) {
     const headers = { ...options.headers }

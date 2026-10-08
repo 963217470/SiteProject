@@ -1,185 +1,144 @@
 <template>
-  <div class="user-nav">
-    <template v-if="loading">
-      <span class="user-nav-loading"></span>
-    </template>
-    <template v-else-if="isLoggedIn">
-      <div class="user-menu" @click="showMenu = !showMenu">
-        <img :src="avatar" alt="avatar" class="user-avatar-sm">
-        <div class="user-info">
-          <div class="user-name-and-badge">
-            <span class="user-name">{{ displayName }}</span>
-            <span v-if="isAdmin" class="admin-badge">👑 管理员</span>
-          </div>
-        </div>
-      </div>
-      <div v-if="showMenu" class="user-dropdown">
-        <a href="/user/profile" class="dropdown-item" @click.prevent="go('/user/profile')">个人主页</a>
-        <a href="/user/profile?tab=articles" class="dropdown-item" @click.prevent="go('/user/profile?tab=articles')">我的文章</a>
-        <a href="/user/profile?tab=favorites" class="dropdown-item" @click.prevent="go('/user/profile?tab=favorites')">我的收藏</a>
-        <template v-if="isAdmin">
+  <div ref="root" class="user-nav" @keydown.esc.stop="close(true)">
+    <span v-if="loading" class="user-nav-loading" role="status" aria-label="正在加载账户"></span>
+    <template v-else-if="user">
+      <button ref="trigger" class="user-menu" type="button" :aria-expanded="showMenu" aria-controls="rd-account-menu"
+        aria-label="账户菜单" @click="showMenu = !showMenu" @keydown.down.prevent="openWithKeyboard">
+        <img :src="avatar" alt="" class="user-avatar-sm" @error="avatar = '/images/default-avatar.svg'">
+        <span class="user-name">{{ displayName }}</span>
+        <ChevronDown :size="16" aria-hidden="true" :class="{ expanded: showMenu }" />
+      </button>
+      <Transition name="account">
+        <nav v-if="showMenu" id="rd-account-menu" class="user-dropdown" aria-label="个人账户" @keydown="navigateItems">
+          <div class="dropdown-heading"><span>{{ displayName }}</span><span v-if="isAdmin" class="admin-badge">管理员</span></div>
+          <a v-for="item in items" :key="item.href" :href="item.href" class="dropdown-item"><component :is="item.icon" :size="17" aria-hidden="true" />{{ item.label }}</a>
+          <template v-if="isAdmin"><div class="dropdown-divider"></div><a href="/admin" class="dropdown-item"><ShieldCheck :size="17" aria-hidden="true" />管理后台</a></template>
           <div class="dropdown-divider"></div>
-          <a href="/admin" class="dropdown-item admin-item" @click.prevent="go('/admin')">
-            🔧 管理后台
-          </a>
-        </template>
-        <div class="dropdown-divider"></div>
-        <button class="dropdown-item logout" @click="logout">退出登录</button>
-      </div>
+          <button class="dropdown-item logout" type="button" :disabled="signingOut" @click="logout"><LogOut :size="17" aria-hidden="true" />{{ signingOut ? '正在退出…' : '退出登录' }}</button>
+          <p v-if="error" class="account-error" role="alert">{{ error }}</p>
+        </nav>
+      </Transition>
     </template>
-    <template v-else>
-      <a href="/login" class="login-link" @click.prevent="go('/login')">登录</a>
-    </template>
+    <a v-else href="/login" class="login-link"><LogIn :size="16" aria-hidden="true" />登录</a>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vitepress'
+import { Bookmark, ChevronDown, FileText, History, LogIn, LogOut, Settings, ShieldCheck, UserRound } from 'lucide-vue-next'
 
+const route = useRoute()
+const root = ref(null)
+const trigger = ref(null)
 const loading = ref(true)
-const isLoggedIn = ref(false)
-const isAdmin = ref(false)
-const displayName = ref('')
+const user = ref(null)
+const profile = ref(null)
 const avatar = ref('/images/default-avatar.svg')
 const showMenu = ref(false)
-
-let supabase = null
-
-function go(url) { window.location.href = url }
-
-function getMetaName(user) {
-  var meta = user && user.user_metadata ? user.user_metadata : {}
-  return meta.full_name || meta.user_name || meta.name || meta.preferred_username || user.email || '用户'
+const signingOut = ref(false)
+const error = ref('')
+const isAdmin = computed(() => profile.value?.role === 'admin' || user.value?.app_metadata?.role === 'admin')
+const displayName = computed(() => profile.value?.username || user.value?.user_metadata?.user_name || user.value?.user_metadata?.full_name || '用户')
+const items = [
+  { label: '个人主页', href: '/user/profile', icon: UserRound },
+  { label: '我的发布', href: '/user/profile?tab=articles', icon: FileText },
+  { label: '我的收藏', href: '/user/profile?tab=favorites', icon: Bookmark },
+  { label: '浏览记录', href: '/user/profile?tab=recent', icon: History },
+  { label: '个人设置', href: '/user/profile?tab=settings', icon: Settings }
+]
+let client
+let subscription
+let requestId = 0
+function close(returnFocus = false) {
+  showMenu.value = false
+  if (returnFocus) trigger.value?.focus()
 }
-
-function getMetaAvatar(user) {
-  var meta = user && user.user_metadata ? user.user_metadata : {}
-  return meta.avatar_url || meta.picture || '/images/default-avatar.svg'
+function outside(event) { if (!root.value?.contains(event.target)) close() }
+function focusOutside(event) { if (!root.value?.contains(event.target)) close() }
+async function openWithKeyboard() {
+  showMenu.value = true
+  await nextTick()
+  root.value?.querySelector('.dropdown-item')?.focus()
 }
-
-function handleClickOutside(e) {
-  if (!e.target.closest('.user-nav')) showMenu.value = false
+function navigateItems(event) {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+  const links = [...root.value.querySelectorAll('.dropdown-item:not(:disabled)')]
+  const index = links.indexOf(document.activeElement)
+  const target = event.key === 'Home' ? 0 : event.key === 'End' ? links.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length
+  event.preventDefault()
+  links[target]?.focus()
 }
-
+async function applySession(_event, session) {
+  const id = ++requestId
+  user.value = session?.user || null
+  profile.value = null
+  avatar.value = user.value?.user_metadata?.avatar_url || '/images/default-avatar.svg'
+  if (!user.value) { loading.value = false; close(); return }
+  try {
+    const result = await client.from('profiles').select('username,avatar_url,role').eq('id', user.value.id).maybeSingle()
+    if (id !== requestId) return
+    profile.value = result.data
+    avatar.value = result.data?.avatar_url || avatar.value
+  } catch { /* Session metadata still provides a usable account menu. */ }
+  finally { if (id === requestId) loading.value = false }
+}
+async function logout() {
+  if (signingOut.value) return
+  signingOut.value = true
+  error.value = ''
+  try {
+    const result = await client.auth.signOut()
+    if (result.error) { error.value = result.error.message; return }
+    window.location.assign('/')
+  } catch { error.value = '退出失败，请稍后重试' }
+  finally { signingOut.value = false }
+}
+watch(() => route.path, () => close())
 onMounted(() => {
-  if (typeof window === 'undefined' || !window.__supabase) { loading.value = false; return }
-  supabase = window.__supabase
-
-  supabase.auth.getSession().then(function(r) {
-    if (r.data && r.data.session) {
-      isLoggedIn.value = true
-      var user = r.data.session.user
-      displayName.value = getMetaName(user)
-      avatar.value = getMetaAvatar(user)
-      
-      if (!user.id) return null;
-
-      return supabase
-        .from('profiles')
-        .select('username, avatar_url, role')
-        .eq('id', user.id)
-        .useServiceRole()
-        .maybeSingle();
-    }
-  }).then(function(r) {
-    if (!r || !r.data) return
-    if (r.data.username) displayName.value = r.data.username
-    if (r.data.avatar_url) avatar.value = r.data.avatar_url
-    if (r.data.role === 'admin') isAdmin.value = true
-  }).catch(function(e) {
-    console.log('获取用户资料失败:', e)
-  }).finally(function() {
-    loading.value = false
-  })
-
-  document.addEventListener('click', handleClickOutside)
+  client = window.__api
+  if (!client) { loading.value = false; return }
+  subscription = client.auth.onAuthStateChange(applySession).data.subscription
+  document.addEventListener('pointerdown', outside)
+  document.addEventListener('focusin', focusOutside)
 })
-
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
+  ++requestId
+  subscription?.unsubscribe()
+  document.removeEventListener('pointerdown', outside)
+  document.removeEventListener('focusin', focusOutside)
 })
-
-function logout() {
-  if (supabase) {
-    supabase.auth.signOut().then(function() {
-      isLoggedIn.value = false
-      displayName.value = ''
-      showMenu.value = false
-      window.location.href = '/'
-    })
-  }
-}
 </script>
 
 <style scoped>
-.user-nav { position: relative; display: flex; align-items: center; margin-left: 1rem; }
-.user-nav-loading { width: 32px; height: 32px; border-radius: 50%; background: var(--vp-c-bg-soft); animation: pulse 1.5s ease-in-out infinite; }
-@keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
-.user-menu { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem 0.75rem; border-radius: 8px; transition: background 0.2s; }
+.user-nav { position: relative; display: flex; align-items: center; margin-left: 12px; min-height: 40px; }
+.user-nav-loading { width: 32px; height: 32px; border-radius: 50%; background: var(--vp-c-bg-soft); }
+.user-menu { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px; border-radius: 6px; color: var(--vp-c-text-1); transition: background 160ms; }
 .user-menu:hover { background: var(--vp-c-bg-soft); }
-.user-avatar-sm { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
-.user-info { display: flex; flex-direction: column; }
-.user-name-and-badge { display: flex; align-items: center; gap: 0.5rem; }
-.user-name { font-size: 0.875rem; color: var(--vp-c-text-1); }
-.admin-badge { 
-  font-size: 0.7rem; 
-  background: linear-gradient(135deg, #f59e0b, #d97706); 
-  color: white; 
-  padding: 0.1rem 0.5rem; 
-  border-radius: 9999px;
-  font-weight: 600;
-  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
-}
-.user-dropdown { position: absolute; top: 100%; right: 0; margin-top: 0.5rem; background: var(--vp-c-bg); border: 1px solid var(--vp-c-divider); border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); min-width: 170px; z-index: 100; padding: 0.5rem 0; }
-.dropdown-item { display: block; width: 100%; padding: 0.5rem 1rem; font-size: 0.875rem; color: var(--vp-c-text-1); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; transition: background 0.2s; }
-.dropdown-item:hover { background: var(--vp-c-bg-soft); }
-.dropdown-item.admin-item { color: #d97706; font-weight: 600; }
-.dropdown-item.admin-item:hover { background: #fffbeb; }
+.user-avatar-sm { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: none; }
+.user-name { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.expanded { transform: rotate(180deg); }
+.user-dropdown { position: absolute; top: 100%; right: 0; margin-top: 8px; width: min(248px, calc(100vw - 32px)); max-height: calc(100dvh - 88px); overflow-y: auto; background: var(--vp-c-bg); border: 1px solid var(--vp-c-divider); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.12); padding: 6px; z-index: 100; transform-origin: top right; }
+.dropdown-heading { display: flex; align-items: center; gap: 8px; padding: 10px; border-bottom: 1px solid var(--vp-c-divider); margin-bottom: 4px; font-size: 13px; }
+.dropdown-heading > span:first-child { overflow-wrap: anywhere; min-width: 0; }
+.admin-badge { color: #d97706; font-size: 11px; flex: none; }
+.dropdown-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 42px; padding: 8px 10px; border-radius: 4px; font-size: 14px; color: var(--vp-c-text-1); text-decoration: none; text-align: left; transition: background 160ms; }
+.dropdown-item:hover, .dropdown-item:focus-visible { background: var(--vp-c-bg-soft); }
 .dropdown-item.logout { color: #dc2626; }
-.dropdown-divider { height: 1px; background: var(--vp-c-divider); margin: 0.25rem 0; }
-.login-link { padding: 0.4rem 1rem; font-size: 0.875rem; color: var(--vp-c-brand-1); text-decoration: none; border: 1px solid var(--vp-c-brand-1); border-radius: 6px; transition: all 0.2s; }
-.login-link:hover { background: var(--vp-c-brand-1); color: white; }
-
-:global(.VPNav.nav-at-top) .login-link,
-:global(.is-home .VPNav.nav-at-top) .login-link {
-  color: white;
-  border-color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.08);
+.dropdown-item:disabled { cursor: wait; opacity: .6; }
+.dropdown-divider { height: 1px; background: var(--vp-c-divider); margin: 4px; }
+.account-error { padding: 8px 10px; font-size: 13px; color: #dc2626; overflow-wrap: anywhere; }
+.login-link { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px; font-size: 14px; color: var(--vp-c-brand-1); border: 1px solid var(--vp-c-brand-1); border-radius: 6px; }
+.login-link:hover { background: var(--vp-c-brand-soft); }
+:global(.VPNav.nav-at-top) .login-link { color: white; border-color: rgba(255,255,255,.75); background: rgba(255,255,255,.08); }
+:global(.VPNav.nav-at-top) .user-menu { color: white; }
+:global(.VPNav.nav-at-top) .user-menu:hover { background: rgba(255,255,255,.12); }
+.account-enter-active, .account-leave-active { transition: opacity 140ms, transform 140ms; }
+.account-enter-from, .account-leave-to { opacity: 0; transform: translateY(-4px); }
+@media (max-width: 959px) {
+  :global(.VPNav.nav-at-top) .login-link { color: var(--vp-c-brand-1); border-color: var(--vp-c-brand-1); background: var(--vp-c-bg); }
+  :global(.VPNav.nav-at-top) .user-menu { color: var(--vp-c-text-1); }
 }
-
-:global(.VPNav.nav-at-top) .login-link:hover,
-:global(.is-home .VPNav.nav-at-top) .login-link:hover {
-  color: white;
-  border-color: white;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-:global(.VPNav.nav-at-top) .user-name,
-:global(.is-home .VPNav.nav-at-top) .user-name {
-  color: white;
-}
-
-:global(.VPNav.nav-at-top) .user-menu:hover,
-:global(.is-home .VPNav.nav-at-top) .user-menu:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-:global(.VPNav.nav-scrolled) .login-link,
-:global(.is-home .VPNav.nav-scrolled) .login-link {
-  color: var(--vp-c-text-1);
-  border-color: var(--vp-c-divider);
-  background: var(--vp-c-bg);
-}
-
-:global(.VPNav.nav-scrolled) .login-link:hover,
-:global(.is-home .VPNav.nav-scrolled) .login-link:hover {
-  color: white;
-  border-color: var(--vp-c-brand-1);
-  background: var(--vp-c-brand-1);
-}
-
-:global(.VPNav.nav-scrolled) .user-name,
-:global(.is-home .VPNav.nav-scrolled) .user-name {
-  color: var(--vp-c-text-1);
-}
+@media (max-width: 640px) { .user-name { display: none; } .user-nav { margin-left: 4px; } .user-menu { gap: 4px; padding: 4px; } }
+@media (prefers-reduced-motion: reduce) { *, .account-enter-active, .account-leave-active { transition: none; } }
 </style>

@@ -81,11 +81,13 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 - Administrator GitHub account/immutable ID must be specified.
 - Domain ICP filing or Aliyun filing access must be completed.
 - Git push requires an authenticated account with write access to `963217470/SiteProject`.
-- The video-to-notes application has not yet been identified.
+- Video2MD source is available at `E:/Coding/项目/Video2MD-master`; its desktop/core architecture was inspected. Integration and licensing notes are in `VIDEO2MD-INTEGRATION.md`.
 
 ## Progress
 
 - Self-hosted backend and new database: deployed; seven backend tests and four client tests passed in the previous release.
 - GitHub OAuth activation: waiting for credentials and public-domain access.
 - Snapshot tooling: implemented and installed as `/usr/local/sbin/rd-studio-backup`; snapshot and isolated recovery checks passed. Off-server backup is still pending.
-- Phases 3 through 9: pending, not claimed complete.
+- Phase 3 first increment: account navigation, keyboard/focus access, logout error handling, initialization timing, navigation cleanup, reduced motion, and responsive hero fixes deployed in release `rd-20261008-03`. Five account UI tests, six client tests, and seven backend tests passed; production build and desktop/mobile checks passed. Whole-site UI audit is still in progress.
+- Pre-increment backup: `/var/backups/rd-studio/20261008T020555Z-6792`; checksums passed.
+- Phases 4 through 9: pending, not claimed complete. Video2MD assessment is complete; importer and worker are not yet implemented.
