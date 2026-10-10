@@ -1,0 +1,30 @@
+import { describe,it,expect,vi,beforeEach } from 'vitest'
+import { mount,flushPromises } from '@vue/test-utils'
+import { knowledgeModel,knowledgeDescendants,knowledgeOutline,visibleKnowledge,resolveKnowledge } from '../docs/.vitepress/theme/knowledge.mjs'
+import KnowledgeExplorer from '../docs/.vitepress/theme/components/KnowledgeExplorer.vue'
+const graph=vi.hoisted(()=>({destroy:vi.fn(),on:vi.fn(),elements:vi.fn(),getElementById:vi.fn(),resize:vi.fn(),style:vi.fn(),fit:vi.fn(),zoom:vi.fn(()=>1),center:vi.fn()}))
+vi.mock('cytoscape',()=>({default:vi.fn(()=>graph)}))
+const branches=[{id:'p',name:'程序',parent_id:null},{id:'g',name:'Godot',parent_id:'p'}]
+const articles=[{id:'note',title:'角色移动',kb_branch_id:'g',summary:'输入处理'}]
+function client(role='user') {
+  const state={role,rows:branches.map(x=>({...x})),callback:null,unsubscribe:vi.fn(),insert:vi.fn()}
+  const api={auth:{getUser:async()=>({data:{user:{id:'u',app_metadata:{role:state.role}}}}),onAuthStateChange:fn=>{state.callback=fn;return {data:{subscription:{unsubscribe:state.unsubscribe}}}}},from:table=>{
+    const q={select:()=>q,eq:()=>q,order:()=>q,limit:()=>q,offset:()=>q,insert:payload=>{state.insert(payload);state.rows.push({...payload,id:'new'});q.inserted=true;return q},single:()=>q,then:resolve=>resolve({data:q.inserted?{id:'new'}:table==='knowledge_branches'?state.rows:articles,error:null})};return q
+  }};return {api,state}
+}
+beforeEach(()=>{vi.clearAllMocks();const collection={removeClass:()=>collection,addClass:()=>collection};graph.elements.mockReturnValue(collection);graph.getElementById.mockReturnValue(collection);vi.stubGlobal('ResizeObserver',class{observe(){}disconnect(){}});vi.stubGlobal('matchMedia',()=>({matches:true}));HTMLDialogElement.prototype.showModal=function(){this.open=true};HTMLDialogElement.prototype.close=function(){this.open=false};history.replaceState(null,'','/')})
+describe('knowledge model',()=>{
+  it('connects actual branches and articles with distinct IDs',()=>{const nodes=knowledgeModel(branches,articles);expect(nodes.find(n=>n.id==='a:note').parent).toBe('b:g');expect(nodes.find(n=>n.id==='b:g').path).toBe('程序 / Godot')})
+  it('collapses a whole subtree without losing its node',()=>{const nodes=knowledgeModel(branches,articles);expect(visibleKnowledge(nodes,new Set(['b:p'])).map(n=>n.id)).toEqual(['root','b:p']);expect([...knowledgeDescendants(nodes,'b:p')]).toEqual(['b:p','b:g','a:note'])})
+  it('supports old ID, title and path links',()=>{const nodes=knowledgeModel(branches,articles);for(const value of ['g','Godot','程序/Godot','知识库总览 / 程序 / Godot'])expect(resolveKnowledge(nodes,value).id).toBe('b:g');expect(resolveKnowledge(nodes,'unknown').id).toBe('root')})
+  it('defensively handles cycles and orphan branches',()=>{const nodes=knowledgeModel([{id:'a',name:'A',parent_id:'b'},{id:'b',name:'B',parent_id:'a'},{id:'c',name:'C',parent_id:'gone'}],[]);expect(nodes.slice(1).every(n=>n.parent==='root')).toBe(true);expect(visibleKnowledge(nodes,new Set()).length).toBe(4)})
+  it('scales subtree traversal to hundreds of nodes',()=>{const nodes=knowledgeModel(Array.from({length:350},(_,i)=>({id:String(i),name:'node '+i,parent_id:i?String(i-1):null})),[]);expect(knowledgeDescendants(nodes,'root').size).toBe(351);expect(visibleKnowledge(nodes,new Set(['b:0'])).length).toBe(2)})
+  it('keeps directory nesting rather than flattening folders',()=>{const outline=knowledgeOutline(knowledgeModel(branches,articles));expect(outline.map(n=>[n.id,n.depth])).toEqual([['root',0],['b:p',1],['b:g',2],['a:note',3]])})
+})
+describe('knowledge explorer',()=>{
+  it('loads real data, searches and keeps article links',async()=>{const {api}=client();window.__api=api;const view=mount(KnowledgeExplorer);await flushPromises();expect(view.text()).toContain('2 个分支 · 1 篇笔记');await view.get('input[type=search]').setValue('角色');expect(view.findAll('.knowledge-directory-row')).toHaveLength(1);await view.get('.knowledge-directory-row').trigger('click');expect(view.get('.knowledge-actions a').attributes('href')).toBe('/article?id=note');expect(location.search).toBe('?branch=note');view.unmount();expect(graph.destroy).toHaveBeenCalled()})
+  it('does not expose creation to ordinary users',async()=>{const {api}=client();window.__api=api;const view=mount(KnowledgeExplorer);await flushPromises();expect(view.get('.knowledge-actions').text()).not.toContain('添加子分支');view.unmount()})
+  it('creates a persisted child branch through the existing admin API',async()=>{const {api,state}=client('admin');window.__api=api;const view=mount(KnowledgeExplorer);await flushPromises();await view.findAll('.knowledge-relations button')[0].trigger('click');await view.findAll('button').find(b=>b.text()==='添加子分支').trigger('click');await view.get('.knowledge-dialog input').setValue('网络同步');await view.get('.knowledge-dialog form').trigger('submit');await flushPromises();expect(state.insert).toHaveBeenCalledWith(expect.objectContaining({name:'网络同步',parent_id:'p'}));expect(view.text()).toContain('网络同步');view.unmount()})
+  it('reloads visibility after an auth change and unsubscribes',async()=>{const {api,state}=client('admin');window.__api=api;const view=mount(KnowledgeExplorer);await flushPromises();state.role='user';state.callback('SIGNED_OUT');await flushPromises();expect(view.get('.knowledge-actions').text()).not.toContain('添加子分支');view.unmount();expect(state.unsubscribe).toHaveBeenCalled()})
+  it('shows retry instead of hiding a data failure',async()=>{const {api}=client();api.from=()=>{throw new Error('离线')};window.__api=api;const view=mount(KnowledgeExplorer);await flushPromises();expect(view.get('[role=alert]').text()).toContain('离线');expect(view.text()).toContain('重试');view.unmount()})
+})

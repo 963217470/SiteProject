@@ -7,7 +7,7 @@
         <span class="hero-rd">RD</span> <span class="hero-studio">STUDIO</span>
       </h1>
       <p class="hero-tagline">创造 · 学习 · 分享</p>
-      <a class="hero-explore" href="/articles">探索文章<ArrowRight :size="22" aria-hidden="true" /></a>
+      <div class="hero-actions"><a class="hero-explore" href="/games-tools/">探索游戏与工具<ArrowRight :size="22" aria-hidden="true" /></a><a class="hero-secondary" href="/kb/">进入知识库<ArrowUpRight :size="20" /></a></div>
     </div>
     <div class="hero-scroll-hint">
       <span>↓</span>
@@ -16,7 +16,7 @@
 </template>
 
 <script setup>
-import { ArrowRight } from 'lucide-vue-next'
+import { ArrowRight, ArrowUpRight } from 'lucide-vue-next'
 </script>
 
 <style scoped>

@@ -6,6 +6,7 @@ import { renderCatalogMarkdown } from '../docs/.vitepress/theme/lib/catalog-mark
 vi.mock('../docs/.vitepress/theme/lib/catalog-api.mjs',()=>({catalogRequest:vi.fn(),uploadCatalogFile:vi.fn(),removeUnusedCatalogFiles:vi.fn()}))
 let wrapper,sessionCallback
 beforeEach(()=>{
+  history.replaceState(null,'','/')
   window.__api={auth:{onAuthStateChange:vi.fn(callback=>{sessionCallback=callback;return {data:{subscription:{unsubscribe:vi.fn()}}}})}}
   catalogRequest.mockReset().mockResolvedValue({items:[],has_more:false})
 })
@@ -15,6 +16,11 @@ it('anonymous visitors can browse and see login without publication controls',as
 })
 it('failed catalogs isolate error and support retry',async()=>{
   catalogRequest.mockRejectedValueOnce(new Error('Offline'));wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',null);await flushPromises();expect(wrapper.text()).toContain('Offline');await wrapper.findAll('button').find(b=>b.text()==='重试').trigger('click');await flushPromises();expect(wrapper.text()).toContain('暂无作品')
+})
+it('homepage artwork links open the existing detail and download view',async()=>{
+  history.replaceState(null,'','/games-tools/?id=shared-game')
+  catalogRequest.mockImplementation(async path=>path==='/shared-game'?{id:'shared-game',title:'Shared game',content:'# Introduction',assets:[],status:'published',kind:'game',downloads:0,external_url:'https://pan.baidu.com/s/demo'}:{items:[],has_more:false})
+  wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',null);await flushPromises();expect(wrapper.text()).toContain('Shared game');expect(wrapper.text()).toContain('外部下载');expect(catalogRequest).toHaveBeenCalledWith('/shared-game')
 })
 it('signed in authors can edit markdown and submit owned asset identifiers',async()=>{
   wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',{user:{id:'author',app_metadata:{role:'user'}}});await flushPromises()

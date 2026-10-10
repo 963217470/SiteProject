@@ -4,6 +4,7 @@ export default defineConfig({
   title: 'RD STUDIO',
   description: '创造 · 学习 · 分享',
   base: '/',
+  cleanUrls: true,
 
   head: [
     ['script', { src: '/api-client.js?v=20261008-reading-history' }],
@@ -23,6 +24,7 @@ export default defineConfig({
   },
 
   themeConfig: {
+    logo: '/images/rd-studio-logo.png',
     nav: [
       { text: '首页', link: '/' },
       { text: '文章', link: '/articles' },

@@ -1,8 +1,8 @@
 <template><nav class="community-links" aria-label="探索社团"><a v-for="item in items" :key="item.href" :href="item.href"><component :is="item.icon" :size="22" aria-hidden="true" /><div><strong>{{ item.title }}</strong><span>{{ item.text }}</span></div><ArrowUpRight :size="17" class="community-arrow" aria-hidden="true" /></a></nav></template>
 <script setup>
-import { ArrowUpRight, BookOpen, LibraryBig, UsersRound } from 'lucide-vue-next'
+import { ArrowUpRight, ListChecks, LibraryBig, UsersRound } from 'lucide-vue-next'
 const items = [
-  { href: '/articles', title: '技术分享', text: '游戏开发、创作与实践', icon: BookOpen },
+  { href: '/tasks', title: '今天也推进一点点', text: '日常签到、任务与创作挑战', icon: ListChecks },
   { href: '/kb', title: '知识库', text: '沿着知识分支持续学习', icon: LibraryBig },
   { href: '/about', title: '认识 RD STUDIO', text: '一起创造、学习、分享', icon: UsersRound }
 ]

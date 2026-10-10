@@ -65,6 +65,8 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 
 ## Phase 7: Knowledge Graph
 
+- 2026-10-11 reference-driven UI release: real branch/article graph, preserved nested directory, search, neighborhood highlighting, zoom/fit/pan/drag, collapse with retained geometry, old deep links, admin child-branch creation, mobile focus and visibility reload are deployed as `rd-20261011-02`. Uses Cytoscape.js; no database migration. See `REDESIGN-RELEASE.md`. Arbitrary references/related-edge authoring and larger browser visual stress tests remain follow-ups.
+
 - Preserve the existing folder/tree hierarchy; add graph mode as an additional view, not a destructive replacement.
 - Use nodes for articles and branches; use typed edges for parent/child, references, and related knowledge.
 - Add search, filters, focus neighborhoods, zoom, fit, drag, accessible list fallback, and mobile controls using a proven graph layout library.
@@ -90,7 +92,7 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 - GitHub OAuth credentials are configured directly in `/etc/rd-studio.env`; never copy secrets into this repository. Real browser authorization/callback verification is still pending.
 - The user-authorized existing GitHub account `Wind-Celeste`, immutable ID `286876625`, has administrator role on production.
 - Domain filing status has not been verified; earlier test-network restrictions do not prove a missing filing. The user reports working domain access.
-- Git push requires an authenticated account with write access to `963217470/SiteProject`.
+- Git HTTPS authentication is configured with the existing `Ce1e5te` account, which has write access to `963217470/SiteProject`; remote pushes are working.
 - Video2MD source is available at `E:/Coding/项目/Video2MD-master`; its desktop/core architecture was inspected. Integration and licensing notes are in `VIDEO2MD-INTEGRATION.md`.
 
 ## Progress
@@ -102,4 +104,4 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 - Pre-increment backup: `/var/backups/rd-studio/20261008T020555Z-6792`; checksums passed.
 - Phase 4 first increment: private account-level reading history, bounded effective reading time, foreground/idle handling, shared multi-tab credit clock, history pagination/removal/clear, and independent unavailable-history state deployed as `rd-20261008-04`. Existing publications and favorites retained. Schema v2 preserves v1 data. Eleven backend/migration tests, nine UI tests, and six client tests passed (26 total). Real OAuth sign-in acceptance is pending; authenticated feature tests use isolated signed test sessions, not a production login bypass.
 - Pre-reading/migration snapshot: `/var/backups/rd-studio/20261008T050914Z-8492`; checksums passed.
-- Phase 5 is complete and the requested Phase 6 catalog increment is deployed. Phase 4 comments/replies/moderation, remaining Phase 6 enhancements and phases 7 through 9 are pending, not claimed complete. Video2MD assessment is complete; importer and worker are not yet implemented.
+- Phase 5 and the requested Phase 6 catalog increment are deployed. Phase 4 moderated comments/replies and notifications are deployed; reporting and richer moderation remain follow-ups. Phase 7 graph/directory first increment and whole-site reference-driven UI are deployed. Remaining Phase 6 enhancements, reference-edge editing and phases 8 through 9 remain open. Video2MD assessment is complete; importer and worker are not yet implemented.
