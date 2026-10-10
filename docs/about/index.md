@@ -45,8 +45,10 @@ RD STUDIO 是一个热爱游戏开发的学生组织，我们致力于：
 
 ### 加入方式
 
-1. 通过邀请链接注册
-2. 联系管理员获取邀请码
+<figure class="join-qr">
+  <img src="/images/join-us-qr.png" alt="RD STUDIO 加入我们二维码" width="442" height="465">
+  <figcaption>扫码加入我们</figcaption>
+</figure>
 
 ### 社员福利
 
@@ -55,43 +57,29 @@ RD STUDIO 是一个热爱游戏开发的学生组织，我们致力于：
 - 参与 Game Jam 活动
 - 团队合作开发项目
 
-## 📞 联系我们
-
-- GitHub: [your-org/game-dev-club](https://github.com/your-org/game-dev-club)
-- 邮箱: contact@example.com
-
 ## 👥 管理团队
 
-| 角色 | 姓名 |
-|------|------|
-| 社长 | 张三 |
-| 技术负责人 | 李四 |
-| 活动负责人 | 王五 |
-
----
-
-<div class="join-cta">
-  <h3>准备好了吗？</h3>
-  <p>加入我们，一起探索游戏开发的世界！</p>
-  <a href="/login" class="btn-primary">立即加入</a>
-</div>
+| 角色 | 姓名 | QQ |
+|------|------|------|
+| 社长 | blue寒风 | 3158552775 |
+| 副社长 | 晓枫 | 3420197908 |
 
 <style scoped>
-.join-cta {
+.join-qr {
   text-align: center;
-  padding: 3rem;
-  background: var(--vp-c-bg-soft);
-  border-radius: 8px;
-  margin-top: 3rem;
+  margin: 24px 0;
 }
 
-.join-cta h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1.5rem;
+.join-qr img {
+  display: block;
+  width: 320px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
 }
 
-.join-cta p {
-  margin: 0 0 1.5rem 0;
+.join-qr figcaption {
+  margin-top: 12px;
   color: var(--vp-c-text-2);
 }
 </style>
