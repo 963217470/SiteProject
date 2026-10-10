@@ -1,6 +1,31 @@
 :root { --rd-content-width: 1180px; --rd-control-height: 40px; }
 :root body { letter-spacing: 0; min-width: 0; }
 :root :is(h1,h2,h3) { letter-spacing: 0; }
+@media (min-width: 960px) {
+  :root { --vp-nav-height: 72px; }
+  .VPNavBar:not(.has-sidebar) .container { max-width: 1440px; align-items: center; }
+  .VPNavBar .content-body { align-items: center; }
+  .VPNavBar .user-menu { min-height: 44px; }
+  .VPNav.nav-at-top .user-menu, .VPNav.nav-at-top .user-name { color: white !important; }
+  .VPNav.nav-at-top .user-menu { background: transparent !important; }
+  .VPNav.nav-at-top .user-menu:hover, .VPNav.nav-at-top .user-menu[aria-expanded="true"] { background: rgba(255,255,255,.12) !important; }
+  .VPNav .user-dropdown, .VPNav .dropdown-heading { color: var(--vp-c-text-1); }
+  .VPNav.nav-at-top .login-link { color: white !important; border-color: rgba(255,255,255,.75); }
+  .VPNav.nav-scrolled .user-menu, .VPNav.nav-scrolled .user-name { color: var(--vp-c-text-1) !important; }
+}
+@media (min-width: 1200px) {
+  .VPNavBarMenuLink, .VPNavBarMenuGroup .button { font-size: 17px !important; }
+  .VPNavBarTitle .title { font-size: 20px; }
+  .VPNavBar .DocSearch-Button-Placeholder { font-size: 16px; }
+  .VPNavBar .user-name, .VPNavBar .login-link { font-size: 16px; }
+  .VPNavBar .user-avatar-sm { width: 32px; height: 32px; }
+}
+@media (min-width: 960px) and (max-width: 1199px) {
+  .VPNavBar .DocSearch-Button-Keys, .VPNavBar .DocSearch-Button-Placeholder { display: none; }
+  .VPNavBar .DocSearch-Button { width: 40px; min-width: 40px; justify-content: center; padding: 0; }
+  .VPNavBar .VPNavBarSearch { padding-left: 16px; }
+  .VPNavBar .user-name { max-width: 100px; }
+}
 .rd-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .rd-library { width: min(var(--rd-content-width), calc(100% - 48px)); margin: 0 auto; padding: 48px 0 64px; }
 .rd-page-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 28px; }

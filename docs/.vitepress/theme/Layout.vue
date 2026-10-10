@@ -14,7 +14,7 @@
   </DefaultTheme.Layout>
   
   <button v-if="!isEditor" class="fab-button" aria-label="新建文章" title="新建文章" @click="goToEditor">
-    <Plus :size="24" aria-hidden="true" />
+    <Plus :size="32" aria-hidden="true" />
   </button>
 </template>
 
@@ -234,8 +234,8 @@ html, body {
   position: fixed;
   bottom: 2rem;
   right: 2rem;
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   background: var(--vp-c-brand-1);
   color: white;
