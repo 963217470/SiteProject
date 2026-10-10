@@ -15,9 +15,10 @@ import { SQLiteSessionStore } from './database.mjs'
 import { Repository, fail, member } from './repository.mjs'
 import { installReadingRoutes } from './reading.mjs'
 import { installTaskRoutes } from './tasks.mjs'
+import { installCatalogRoutes, catalogFileVisible } from './catalog.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
-const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence'])
+const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'catalog'])
 
 export function createApp(db, config) {
   const app = express()
@@ -71,9 +72,11 @@ export function createApp(db, config) {
     }
     next()
   })
-  app.use(express.json({ limit: '3mb' }))
+  const parseJson = express.json({ limit: '3mb' })
+  app.use((req,res,next) => req.method === 'POST' && req.path.startsWith('/api/storage/') ? next() : parseJson(req,res,next))
   installReadingRoutes(app, db, repository, config.now || Date.now)
   installTaskRoutes(app, db, repository, config.now || Date.now)
+  installCatalogRoutes(app, db, repository, config)
   app.get('/api/health', (_req, res) => { db.prepare('SELECT 1').get(); res.json({ ok: true, version: 1 }) })
   app.get('/api/auth/settings', (_req, res) => res.json({ github: Boolean(config.githubClientId && config.githubClientSecret) }))
   app.get('/api/auth/session', (req, res) => {
@@ -140,7 +143,7 @@ export function createApp(db, config) {
     const { bucket, path } = fileLocation(req)
     if (bucket === 'resources' && req.user.role !== 'admin') fail(403, '需要管理员权限')
     if (bucket === 'internal' && !member(req.user)) fail(403, '需要成员权限')
-    if (bucket === 'task-evidence' && db.prepare("SELECT coalesce(sum(size),0) n FROM files WHERE owner_id=? AND bucket='task-evidence'").get(req.user.id).n >= 500 * 1024 * 1024) fail(413, '任务证明存储已达上限')
+    if (['task-evidence','catalog'].includes(bucket) && db.prepare('SELECT coalesce(sum(size),0) n FROM files WHERE owner_id=? AND bucket=?').get(req.user.id,bucket).n >= 500 * 1024 * 1024) fail(413, '文件存储已达上限')
     const parts = path.split('/')
     if (parts[0] !== req.user.id && !(['avatars', 'article-images', 'article-attachments'].includes(parts[0]) && parts[1] === req.user.id)) fail(403, '只能上传自己的文件')
     if (db.prepare('SELECT id FROM files WHERE bucket=? AND path=?').get(bucket, path)) fail(409, '文件已存在')
@@ -155,6 +158,7 @@ export function createApp(db, config) {
     } })
     try {
       await pipeline(req, limiter, createWriteStream(file, { flags: 'wx', mode: 0o600 }))
+      if (bucket === 'catalog' && !size) fail(400,'不能上传空文件')
       const handle = await open(file, 'r')
       let buffer
       try { const result = await handle.read(Buffer.alloc(Math.min(size, 4100)), 0, Math.min(size, 4100), 0); buffer = result.buffer.subarray(0, result.bytesRead) }
@@ -163,7 +167,7 @@ export function createApp(db, config) {
       const mime = type && rasterTypes.has(type.mime) ? type.mime : 'application/octet-stream'
       if (parts[0] === 'avatars' && (mime === 'application/octet-stream' || size > 2 * 1024 * 1024)) fail(400, '头像需要是 2MB 以内的图片')
       repository.transaction(() => {
-        if (bucket === 'task-evidence' && db.prepare("SELECT coalesce(sum(size),0) n FROM files WHERE owner_id=? AND bucket='task-evidence'").get(req.user.id).n + size > 500 * 1024 * 1024) fail(413, '任务证明存储已达上限')
+        if (['task-evidence','catalog'].includes(bucket) && db.prepare('SELECT coalesce(sum(size),0) n FROM files WHERE owner_id=? AND bucket=?').get(req.user.id,bucket).n + size > 500 * 1024 * 1024) fail(413, '文件存储已达上限')
         db.prepare('INSERT INTO files(id,bucket,path,owner_id,mime,size) VALUES(?,?,?,?,?,?)').run(id, bucket, path, req.user.id, mime, size)
       })
       res.status(201).json({ path, id, mime, size })
@@ -174,10 +178,11 @@ export function createApp(db, config) {
     if (['resources', 'internal'].includes(bucket) && !member(req.user)) fail(req.user ? 403 : 401, '需要成员权限')
     const file = db.prepare('SELECT * FROM files WHERE bucket=? AND path=?').get(bucket, path)
     if (!file) fail(404, '文件不存在')
+    if (bucket === 'catalog' && !catalogFileVisible(db,file,req.user)) fail(req.user ? 403 : 401,'文件尚未公开')
     if (bucket === 'task-evidence' && (!req.user || (req.user.id !== file.owner_id && req.user.role !== 'admin'))) fail(req.user ? 403 : 401, '证明文件仅提交者和管理员可见')
-    res.type(file.mime)
     res.set('Content-Security-Policy', "default-src 'none'; sandbox")
     if (file.mime === 'application/octet-stream') res.attachment(basename(path))
+    res.type(file.mime)
     res.sendFile(join(uploadDir, file.id))
   })
   app.delete('/api/storage/:bucket', async (req, res) => {
@@ -186,6 +191,7 @@ export function createApp(db, config) {
     const files = req.body.prefixes.map(path => db.prepare('SELECT * FROM files WHERE bucket=? AND path=?').get(req.params.bucket, path)).filter(Boolean)
     if (files.some(file => file.owner_id !== req.user.id && req.user.role !== 'admin')) fail(403, '只能删除自己的文件')
     if (files.some(file => db.prepare('SELECT 1 FROM task_submissions s,json_each(s.files) f WHERE f.value=? LIMIT 1').get(file.id))) fail(409, '已提交的证明文件不能删除')
+    if (files.some(file => db.prepare('SELECT 1 FROM catalog_items i,json_each(i.assets) a WHERE a.value=? LIMIT 1').get(file.id))) fail(409,'已关联作品的文件不能删除')
     for (const file of files) {
       await unlink(join(uploadDir, file.id))
       db.prepare('DELETE FROM files WHERE id=?').run(file.id)

@@ -55,6 +55,8 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 
 ## Phase 6: Games And Tools
 
+- Requested catalog increment deployed as `rd-20261010-02`: games/tools navigation, public list/detail, Markdown with images, uploads and external download links/codes, author edit/drafts, moderation, scoped attachments and deduplicated download visits. 62 automated tests passed. See `GAMES-TOOLS-RELEASE.md`; browser execution, malware scanning, richer reviews and version history are still pending.
+
 - Add shared catalogs with screenshots, versions, platforms, tags, authors, reviews, license, moderation, and file limits.
 - Downloads use authorized server routes and bounded event counting. Display download count semantics explicitly; a served download is not proof of completed installation.
 - Uploaded builds never execute on the application server. HTML games require a separate origin and sandbox policy before browser play is enabled.
@@ -99,4 +101,4 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 - Pre-increment backup: `/var/backups/rd-studio/20261008T020555Z-6792`; checksums passed.
 - Phase 4 first increment: private account-level reading history, bounded effective reading time, foreground/idle handling, shared multi-tab credit clock, history pagination/removal/clear, and independent unavailable-history state deployed as `rd-20261008-04`. Existing publications and favorites retained. Schema v2 preserves v1 data. Eleven backend/migration tests, nine UI tests, and six client tests passed (26 total). Real OAuth sign-in acceptance is pending; authenticated feature tests use isolated signed test sessions, not a production login bypass.
 - Pre-reading/migration snapshot: `/var/backups/rd-studio/20261008T050914Z-8492`; checksums passed.
-- Phase 5 is complete; Phase 4 comments/replies/moderation and phases 6 through 9 are pending, not claimed complete. Video2MD assessment is complete; importer and worker are not yet implemented.
+- Phase 5 is complete and the requested Phase 6 catalog increment is deployed. Phase 4 comments/replies/moderation, remaining Phase 6 enhancements and phases 7 through 9 are pending, not claimed complete. Video2MD assessment is complete; importer and worker are not yet implemented.

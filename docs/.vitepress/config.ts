@@ -28,6 +28,7 @@ export default defineConfig({
       { text: '文章', link: '/articles' },
       { text: '知识库', link: '/kb' },
       { text: '任务', link: '/tasks' },
+      { text: '游戏/工具', link: '/games-tools/' },
       { text: '内部', link: '/internal' },
       { text: '关于', link: '/about' }
     ],

@@ -15,6 +15,9 @@ db.prepare("UPDATE task_enrollments SET state='submitted' WHERE task_id='jam'").
 db.prepare("INSERT INTO files(id,bucket,path,owner_id,mime,size) VALUES('proof','task-evidence','member/entry.jpg','member','image/jpeg',100)").run()
 copyFileSync(new URL('../../docs/public/images/hero-bg.jpg',import.meta.url),join(dataDir,'uploads','proof'))
 db.prepare("INSERT INTO task_submissions(id,task_id,user_id,note,url,files,submitted_at) VALUES('submission','jam','member','完成了参赛原型，附作品网址和截图。','https://itch.io/jam/local-preview','[\"proof\"]',?)").run(time)
+db.prepare("INSERT INTO files VALUES('catalog-cover','catalog','member/screenshot.jpg','member','image/jpeg',100)").run()
+copyFileSync(new URL('../../docs/public/images/hero-bg.jpg',import.meta.url),join(dataDir,'uploads','catalog-cover'))
+for(const [id,kind,title] of [['demo-game','game','开发原型 · 游戏演示'],['demo-tool','tool','素材整理工具']])db.prepare("INSERT INTO catalog_items(id,author_id,kind,title,summary,content,platform,external_url,cover_id,assets,status,created_at,updated_at) VALUES(?,'member',?,?,? ,?,'Windows','https://pan.baidu.com/s/local-preview','catalog-cover','[\"catalog-cover\"]','published',?,?)").run(id,kind,title,'仅用于本地验证图文介绍、浏览和下载入口。','# '+title+'\n\n![预览](/api/files/catalog/member/screenshot.jpg)\n\n## 使用说明\n\n- 解压文件\n- 运行程序\n\n```js\nconsole.log("Hello")\n```\n\n$x^2 + y^2 = 1$',new Date(time).toISOString(),new Date(time).toISOString())
 const app=express()
 app.get('/api/__preview/:role',(req,res)=>{
  if(!['admin','member'].includes(req.params.role))return res.sendStatus(404)
