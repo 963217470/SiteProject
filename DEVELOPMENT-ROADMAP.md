@@ -46,11 +46,12 @@ Keep credentials and personal data out of Git. Existing generated files and unre
 - Admin-authored templates: publish X accepted posts, read X distinct posts for 180 effective seconds each, create an accepted knowledge branch, participate in a Game Jam, and custom proof-based tasks.
 - Add task lifecycle, eligibility, deadlines, progress, evidence submission, review, rejection/resubmission, and completion history.
 - Evidence supports URLs, images, and game builds with access controls and upload limits.
-- Use an append-only experience ledger with idempotent reward events, audited reversals, and anti-repeat rules. No direct client writes to XP or task completion.
-- Progression titles: trainee, member, senior member, expert, mentor; thresholds remain configurable.
+- Use append-only experience records with idempotent rewards and anti-repeat rules. Experience only accumulates; reward deduction/reversal is disabled. No direct client writes to XP or task completion.
+- Progression: newcomer 0, apprentice 50, member 300, senior member 500 cumulative EXP; presidency is a separate appointed red title.
 - President/vice-president are appointed offices, not automatically acquired administrator privileges. Keep progression, membership access, moderation permissions, and offices independent.
 - Disciplines: art, technical art, design, programming, operations; allow admin-managed additions.
 - Acceptance: concurrent completion cannot issue rewards twice; rejected evidence gives no reward; permissions never escalate from XP.
+- 2026-10-10 community update: daily check-ins, seven-day bonus, 150-second daily reading, moderated publication/comment rewards, threaded moderated replies, user EXP management, private notifications and 50-EXP advanced-task eligibility are implemented. Advanced task content remains unconfigured. See `COMMUNITY-RELEASE.md`.
 - Completed and deployed as `rd-20261009-02`: task lifecycle/templates, progress, private evidence review, experience ledger/reversals, configurable levels, disciplines and independently appointed offices. 49 automated tests and production build passed. See `TASKS-RELEASE.md` for semantics, backup, recovery and verification limits. Discipline-extension administration remains a follow-up.
 
 ## Phase 6: Games And Tools

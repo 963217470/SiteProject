@@ -129,7 +129,12 @@ async function loadMemberIdentity() {
     if (!el || state.uid !== uid) return
     var branch = (data.disciplines || []).find(function(d) { return d.id === data.identity.discipline_id })
     var office = { president: '会长', 'vice-president': '副会长' }[data.identity.office]
-    el.textContent = [data.level.title, data.xp + ' EXP', branch && branch.name, office].filter(Boolean).join(' · ')
+    el.textContent = ''
+    var badge = document.createElement('span')
+    badge.className = 'rank-badge ' + (data.identity.office === 'president' ? 'rank-president' : ({ '新人': 'rank-new', '见习社员': 'rank-apprentice', '正式社员': 'rank-member', '资深社员': 'rank-senior' }[data.level.title] || 'rank-new'))
+    badge.textContent = data.identity.office === 'president' ? '会长' : data.level.title
+    el.appendChild(badge)
+    el.appendChild(document.createTextNode(' · ' + [data.xp + ' EXP', branch && branch.name, data.identity.office !== 'president' && office].filter(Boolean).join(' · ')))
   } catch (_) { /* Identity service failure must not block the profile. */ }
   finally { clearTimeout(timeout) }
 }

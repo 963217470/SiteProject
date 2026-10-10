@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { fail } from './repository.mjs'
+import { experience, levelFor } from './community.mjs'
 
 const types = new Set(['publish', 'read', 'branch', 'gamejam', 'proof'])
 const offices = new Set(['president', 'vice-president', null])
@@ -62,9 +63,9 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
   }
   app.use('/api/tasks', (req, _res, next) => req.user ? next() : next(Object.assign(new Error('请先登录'), { status: 401 })))
   app.get('/api/tasks/me', (req, res) => {
-    const xp = Math.max(0, db.prepare('SELECT coalesce(sum(amount),0) n FROM experience_ledger WHERE user_id=?').get(req.user.id).n)
+    const xp = experience(db, req.user.id)
     const levels = db.prepare('SELECT * FROM experience_levels ORDER BY threshold').all()
-    res.json({ id: req.user.id, role: req.user.role, xp, level: levels.filter(l => l.threshold <= xp).at(-1), next_level: levels.find(l => l.threshold > xp) || null, identity: db.prepare('SELECT * FROM member_identity WHERE user_id=?').get(req.user.id) || {}, disciplines: db.prepare('SELECT * FROM disciplines ORDER BY rowid').all(), levels, ledger: db.prepare('SELECT * FROM experience_ledger WHERE user_id=? ORDER BY created_at DESC,id LIMIT 50').all(req.user.id) })
+    res.json({ id: req.user.id, role: req.user.role, xp, level: levels.filter(l => l.threshold <= xp).at(-1), next_level: levels.find(l => l.threshold > xp) || null, identity: db.prepare('SELECT * FROM member_identity WHERE user_id=?').get(req.user.id) || {}, disciplines: db.prepare('SELECT * FROM disciplines ORDER BY rowid').all(), levels, ledger: db.prepare('SELECT id,amount,reason,created_at FROM experience_ledger WHERE user_id=? AND amount>0 UNION ALL SELECT id,amount,reason,created_at FROM community_experience WHERE user_id=? ORDER BY created_at DESC,id LIMIT 50').all(req.user.id, req.user.id) })
   })
   app.put('/api/tasks/identity', (req, res) => {
     const id = req.body?.discipline_id
@@ -97,8 +98,11 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
     const requirements = {}
     for (const key of ['url', 'image', 'build']) { if (body.requirements?.[key] !== undefined && typeof body.requirements[key] !== 'boolean') fail(400, '证明要求无效'); requirements[key] = Boolean(body.requirements?.[key]) }
     if (body.type === 'gamejam') requirements.url = true
+    if (body.is_advanced !== undefined && typeof body.is_advanced !== 'boolean') fail(400, '进阶任务标记无效')
+    if (body.is_advanced && reward !== 100) fail(400, '进阶任务固定奖励 100 EXP')
     const id = randomUUID()
     db.prepare("INSERT INTO tasks(id,title,description,type,target,reward,status,deadline,requirements,created_by,created_at) VALUES(?,?,?,?,?,?,'draft',?,?,?,?)").run(id, title, description, body.type, target, reward, deadline, JSON.stringify(requirements), req.user.id, now())
+    db.prepare('UPDATE tasks SET is_advanced=? WHERE id=?').run(body.is_advanced ? 1 : 0, id)
     res.status(201).json({ id })
   })
   app.patch('/api/tasks/:id/status', (req, res) => {
@@ -109,6 +113,7 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
   app.post('/api/tasks/:id/join', (req, res) => {
     repository.transaction(() => {
       const task = getTask(req.params.id, req.user); open(task)
+      if (task.is_advanced && experience(db, req.user.id) < 50) fail(403, '达到 50 EXP 后才能领取进阶任务')
       db.prepare('INSERT INTO task_enrollments(task_id,user_id,joined_at,activity_baseline) VALUES(?,?,?,?) ON CONFLICT DO NOTHING').run(task.id, req.user.id, now(), db.prepare('SELECT coalesce(max(id),0) n FROM task_activity').get().n)
     }); res.json({ ok: true })
   })
@@ -155,17 +160,11 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
   })
   app.post('/api/tasks/rewards/:id/reverse', (req, res) => {
     admin(req.user)
-    repository.transaction(() => {
-      const row = db.prepare('SELECT * FROM experience_ledger WHERE id=? AND amount>0').get(req.params.id)
-      if (!row || db.prepare('SELECT 1 FROM experience_ledger WHERE reverses_id=?').get(row.id)) fail(409, '奖励不存在或已经撤销')
-      const reason = text(req.body?.reason, 1000, true)
-      db.prepare('INSERT INTO experience_ledger(id,task_id,user_id,amount,created_at,created_by,reason,reverses_id) VALUES(?,?,?,?,?,?,?,?)').run(randomUUID(), row.task_id, row.user_id, -row.amount, now(), req.user.id, reason, row.id)
-      db.prepare("UPDATE task_enrollments SET state='revoked' WHERE task_id=? AND user_id=?").run(row.task_id, row.user_id)
-    }); res.json({ ok: true })
+    fail(409, '经验只会累加，不支持撤销或扣除')
   })
   app.get('/api/tasks/people', (req, res) => {
     admin(req.user); const q = text(req.query.q || '', 100)
-    res.json(db.prepare("SELECT p.id,p.username,i.office,i.discipline_id FROM profiles p LEFT JOIN member_identity i ON i.user_id=p.id WHERE instr(lower(p.username),lower(?))>0 ORDER BY p.username LIMIT 50").all(q))
+    res.json(db.prepare("SELECT p.id,p.username,i.office,i.discipline_id FROM profiles p LEFT JOIN member_identity i ON i.user_id=p.id WHERE instr(lower(p.username),lower(?))>0 ORDER BY p.username LIMIT 50").all(q).map(person => { const xp=experience(db,person.id); return {...person,xp,level:levelFor(db,xp).level} }))
   })
   app.put('/api/tasks/people/:id', (req, res) => {
     admin(req.user); const office = req.body?.office
@@ -175,7 +174,7 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
   })
   app.put('/api/tasks/levels', (req, res) => {
     admin(req.user); const levels = req.body?.levels
-    if (!Array.isArray(levels) || levels.length !== 5 || levels[0]?.threshold !== 0 || levels.some((l,i) => !Number.isSafeInteger(l.threshold) || l.threshold < 0 || l.threshold>100000000 || (i>0 && l.threshold<=levels[i-1].threshold))) fail(400, '等级门槛必须从 0 开始严格递增')
+    if (!Array.isArray(levels) || levels.length !== 4 || levels[0]?.threshold !== 0 || levels.some((l,i) => !Number.isSafeInteger(l.threshold) || l.threshold < 0 || l.threshold>100000000 || (i>0 && l.threshold<=levels[i-1].threshold))) fail(400, '等级门槛必须从 0 开始严格递增')
     repository.transaction(() => { db.exec('DELETE FROM experience_levels'); for (const l of levels) db.prepare('INSERT INTO experience_levels(threshold,title) VALUES(?,?)').run(l.threshold, text(l.title,30,true)) })
     res.json({ ok: true })
   })

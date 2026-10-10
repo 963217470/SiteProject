@@ -122,7 +122,11 @@ test('likes and comments update counts without trusting browser-supplied counts'
   const write = { role: 'member', method: 'POST', body: { article_id: id, user_id: f.ids.admin } }
   await f.call('/data/article_likes', write)
   await f.call('/data/article_likes', write)
-  await f.call('/data/comments', { ...write, body: { ...write.body, content: 'comment' } })
+  assert.equal((await f.call('/data/comments', { ...write, body: { ...write.body, content: 'comment' } })).status,403)
+  const comment=await f.call('/comments', { ...write, body: { ...write.body, content: 'comment' } })
+  assert.equal(comment.status,201)
+  assert.equal(f.db.prepare('SELECT comments_count FROM articles WHERE id=?').get(id).comments_count,0)
+  await f.call('/comments/'+comment.body.id+'/review',{role:'admin',method:'POST',body:{approved:true}})
   const counts = await f.call('/data/articles?id=eq.' + id, { method: 'PATCH', body: { likes_count: 999, comments_count: 999 } })
   assert.equal(counts.body[0].likes_count, 1)
   assert.equal(counts.body[0].comments_count, 1)

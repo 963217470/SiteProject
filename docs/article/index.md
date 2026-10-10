@@ -21,6 +21,8 @@ layout: page
   <div id="article-shell" class="article-shell" style="display:none"></div>
 </div>
 
+<CommentThread />
+
 <script>
 // 动态加载 KaTeX（仅浏览器环境）
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -462,27 +464,6 @@ function renderActionButton(type, label, count, active) {
   ].join('')
 }
 
-function renderComments() {
-  if (!articleState.comments.length) {
-    return '<div class="empty-comments">还没有评论，来写下第一条想法吧。</div>'
-  }
-
-  return articleState.comments.map(function(comment) {
-    return [
-      '<div class="comment-item">',
-      '  <img class="comment-avatar" src="' + escapeHtml(getUserAvatar(comment.user_id)) + '" alt="">',
-      '  <div class="comment-main">',
-      '    <div class="comment-head">',
-      '      <strong>' + escapeHtml(getUserName(comment.user_id)) + '</strong>',
-      '      <span>' + formatDate(comment.created_at) + '</span>',
-      '    </div>',
-      '    <p>' + escapeHtml(comment.content) + '</p>',
-      '  </div>',
-      '</div>'
-    ].join('')
-  }).join('')
-}
-
 function getFirstArticleImage(content) {
   var match = String(content || '').match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/i)
   return match ? match[1] : ''
@@ -695,20 +676,7 @@ function renderArticle() {
     '      <div class="body-title">正文</div>',
     '      <div class="article-body">' + renderMarkdown(article.content || '') + '</div>',
     '    </section>',
-    '    <section class="comment-section" id="comments">',
-    '      <div class="section-title">',
-    '        <h2>评论</h2>',
-    '        <span>' + commentCount + ' 条讨论</span>',
-    '      </div>',
-    articleState.session ? [
-    '      <div class="comment-editor">',
-    '        <img class="comment-avatar" src="' + escapeHtml(getUserAvatar(articleState.session.user.id)) + '" alt="">',
-    '        <textarea id="comment-input" placeholder="写下你的评论..."></textarea>',
-    '        <button onclick="submitComment()">发布评论</button>',
-    '      </div>'
-    ].join('') : '      <div class="login-tip">登录后可以参与评论、点赞和收藏。</div>',
-    '      <div id="comment-list" class="comment-list">' + renderComments() + '</div>',
-    '    </section>',
+
     '  </main>',
     '  <aside class="floating-actions" aria-label="文章互动">',
     renderActionButton('toggleLike', '点赞', likeCount, articleState.liked),
@@ -779,21 +747,6 @@ async function loadInteractionState(supabase) {
   } else {
     articleState.favoriteTableReady = true
     articleState.favorited = !!(favoriteResult.data && favoriteResult.data.length)
-  }
-}
-
-async function loadComments(supabase) {
-  var result = await withTimeout(
-    supabase
-      .from('comments')
-      .select('id, article_id, user_id, content, created_at, updated_at')
-      .eq('article_id', articleState.id)
-      .order('created_at', { ascending: true }),
-    { data: [], error: { message: 'comments timeout' } }
-  )
-
-  if (!result.error) {
-    articleState.comments = result.data || []
   }
 }
 
@@ -868,40 +821,6 @@ async function toggleFavorite() {
   renderArticle()
 }
 
-async function submitComment() {
-  var input = document.getElementById('comment-input')
-  var content = input ? input.value.trim() : ''
-  if (!content) return
-
-  var supabase = window.__supabase
-  var sessionResult = await supabase.auth.getSession()
-  var session = sessionResult.data.session
-  if (!session || !isUuid(session.user.id)) {
-    alert('登录状态异常，请退出后重新使用 GitHub 登录')
-    return
-  }
-
-  var insert = await supabase
-    .from('comments')
-    .insert({ article_id: articleState.id, user_id: session.user.id, content: content })
-    .select('id, article_id, user_id, content, created_at, updated_at')
-
-  if (insert.error) {
-    alert('评论失败：' + insert.error.message)
-    return
-  }
-
-  articleState.comments.push(insert.data[0])
-  articleState.article.comments_count = (articleState.article.comments_count || 0) + 1
-  await updateArticleCount(supabase, { comments_count: articleState.article.comments_count })
-  await loadProfiles(supabase, [session.user.id])
-  renderArticle()
-}
-
-function scrollToTop() {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
 async function loadArticle() {
   setVisible('loading', true)
   setVisible('error', false)
@@ -958,7 +877,7 @@ async function loadArticle() {
 
     Promise.all([
       loadInteractionState(supabase),
-      loadComments(supabase)
+      Promise.resolve()
     ]).then(function() {
       return loadProfiles(supabase, [articleState.article.author_id].concat(articleState.comments.map(function(comment) { return comment.user_id })))
     }).then(function() {
@@ -973,10 +892,13 @@ async function loadArticle() {
   }
 }
 
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 if (typeof window !== 'undefined') {
   window.toggleLike = toggleLike
   window.toggleFavorite = toggleFavorite
-  window.submitComment = submitComment
   window.scrollToTop = scrollToTop
   window.generateArticlePackage = generateArticlePackage
 }

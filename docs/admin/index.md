@@ -21,6 +21,8 @@ sidebar: false
     <a href="/admin/profile-review">个人信息审核</a>
     <a href="/admin/kb">知识库管理</a>
     <a href="/admin/tasks">任务管理</a>
+    <a href="/admin/comments/">评论审核</a>
+    <a href="/admin/tasks?view=people">用户管理</a>
   </nav>
 
   <section class="review-summary" aria-label="审核统计">

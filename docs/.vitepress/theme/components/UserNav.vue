@@ -6,12 +6,15 @@
         aria-label="账户菜单" @click="showMenu = !showMenu" @keydown.down.prevent="openWithKeyboard">
         <img :src="avatar" alt="" class="user-avatar-sm" @error="avatar = '/images/default-avatar.svg'">
         <span class="user-name">{{ displayName }}</span>
+        <span v-if="unread" class="account-unread-dot" :title="unread+' 条未读消息'" :aria-label="unread+' 条未读消息'"></span>
         <ChevronDown :size="16" aria-hidden="true" :class="{ expanded: showMenu }" />
       </button>
       <Transition name="account">
         <nav v-if="showMenu" id="rd-account-menu" class="user-dropdown" aria-label="个人账户" @keydown="navigateItems">
           <div class="dropdown-heading"><span>{{ displayName }}</span><span v-if="isAdmin" class="admin-badge">管理员</span></div>
           <a v-for="item in items" :key="item.href" :href="item.href" class="dropdown-item"><component :is="item.icon" :size="17" aria-hidden="true" />{{ item.label }}</a>
+          <button type="button" class="dropdown-item" @click="checkin"><CalendarCheck :size="17" />每日签到</button>
+          <a href="/messages/" class="dropdown-item"><Bell :size="17" />消息<span v-if="unread" class="community-badge">{{unread>99?'99+':unread}}</span></a>
           <template v-if="isAdmin"><div class="dropdown-divider"></div><a href="/admin" class="dropdown-item"><ShieldCheck :size="17" aria-hidden="true" />管理后台</a></template>
           <div class="dropdown-divider"></div>
           <button class="dropdown-item logout" type="button" :disabled="signingOut" @click="logout"><LogOut :size="17" aria-hidden="true" />{{ signingOut ? '正在退出…' : '退出登录' }}</button>
@@ -26,8 +29,12 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vitepress'
-import { Bookmark, ChevronDown, FileText, History, LogIn, LogOut, Settings, ShieldCheck, UserRound, ListChecks } from 'lucide-vue-next'
+import { Bell, CalendarCheck, Bookmark, ChevronDown, FileText, History, LogIn, LogOut, Settings, ShieldCheck, UserRound, ListChecks } from 'lucide-vue-next'
 
+import { communityRequest } from '../lib/community-api.mjs'
+const unread=ref(0)
+function checkin(){close();window.dispatchEvent(new CustomEvent('rd:checkin'))}
+async function refreshUnread(){if(!user.value || document.hidden)return;const id=user.value.id;try{const result=await communityRequest('/messages');if(user.value?.id===id)unread.value=result.unread}catch{}}
 const route = useRoute()
 const root = ref(null)
 const trigger = ref(null)
@@ -49,6 +56,7 @@ const items = [
   { label: '个人设置', href: '/user/profile?tab=settings', icon: Settings }
 ]
 let client
+let unreadTimer
 let subscription
 let requestId = 0
 function close(returnFocus = false) {
@@ -73,6 +81,8 @@ function navigateItems(event) {
 async function applySession(_event, session) {
   const id = ++requestId
   user.value = session?.user || null
+  unread.value=0
+  if(user.value)refreshUnread()
   profile.value = null
   avatar.value = user.value?.user_metadata?.avatar_url || '/images/default-avatar.svg'
   if (!user.value) { loading.value = false; close(); return }
@@ -102,10 +112,16 @@ onMounted(() => {
   subscription = client.auth.onAuthStateChange(applySession).data.subscription
   document.addEventListener('pointerdown', outside)
   document.addEventListener('focusin', focusOutside)
+  unreadTimer=setInterval(refreshUnread,60000)
+  window.addEventListener('rd:community-updated',refreshUnread)
+  document.addEventListener('visibilitychange',refreshUnread)
 })
 onUnmounted(() => {
   ++requestId
   subscription?.unsubscribe()
+  clearInterval(unreadTimer)
+  window.removeEventListener('rd:community-updated',refreshUnread)
+  document.removeEventListener('visibilitychange',refreshUnread)
   document.removeEventListener('pointerdown', outside)
   document.removeEventListener('focusin', focusOutside)
 })

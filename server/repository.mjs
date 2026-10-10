@@ -37,6 +37,10 @@ function scope(table, user, action, args) {
   if (['comments', 'article_likes', 'article_favorites'].includes(table)) {
     const articleScope = visibleArticles(user, 'a', args)
     let sql = `EXISTS(SELECT 1 FROM articles a WHERE a.id=t.article_id AND ${articleScope})`
+    if (table === 'comments' && !admin) {
+      args.push(user?.id || '')
+      sql += " AND (t.status='approved' OR t.user_id=?) AND (t.parent_id IS NULL OR EXISTS(SELECT 1 FROM comments c WHERE c.id=t.parent_id AND c.status='approved'))"
+    }
     if (table === 'article_favorites' || action !== 'read') {
       if (!user) return '0=1'
       if (!(admin && table === 'comments')) { args.push(user.id); sql += ' AND t.user_id=?' }
@@ -124,7 +128,7 @@ export class Repository {
   }
   transaction(fn) {
     this.db.exec('BEGIN IMMEDIATE')
-    try { const result = fn(); this.db.exec('COMMIT'); return result }
+    try { const result = fn(); this.onCommit?.(); this.db.exec('COMMIT'); return result }
     catch (error) { this.db.exec('ROLLBACK'); throw error }
   }
   encode(table, body) {
@@ -149,6 +153,7 @@ export class Repository {
   }
   visibleArticle(id, user) { return this.query('articles', { id: 'eq.' + id }, user)[0] }
   insert(table, input, user) {
+    if (table === 'comments') fail(403, '请使用评论审核接口')
     if (!user) fail(401, '请先登录')
     if (!input || Array.isArray(input) || typeof input !== 'object') fail(400, '无效的数据')
     const data = this.encode(table, input)
@@ -190,6 +195,7 @@ export class Repository {
       : this.db.prepare(`SELECT * FROM "${table}" WHERE article_id=? AND user_id=?`).get(data.article_id, data.user_id)
   }
   mutate(table, method, input, query, user) {
+    if (table === 'comments') fail(403, '请使用评论审核接口')
     const isCounter = table === 'articles' && method === 'PATCH' && input && Object.keys(input).length > 0 && Object.keys(input).every(key => counters.has(key))
     const rows = this.query(table, query, user, isCounter ? 'read' : 'write')
     if (isCounter) {

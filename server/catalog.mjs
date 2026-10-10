@@ -62,7 +62,7 @@ export function installCatalogRoutes(app, db, repository, config) {
   app.get('/api/catalog/:id', (req,res) => res.json(project(item(req.params.id,req.user),true)))
   app.post('/api/catalog', (req,res) => {
     const user=logged(req), data=payload(req.body,user), id=randomUUID(), time=new Date(now()).toISOString(), fields=Object.keys(data)
-    db.prepare(`INSERT INTO catalog_items(id,author_id,created_at,updated_at,${fields.join(',')}) VALUES(?,?,?,?,${fields.map(()=>'?').join(',')})`).run(id,user.id,time,time,...Object.values(data))
+    repository.transaction(() => db.prepare(`INSERT INTO catalog_items(id,author_id,created_at,updated_at,${fields.join(',')}) VALUES(?,?,?,?,${fields.map(()=>'?').join(',')})`).run(id,user.id,time,time,...Object.values(data)))
     res.status(201).json({id,status:data.status})
   })
   app.put('/api/catalog/:id', (req,res) => {
@@ -70,7 +70,7 @@ export function installCatalogRoutes(app, db, repository, config) {
     if (row.author_id !== user.id) fail(403,'只能编辑自己的作品')
     if (!Number.isInteger(req.body?.revision) || req.body.revision<1) fail(400,'无效的作品版本')
     const data=payload(req.body,user), fields=Object.keys(data)
-    const result=db.prepare(`UPDATE catalog_items SET ${fields.map(f=>f+'=?').join(',')},review_note='',revision=revision+1,updated_at=? WHERE id=? AND revision=?`).run(...Object.values(data),new Date(now()).toISOString(),row.id,req.body.revision)
+    const result=repository.transaction(() => db.prepare(`UPDATE catalog_items SET ${fields.map(f=>f+'=?').join(',')},review_note='',revision=revision+1,updated_at=? WHERE id=? AND revision=?`).run(...Object.values(data),new Date(now()).toISOString(),row.id,req.body.revision))
     if (!result.changes) fail(409,'作品已更新，请重新加载后编辑')
     res.json({id:row.id,status:data.status})
   })
@@ -81,7 +81,7 @@ export function installCatalogRoutes(app, db, repository, config) {
     if (!['published','rejected','archived'].includes(status) || (status !== 'published' && !note)) fail(400,'请填写审核或下架原因')
     const row=item(req.params.id,req.user)
     if (status !== 'archived' && row.status !== 'pending') fail(409,'作品已不在待审核状态')
-    const result=db.prepare('UPDATE catalog_items SET status=?,review_note=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?').run(status,note,new Date(now()).toISOString(),row.id,req.body.revision)
+    const result=repository.transaction(() => db.prepare('UPDATE catalog_items SET status=?,review_note=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?').run(status,note,new Date(now()).toISOString(),row.id,req.body.revision))
     if (!result.changes) fail(409,'作品已更新，请刷新后审核')
     res.json({ok:true})
   })

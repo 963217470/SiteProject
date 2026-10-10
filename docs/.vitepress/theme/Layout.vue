@@ -1,5 +1,6 @@
 <template>
   <ReadingTracker />
+  <CheckinDialog />
   <DefaultTheme.Layout>
     <template #home-hero-before>
       <HeroSection />
@@ -36,6 +37,7 @@ function goToEditor() {
 }
 import UserNav from './components/UserNav.vue'
 import ReadingTracker from './components/ReadingTracker.vue'
+import CheckinDialog from './components/CheckinDialog.vue'
 import HeroSection from './components/HeroSection.vue'
 import HomeArticles from './components/HomeArticles.vue'
 import CommunityLinks from './components/CommunityLinks.vue'

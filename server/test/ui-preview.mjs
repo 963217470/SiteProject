@@ -9,6 +9,9 @@ import { createApp } from '../app.mjs'
 const dataDir=mkdtempSync(join(tmpdir(),'rd-tasks-ui-')),db=openDatabase(join(dataDir,'site.sqlite')),secret=randomUUID()+randomUUID(),time=Date.now()
 for(const role of ['member','admin']){db.prepare('INSERT INTO users(id,github_id,github_username) VALUES(?,?,?)').run(role,'ui-'+role,role);db.prepare('INSERT INTO profiles(id,username,role) VALUES(?,?,?)').run(role,role==='admin'?'预览管理员':'预览社员',role)}
 const backend=createApp(db,{dataDir,sessionSecret:secret,siteUrl:'http://127.0.0.1:5175',production:false,maxUploadMb:100,adminGithubIds:[]})
+db.prepare("INSERT INTO articles(id,title,content,status,author_id) VALUES('community-preview','社团开发笔记','# 开发笔记\n\n记录开发中的实践与交流。','published','admin')").run()
+db.prepare("INSERT INTO comments(id,article_id,user_id,content,status) VALUES('preview-comment','community-preview','admin','欢迎分享开发经验。','approved')").run()
+db.prepare("INSERT INTO comments(id,article_id,user_id,content,status) VALUES('pending-comment','community-preview','member','这是一条等待审核的评论。','pending')").run()
 for(const [id,title,type,target,reward] of [['read','阅读三篇开发笔记','read',3,100],['publish','分享一篇开发实践','publish',1,150],['branch','完善知识库分支','branch',1,100],['jam','参加本月 Game Jam','gamejam',1,300]])db.prepare("INSERT INTO tasks(id,title,description,type,target,reward,status,requirements,created_by,created_at) VALUES(?,?,?,?,?,?,'active',?,'admin',?)").run(id,title,'本地测试任务，用于验证任务领取、进度展示和审核流程。',type,target,reward,JSON.stringify(type==='gamejam'?{url:true,image:true}:{}),time)
 db.prepare("INSERT INTO task_enrollments(task_id,user_id,joined_at,activity_baseline) VALUES('read','member',?,0),('jam','member',?,0)").run(time,time)
 db.prepare("UPDATE task_enrollments SET state='submitted' WHERE task_id='jam'").run()

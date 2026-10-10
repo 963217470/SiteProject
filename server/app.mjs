@@ -16,6 +16,8 @@ import { Repository, fail, member } from './repository.mjs'
 import { installReadingRoutes } from './reading.mjs'
 import { installTaskRoutes } from './tasks.mjs'
 import { installCatalogRoutes, catalogFileVisible } from './catalog.mjs'
+import { flushCommunity, installCommunityRoutes } from './community.mjs'
+import { installCommentRoutes } from './comments.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
 const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'catalog'])
@@ -23,6 +25,9 @@ const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'c
 export function createApp(db, config) {
   const app = express()
   const repository = new Repository(db)
+  const now = config.now || Date.now
+  db.function('rd_now', now)
+  repository.onCommit = () => flushCommunity(db, now)
   const passport = new Passport()
   const uploadDir = join(config.dataDir, 'uploads')
   mkdirSync(uploadDir, { recursive: true, mode: 0o700 })
@@ -74,6 +79,9 @@ export function createApp(db, config) {
   })
   const parseJson = express.json({ limit: '3mb' })
   app.use((req,res,next) => req.method === 'POST' && req.path.startsWith('/api/storage/') ? next() : parseJson(req,res,next))
+  app.use('/api', (_req, _res, next) => { try { repository.transaction(() => {}); next() } catch (error) { next(error) } })
+  installCommunityRoutes(app, db, repository, now)
+  installCommentRoutes(app, db, repository, now)
   installReadingRoutes(app, db, repository, config.now || Date.now)
   installTaskRoutes(app, db, repository, config.now || Date.now)
   installCatalogRoutes(app, db, repository, config)
@@ -116,7 +124,7 @@ export function createApp(db, config) {
     repository.project(table, [], req.query.select || '*')
     let rows
     if (method === 'GET' || method === 'HEAD') rows = repository.query(table, req.query, user)
-    else if (method === 'POST') rows = [repository.insert(table, req.body, user)]
+    else if (method === 'POST') rows = repository.transaction(() => [repository.insert(table, req.body, user)])
     else if (['PATCH', 'DELETE'].includes(method)) rows = repository.mutate(table, method, req.body, req.query, user)
     else fail(405, '请求方法不支持')
     if (req.get('Prefer')?.includes('count=')) {

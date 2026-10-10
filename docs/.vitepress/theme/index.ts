@@ -4,6 +4,10 @@ import ArticleEditor from './components/ArticleEditor.vue'
 import ArticleLibrary from './components/ArticleLibrary.vue'
 import TaskCenter from './components/TaskCenter.vue'
 import CatalogCenter from './components/CatalogCenter.vue'
+import CommentThread from './components/CommentThread.vue'
+import CommentModeration from './components/CommentModeration.vue'
+import MessageInbox from './components/MessageInbox.vue'
+import './community.css'
 import './custom.css'
 import './ui.css'
 import './tasks.css'
@@ -19,6 +23,9 @@ export default {
     app.component('ArticleLibrary', ArticleLibrary)
     app.component('TaskCenter', TaskCenter)
     app.component('CatalogCenter', CatalogCenter)
+    app.component('CommentThread', CommentThread)
+    app.component('CommentModeration', CommentModeration)
+    app.component('MessageInbox', MessageInbox)
     if (typeof window !== 'undefined') {
       if (!window.__api) await import('../../public/api-client.js')
       app.config.globalProperties.$supabase = window.__api

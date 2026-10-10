@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fail } from './repository.mjs'
 import { creditTaskReading } from './tasks.mjs'
+import { creditDailyReading } from './community.mjs'
 
 export function installReadingRoutes(app, db, repository, now = Date.now) {
   app.use('/api/reading', (req, _res, next) => req.user ? next() : next(Object.assign(new Error('请先登录'), { status: 401 })))
@@ -34,6 +35,7 @@ export function installReadingRoutes(app, db, repository, now = Date.now) {
       db.prepare('UPDATE reading_clock SET last_tick=? WHERE user_id=?').run(time, req.user.id)
       if (req.body.active) db.prepare('UPDATE reading_history SET seconds=seconds+?,last_read_at=? WHERE user_id=? AND article_id=?').run(credit, new Date(time).toISOString(), req.user.id, session.article_id)
       creditTaskReading(db, req.user.id, session.article_id, credit, time)
+      creditDailyReading(db, req.user.id, session.article_id, credit, time)
       if (req.body.closed) db.prepare('DELETE FROM reading_sessions WHERE id=?').run(session.id)
       else db.prepare('UPDATE reading_sessions SET last_seen=?,active=? WHERE id=?').run(time, req.body.active ? 1 : 0, session.id)
       return { credited_seconds: credit }

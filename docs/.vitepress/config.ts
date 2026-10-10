@@ -7,7 +7,7 @@ export default defineConfig({
 
   head: [
     ['script', { src: '/api-client.js?v=20261008-reading-history' }],
-    ['script', { src: '/profile-page.js?v=20261009-tasks' }]
+    ['script', { src: '/profile-page.js?v=20261010-community' }]
   ],
 
   vite: {
