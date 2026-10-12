@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fafaf5" />
+    <meta
+      name="description"
+      content="RD STUDIO 游戏创作社团：分享作品、开发笔记与创作中的每一步。"
+    />
+    <title>RD STUDIO · 游戏创作基地</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="vendor/lucide.min.js" defer></script>
+    <script src="model.js" defer></script>
+    <script src="scene.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">跳到主要内容</a>
+    <header class="header wrap">
+      <a class="brand" href="#home" aria-label="RD STUDIO 首页"
+        ><span class="brand-mark">RD<span>✦</span></span
+        ><span>RD STUDIO<small>GAME MAKERS CLUB</small></span></a
+      >
+      <nav aria-label="主导航">
+        <button data-page="home" class="active">首页</button
+        ><button data-page="knowledge">知识库</button
+        ><button data-page="games">游戏 / 工具</button
+        ><button data-page="community">社区</button
+        ><button data-page="about">关于</button>
+      </nav>
+      <div class="header-actions">
+        <button
+          class="icon"
+          id="search-button"
+          aria-label="搜索帖子"
+          title="搜索帖子"
+        >
+          <i data-lucide="search"></i></button
+        ><button
+          class="avatar"
+          id="profile"
+          aria-label="个人面板"
+          title="个人面板"
+        >
+          你</button
+        ><button
+          class="icon mobile-menu"
+          id="menu"
+          aria-label="展开导航"
+          aria-expanded="false"
+        >
+          <i data-lucide="menu"></i>
+        </button>
+      </div>
+    </header>
+    <main id="main">
+      <section class="hero" id="hero" aria-labelledby="hero-title">
+        <canvas
+          id="world"
+          role="img"
+          aria-label="原创像素游戏场景：云朵、森林、湖面、红屋顶小屋和冒险者"
+        ></canvas>
+        <div class="hero-wash"></div>
+        <div class="wrap hero-content">
+          <div class="eyebrow">
+            <span class="live-dot"></span> RD STUDIO / GAME MAKERS CLUB
+          </div>
+          <h1 id="hero-title">游戏创作，<br />从这里<span>开始。</span></h1>
+          <p>
+            一群热爱游戏的朋友，一些天马行空的想法。<br />在 RD
+            STUDIO，把「要是有这样的游戏」变成现实。
+          </p>
+          <div class="hero-actions">
+            <button class="primary" data-page="games">
+              发现我们的游戏 <i data-lucide="arrow-up-right"></i></button
+            ><button class="secondary" data-compose>
+              找伙伴，一起做 <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+          <div class="hero-foot">
+            <span class="mini-avatar mint">程</span
+            ><span class="mini-avatar lavender">美</span
+            ><span class="mini-avatar lemon">策</span
+            ><span>不同技能，同一种热爱。</span>
+          </div>
+        </div>
+        <div class="scene-caption">
+          <span class="live-dot"></span> 下一个冒险，由我们开始。<small
+            >RD WORLD / 01</small
+          >
+        </div>
+      </section>
+      <div class="wrap main-content">
+        <section class="entries" id="entries" aria-label="快捷入口">
+          <button class="entry lemon" data-page="knowledge">
+            <i data-lucide="book-open"></i
+            ><span
+              ><small>LEARN SOMETHING</small><strong>从第一个游戏开始</strong
+              ><em>开发笔记、学习路线、少走一点弯路。</em></span
+            ><i data-lucide="arrow-up-right"></i></button
+          ><button class="entry lavender" data-category="组队招募">
+            <i data-lucide="users"></i
+            ><span
+              ><small>FIND YOUR PARTY</small><strong>好点子，还差一个你</strong
+              ><em>找一个伙伴，把想法做出来。</em></span
+            ><i data-lucide="arrow-up-right"></i></button
+          ><button class="entry mint" id="daily-button">
+            <i data-lucide="flag"></i
+            ><span
+              ><small>MAKE IT HAPPEN</small><strong>今天也推进一点点</strong
+              ><em>完成小目标，让创作成为习惯。</em></span
+            ><i data-lucide="arrow-up-right"></i>
+          </button>
+        </section>
+        <section id="showcase" class="section">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow muted">MADE WITH PASSION</div>
+              <h2>从脑洞，到可玩的世界 <span class="tag">社团作品</span></h2>
+            </div>
+            <button class="text-button" data-page="games">
+              全部作品 <i data-lucide="arrow-up-right"></i>
+            </button>
+          </div>
+          <div id="works" class="work-grid"></div>
+        </section>
+        <section id="extra" class="section" hidden></section>
+        <section
+          id="community"
+          class="community section"
+          aria-labelledby="feed-title"
+        >
+          <div class="feed">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow muted">WHAT'S HAPPENING</div>
+                <h2 id="feed-title">社团正在发生</h2>
+                <p class="subtle">分享进度，也分享卡住的时刻。</p>
+              </div>
+              <button class="primary" data-compose>
+                <i data-lucide="plus"></i> 发布帖子
+              </button>
+            </div>
+            <div class="filter-row">
+              <div class="filters" role="group" aria-label="帖子分类">
+                <button class="active" data-filter="全部">全部</button
+                ><button data-filter="作品试玩">作品试玩</button
+                ><button data-filter="游戏开发">游戏开发</button
+                ><button data-filter="组队招募">组队招募</button
+                ><button data-filter="美术音效">美术音效</button
+                ><button data-filter="收藏">收藏</button>
+              </div>
+              <select id="sort" aria-label="帖子排序">
+                <option value="latest">最新发布</option>
+                <option value="hot">热门讨论</option>
+              </select>
+            </div>
+            <div class="search-row" hidden>
+              <i data-lucide="search"></i
+              ><input
+                id="query"
+                type="search"
+                placeholder="搜索标题、作者或正文"
+                aria-label="搜索帖子"
+              /><button
+                class="icon"
+                id="clear-search"
+                title="关闭搜索"
+                aria-label="关闭搜索"
+              >
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+            <button class="pinned" id="welcome">
+              <i data-lucide="pin"></i><span class="tag">置顶</span
+              ><strong>欢迎来到 RD STUDIO！让热爱有个落脚点。</strong
+              ><i data-lucide="arrow-right"></i>
+            </button>
+            <div id="posts" aria-live="polite"></div>
+            <p id="result-count" class="result-count"></p>
+          </div>
+          <aside class="sidebar">
+            <section class="side-block">
+              <div class="side-heading">
+                <h3>创作，从这里开始</h3>
+                <span class="tag">本地示例</span>
+              </div>
+              <p>
+                程序、策划、美术与音效。<br />一个好世界，需要很多种想象力。
+              </p>
+              <div class="club-stats">
+                <span><b>03</b>探索中的世界</span
+                ><span><b id="post-count">06</b>正在发生的故事</span>
+              </div>
+              <button class="primary full" data-page="about">
+                认识 RD STUDIO <i data-lucide="arrow-up-right"></i>
+              </button>
+            </section>
+            <section class="side-block announcement">
+              <span class="tag">创作提案</span>
+              <h3>你的热爱，我们接住。</h3>
+              <p>
+                想法不必完美，也可以开始。<br />带上你的第一个原型，来聊聊。
+              </p>
+              <button class="text-button" data-compose>
+                发起组队 <i data-lucide="arrow-right"></i>
+              </button>
+            </section>
+            <section class="side-block">
+              <div class="side-heading">
+                <h3>本周的小目标</h3>
+                <i data-lucide="sparkles"></i>
+              </div>
+              <button class="mini-task" id="checkin-side">
+                <span class="date mint"
+                  ><i data-lucide="calendar-check"></i></span
+                ><span
+                  ><strong>来打个招呼</strong
+                  ><small>每日签到 · +5 EXP</small></span
+                ><i data-lucide="arrow-up-right"></i></button
+              ><button class="mini-task" data-page="knowledge">
+                <span class="date lavender"
+                  ><i data-lucide="notebook-pen"></i></span
+                ><span
+                  ><strong>学一个新技巧</strong
+                  ><small>从一篇开发笔记开始</small></span
+                ><i data-lucide="arrow-up-right"></i>
+              </button>
+            </section>
+            <section class="side-block">
+              <h3>大家都在聊</h3>
+              <button class="topic" data-query="Godot">
+                # Godot 开发日记 <i data-lucide="arrow-up-right"></i></button
+              ><button class="topic" data-query="Jam">
+                # Game Jam 组队 <i data-lucide="arrow-up-right"></i></button
+              ><button class="topic" data-query="像素">
+                # 像素美术练习 <i data-lucide="arrow-up-right"></i>
+              </button>
+            </section>
+          </aside>
+        </section>
+      </div>
+    </main>
+    <footer class="wrap footer">
+      <span class="brand-text">RD STUDIO</span
+      ><span>为热爱而聚，让创意开始。</span
+      ><small>© 2026 · GAME MAKERS CLUB</small>
+    </footer>
+    <button
+      class="floating primary"
+      data-compose
+      aria-label="发布帖子"
+      title="发布帖子"
+    >
+      <i data-lucide="plus"></i>
+    </button>
+    <dialog id="detail">
+      <div class="dialog-top">
+        <span class="eyebrow muted">RD STUDIO COMMUNITY</span
+        ><button class="icon" data-close aria-label="关闭详情" title="关闭">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div id="detail-content"></div>
+    </dialog>
+    <dialog id="compose">
+      <form id="post-form">
+        <div class="dialog-top">
+          <h2>写下新的开始</h2>
+          <button
+            type="button"
+            class="icon"
+            data-close
+            aria-label="关闭发布窗口"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <label
+          >标题<input
+            name="title"
+            required
+            maxlength="80"
+            placeholder="用一句话，开启讨论" /></label
+        ><label
+          >频道<select name="category">
+            <option>组队招募</option>
+            <option>作品试玩</option>
+            <option>游戏开发</option>
+            <option>美术音效</option>
+          </select></label
+        ><label
+          >正文<textarea
+            name="body"
+            required
+            maxlength="5000"
+            rows="7"
+            placeholder="聊聊你的想法、进度和遇到的问题…"
+          ></textarea>
+        </label>
+        <div class="form-bottom">
+          <small>发布到此浏览器的示例社区</small
+          ><button type="submit" class="primary">
+            发布 <i data-lucide="arrow-up-right"></i>
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <div id="toast" class="toast" role="status"></div>
+  </body>
+</html>
