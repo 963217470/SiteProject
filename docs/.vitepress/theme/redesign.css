@@ -148,6 +148,9 @@ body #app .home-community .rd-article-content { min-height: 0; }
 .knowledge-reading { padding: 28px 0; }
 .knowledge-reading header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .knowledge-reading header span { font-size: 13px; color: var(--vp-c-text-2); }
+.knowledge-reading .rd-article { grid-template-columns: 150px minmax(0,1fr); gap: 20px; }
+.knowledge-reading .rd-article h2 { font-size: 19px; }
+@media (max-width: 520px) { .knowledge-reading .rd-article { grid-template-columns: minmax(0,1fr); } }
 .knowledge-reading > a { display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--rd-rule); padding: 20px 0; }
 .knowledge-reading > a > div { flex: 1; min-width: 0; }
 .knowledge-reading h3 { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
