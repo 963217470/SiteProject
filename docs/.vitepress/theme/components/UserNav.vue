@@ -145,17 +145,10 @@ onUnmounted(() => {
 .dropdown-item:disabled { cursor: wait; opacity: .6; }
 .dropdown-divider { height: 1px; background: var(--vp-c-divider); margin: 4px; }
 .account-error { padding: 8px 10px; font-size: 13px; color: #dc2626; overflow-wrap: anywhere; }
-.login-link { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px; font-size: 14px; color: var(--vp-c-brand-1); border: 1px solid var(--vp-c-brand-1); border-radius: 6px; }
-.login-link:hover { background: var(--vp-c-brand-soft); }
-:global(.VPNav.nav-at-top) .login-link { color: white; border-color: rgba(255,255,255,.75); background: rgba(255,255,255,.08); }
-:global(.VPNav.nav-at-top) .user-menu { color: white; }
-:global(.VPNav.nav-at-top) .user-menu:hover { background: rgba(255,255,255,.12); }
+.login-link { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 16px; font-size: 14px; font-weight: 600; color: #fff; background: var(--vp-c-brand-1); border: 1px solid var(--vp-c-brand-1); border-radius: 8px; }
+.login-link:hover { background: var(--vp-c-brand-2); color: #fff; }
 .account-enter-active, .account-leave-active { transition: opacity 140ms, transform 140ms; }
 .account-enter-from, .account-leave-to { opacity: 0; transform: translateY(-4px); }
-@media (max-width: 959px) {
-  :global(.VPNav.nav-at-top) .login-link { color: var(--vp-c-brand-1); border-color: var(--vp-c-brand-1); background: var(--vp-c-bg); }
-  :global(.VPNav.nav-at-top) .user-menu { color: var(--vp-c-text-1); }
-}
 @media (max-width: 640px) { .user-name { display: none; } .user-nav { margin-left: 4px; } .user-menu { gap: 4px; padding: 4px; } }
 @media (prefers-reduced-motion: reduce) { *, .account-enter-active, .account-leave-active { transition: none; } }
 </style>

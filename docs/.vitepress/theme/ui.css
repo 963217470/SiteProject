@@ -6,11 +6,7 @@
   .VPNavBar:not(.has-sidebar) .container { max-width: 1440px; align-items: center; }
   .VPNavBar .content-body { align-items: center; }
   .VPNavBar .user-menu { min-height: 44px; }
-  .VPNav.nav-at-top .user-menu, .VPNav.nav-at-top .user-name { color: white !important; }
-  .VPNav.nav-at-top .user-menu { background: transparent !important; }
-  .VPNav.nav-at-top .user-menu:hover, .VPNav.nav-at-top .user-menu[aria-expanded="true"] { background: rgba(255,255,255,.12) !important; }
   .VPNav .user-dropdown, .VPNav .dropdown-heading { color: var(--vp-c-text-1); }
-  .VPNav.nav-at-top .login-link { color: white !important; border-color: rgba(255,255,255,.75); }
   .VPNav.nav-scrolled .user-menu, .VPNav.nav-scrolled .user-name { color: var(--vp-c-text-1) !important; }
 }
 @media (min-width: 1200px) {

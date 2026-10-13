@@ -1,0 +1,161 @@
+/* A lighter presentation for the existing application, without changing its controls. */
+:root {
+  --rd-card-bg: #fff;
+  --rd-card-border: #e8e8e4;
+  --rd-card-shadow: 0 7px 24px #24282408;
+  --rd-hover-shadow: 0 12px 28px #24282412;
+  --rd-lemon: #faf5d9;
+  --rd-lavender: #f1edfb;
+  --rd-mint: #eaf5ee;
+}
+.dark {
+  --rd-card-bg: #202023;
+  --rd-card-border: #37373b;
+  --rd-card-shadow: 0 7px 24px #00000012;
+  --rd-hover-shadow: 0 12px 28px #00000030;
+  --rd-lemon: #302e24;
+  --rd-lavender: #2d2935;
+  --rd-mint: #243029;
+}
+
+body #app .VPNavBar .login-link {
+  color: #fff !important;
+  background: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+  border-radius: 8px;
+  min-height: 42px;
+  min-width: 86px;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px #991b1b12;
+}
+body #app .VPNavBar .login-link:is(:hover, :focus-visible) {
+  color: #fff !important;
+  background: var(--vp-c-brand-2);
+}
+body #app .VPNavBar :is(.user-menu, .user-name) { color: var(--vp-c-text-1) !important; }
+body #app .VPNavBar .user-menu:is(:hover, [aria-expanded="true"]) { background: var(--vp-c-bg-soft); }
+body #app .VPNavBar .user-avatar-sm { border: 2px solid var(--rd-card-bg); box-shadow: 0 0 0 1px var(--rd-card-border); }
+body #app .VPNavBar .DocSearch-Button { border-radius: 8px; }
+
+body #app .VPHome .community-links { border-bottom: 0; gap: 22px; }
+body #app .VPHome .community-links a {
+  padding: 24px 22px;
+  border: 1px solid var(--rd-card-border);
+  border-radius: 8px;
+  box-shadow: var(--rd-card-shadow);
+  min-height: 110px;
+}
+body #app .community-links a:nth-child(1) { background: var(--rd-lemon); }
+body #app .community-links a:nth-child(2) { background: var(--rd-lavender); }
+body #app .community-links a:nth-child(3) { background: var(--rd-mint); }
+body #app .community-links strong { font-size: 18px; line-height: 1.5; }
+body #app .community-links .community-arrow { transition: transform 180ms ease; }
+body #app .hero-explore { background: var(--vp-c-brand-1); border-color: transparent; border-radius: 8px; }
+body #app .hero-explore:hover { background: var(--vp-c-brand-2); }
+
+body #app .rd-article-feed { gap: 18px; padding-top: 20px; }
+body #app .rd-article {
+  border: 1px solid var(--rd-card-border);
+  border-radius: 8px;
+  padding: 22px;
+  background: var(--rd-card-bg);
+  box-shadow: var(--rd-card-shadow);
+}
+body #app .rd-article-grid { gap: 24px; }
+body #app .rd-article-grid .rd-article { padding: 16px; }
+body #app .home-community .rd-article { padding: 20px; }
+body #app .knowledge-reading .rd-article + .rd-article { margin-top: 16px; }
+body #app .rd-tags button { border-radius: 5px; padding: 4px 9px; }
+body #app .rd-tags button:nth-child(3n+1) { background: var(--rd-mint); }
+body #app .rd-tags button:nth-child(3n+2) { background: var(--rd-lavender); }
+body #app .rd-tags button:nth-child(3n+3) { background: var(--rd-lemon); }
+
+body #app .catalog-card {
+  padding: 16px;
+  border: 1px solid var(--rd-card-border);
+  border-radius: 8px;
+  background: var(--rd-card-bg);
+  box-shadow: var(--rd-card-shadow);
+}
+body #app .catalog-card-content { padding: 18px 0 0; }
+body #app .catalog-card h2 { font-size: 20px; }
+.home-work-grid > a {
+  padding: 16px;
+  border: 1px solid var(--rd-card-border);
+  border-radius: 8px;
+  background: var(--rd-card-bg);
+  box-shadow: var(--rd-card-shadow);
+}
+.home-work-text h3 { font-size: 20px; }
+body #app .task-list { gap: 20px; }
+body #app .task-item {
+  padding: 24px;
+  border: 1px solid var(--rd-card-border);
+  border-radius: 8px;
+  background: var(--rd-card-bg);
+  box-shadow: var(--rd-card-shadow);
+}
+body #app .task-identity { border-radius: 8px; background: var(--rd-mint); }
+body #app .task-type { border-radius: 5px; background: var(--rd-lavender); padding: 4px 9px; }
+body #app .knowledge-directory-row { border-radius: 6px; margin-top: 5px; }
+body #app .knowledge-directory-row:hover { background: var(--rd-mint); }
+body #app .knowledge-directory-row[aria-pressed="true"] { background: var(--vp-c-brand-soft); }
+body #app .knowledge-node-symbol {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--rd-lavender);
+}
+body #app .rd-segments { border-radius: 8px; }
+body #app .rd-segments button { border-radius: 6px; }
+body #app .rd-segments button svg { flex-shrink: 0; }
+body #app .rd-view-modes button { width: 40px; min-width: 40px; padding: 0; }
+body #app .rd-segments button[aria-pressed="true"] { color: var(--vp-c-brand-1); }
+body #app #profile-page .profile-hero { border-radius: 8px; background: var(--rd-mint); }
+body #app .notification-row { border-radius: 6px; margin-top: 8px; }
+body #app .notification-row.unread { background: var(--rd-lemon); }
+body #app :is(.rd-button, .btn-primary, .btn-secondary, .submit-button, .primary-link) { border-radius: 8px; }
+body #app :is(.rd-button, .login-link, .catalog-card, .rd-article, .task-item, .community-links a),
+.home-work-grid > a {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+body #app :is(.rd-button, .login-link, .hero-explore, .fab-button):not(:disabled):active { transform: scale(.97); }
+body #app :is(.rd-search, .editor-shell .body-panel, .login-card) { border-radius: 8px; }
+
+@media (hover: hover) and (pointer: fine) {
+  body #app :is(.catalog-card, .rd-article, .task-item, .community-links a):hover,
+  .home-work-grid > a:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--rd-hover-shadow);
+    border-color: #991b1b38;
+  }
+  body #app .community-links a:hover .community-arrow { transform: translate(3px, -3px); }
+  body #app .rd-button:not(:disabled):hover { box-shadow: 0 3px 10px #991b1b12; }
+}
+@media (max-width: 767px) {
+  body #app .VPNavBar .login-link { min-width: 70px; min-height: 38px; padding: 6px 10px; font-size: 14px; }
+  body #app .VPHome .community-links a { padding: 18px; min-height: 92px; }
+  body #app .home-community .rd-article { padding: 14px; grid-template-columns: 82px minmax(0,1fr); gap: 12px; }
+  body #app .task-item { padding: 20px; }
+  body #app .rd-article { padding: 18px; }
+  body #app .catalog-card { padding: 14px; }
+}
+@media (max-width: 520px) {
+  body #app .knowledge-reading .rd-article { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 360px) {
+  body #app .VPNavBarTitle .title { font-size: 15px; gap: 6px; }
+  body #app .VPNavBarTitle .logo { width: 24px; height: 24px; }
+  body #app .VPNavBarSearch .DocSearch-Button { width: 32px; min-width: 32px; }
+  body #app .VPNavBarHamburger { width: 32px; }
+  body #app .VPNavBar .user-nav { margin-left: 0; }
+  body #app .VPNavBar .login-link { min-width: 64px; font-size: 13px; padding: 6px 9px; gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body #app :is(.catalog-card, .rd-article, .task-item, .community-links a, .rd-button, .login-link, .fab-button):is(:hover, :active),
+  .home-work-grid > a:hover,
+  body #app .community-links a:hover .community-arrow,
+  body #app .rd-article:hover .rd-article-cover img { transform: none; }
+}
