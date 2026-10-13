@@ -20,6 +20,6 @@ import HeroSection from './components/HeroSection.vue'
 import HomeCommunity from './components/HomeCommunity.vue'
 import CommunityLinks from './components/CommunityLinks.vue'
 const route=useRoute()
-const hideComposer=computed(()=>/^\/(?:editor|kb|user\/profile)(?:\/|\.html|$)/.test(route.path))
+const hideComposer=computed(()=>/^\/(?:editor|kb|articles|user\/profile)(?:\/|\.html|$)/.test(route.path))
 function goToEditor(){window.location.assign('/editor')}
 </script>

@@ -17,6 +17,7 @@ import './catalog.css'
 import './redesign.css'
 import './youthful.css'
 import './article-badges.css'
+import './article-community.css'
 import 'katex/dist/katex.min.css'
 import type { Theme } from 'vitepress'
 

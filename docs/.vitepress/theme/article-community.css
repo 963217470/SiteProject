@@ -1,0 +1,74 @@
+.discussion-author { display: contents; }
+.article-community-page { background: #fafbf7; min-height: calc(100svh - var(--vp-nav-height)); }
+.dark .article-community-page { background: #191a1a; }
+.rd-library-compact .article-community-layout { display: block; }
+body #app .rd-library:not(.rd-library-compact) {
+  --vp-c-brand-1: #b83229;
+  --vp-c-brand-2: #a02922;
+  --vp-c-brand-soft: #b832290d;
+  --rd-card-bg: #fff;
+  --rd-card-border: #e6e9e2;
+}
+.article-community-layout { display: grid; grid-template-columns: minmax(0,1fr) 290px; gap: 32px; align-items: start; }
+.article-community-main { min-width: 0; }
+body #app .rd-library:not(.rd-library-compact) .rd-page-header { margin-bottom: 24px; }
+body #app .rd-library:not(.rd-library-compact) .rd-eyebrow { color: #70786f; }
+body #app .rd-library:not(.rd-library-compact) .rd-page-header h1 { font-size: 32px; }
+body #app .rd-library:not(.rd-library-compact) .rd-library-toolbar { padding: 12px 0 18px; gap: 12px; border-top: 0; }
+body #app .rd-library:not(.rd-library-compact) .rd-segments { background: transparent; padding: 0; }
+body #app .rd-library:not(.rd-library-compact) .rd-segments button { padding: 8px 12px; }
+body #app .rd-library:not(.rd-library-compact) .rd-view-modes button { padding: 0; }
+body #app .rd-library:not(.rd-library-compact) .rd-search { flex-basis: 100%; order: 1; background: #f5f6f1; }
+.article-community-welcome { display: flex; align-items: center; gap: 12px; padding: 17px 20px; margin: 20px 0 4px; border: 1px solid #eeded4; background: #fff4ec; border-radius: 8px; color: #705244; font-size: 13px; line-height: 1.7; }
+.article-community-welcome span { flex: 1; min-width: 0; }
+.article-community-welcome svg { flex-shrink: 0; color: #b83229; }
+body #app .rd-library:not(.rd-library-compact) .rd-results { color: #70786f; font-size: 12px; }
+body #app .rd-library:not(.rd-library-compact) .rd-article-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+body #app .rd-library .rd-article-discussion { display: flex; flex-direction: column; padding: 26px; gap: 18px; }
+body #app .rd-article-discussion .rd-article-content { gap: 18px; flex: 1; min-height: 0; }
+body #app .rd-article-discussion .rd-article-meta { gap: 12px; font-size: 12px; }
+body #app .rd-article-discussion .discussion-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: grid; place-items: center; font-size: 17px; font-weight: 650; color: #506353; background: #eaf2e8; }
+body #app .rd-article-discussion:nth-child(3n+2) .discussion-avatar { background: #f0edf6; color: #665877; }
+body #app .rd-article-discussion:nth-child(3n+3) .discussion-avatar { background: #f8f1dc; color: #766743; }
+body #app .rd-article-discussion .discussion-author { display: grid; gap: 2px; min-width: 0; }
+body #app .rd-article-discussion .discussion-author span { font-size: 15px; font-weight: 650; color: var(--vp-c-text-1); overflow-wrap: anywhere; }
+body #app .rd-article-discussion .discussion-author time { color: #737b71; }
+body #app .rd-article-discussion h2 { font-size: 23px; line-height: 1.55; }
+body #app .rd-article-discussion .rd-article-summary { font-size: 15px; color: #636c61; line-height: 1.85; -webkit-line-clamp: 3; }
+body #app .rd-article-discussion .rd-article-cover { width: 100%; aspect-ratio: 16/6; margin-top: 3px; }
+body #app .rd-article-discussion .rd-article-bottom { padding-top: 4px; gap: 16px; }
+body #app .rd-article-discussion .rd-article-counts { color: #626c61; }
+.article-community-sidebar { display: grid; gap: 26px; padding-top: 0; }
+.article-community-sidebar section { padding: 24px 0; border-top: 1px solid var(--rd-card-border); min-width: 0; }
+.article-community-sidebar section:first-child { border-top: 0; }
+.article-community-sidebar .article-community-invite { background: #f5f3df; padding: 26px 24px; border-radius: 8px; }
+.article-community-sidebar h2 { font-size: 19px; line-height: 1.5; font-weight: 700; margin-bottom: 18px; }
+.article-community-invite p:not(.rd-eyebrow) { color: #6b6d58; font-size: 14px; line-height: 1.9; margin: 14px 0 22px; }
+.article-community-sidebar a { display: flex; gap: 12px; align-items: center; min-height: 48px; padding: 10px 0; font-size: 14px; }
+.article-community-sidebar a > span { flex: 1; min-width: 0; }
+.article-community-sidebar a small { display: block; font-size: 12px; color: #737b71; margin-top: 5px; }
+.article-community-sidebar a:hover { color: var(--vp-c-brand-1); }
+.article-community-invite a { color: var(--vp-c-brand-1); justify-content: space-between; font-weight: 600; }
+.article-community-topic { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 0; width: 100%; font-size: 13px; text-align: left; }
+.article-community-topic span { min-width: 0; overflow-wrap: anywhere; }
+.article-community-topic small { font-size: 11px; color: #737b71; flex-shrink: 0; }
+.article-community-topic:hover { color: var(--vp-c-brand-1); }
+.dark body #app .rd-library:not(.rd-library-compact) { --vp-c-brand-1: #fca39b; --vp-c-brand-2: #ffd2cc; --vp-c-brand-soft: #b8322930; --rd-card-bg: #202023; --rd-card-border: #39393c; }
+.dark .article-community-welcome { background: #342923; border-color: #4d3b30; color: #ead6c7; }
+.dark .article-community-sidebar .article-community-invite { background: #302f25; }
+.dark body #app .rd-library:not(.rd-library-compact) :is(.rd-eyebrow,.rd-results),
+.dark body #app .rd-article-discussion :is(.discussion-author time,.rd-article-summary,.rd-article-counts),
+.dark .article-community-sidebar :is(p:not(.rd-eyebrow),small) { color: #bcbfb7; }
+.dark body #app .rd-library:not(.rd-library-compact) .rd-search { background: #28282b; }
+.dark body #app .rd-library:not(.rd-library-compact) .rd-button-primary { background: #b83229; border-color: #b83229; color: #fff; }
+@media(max-width:1100px) { .article-community-layout { grid-template-columns: minmax(0,1fr) 250px; gap: 24px; } body #app .rd-library:not(.rd-library-compact) .rd-article-grid { grid-template-columns: minmax(0,1fr); } }
+@media(max-width:959px) { .article-community-layout { grid-template-columns: minmax(0,1fr); } .article-community-sidebar { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; } }
+@media(max-width:600px) {
+  body #app .rd-library .rd-article-discussion { padding: 20px; gap: 14px; }
+  body #app .rd-article-discussion h2 { font-size: 20px; }
+  body #app .rd-article-discussion .rd-article-summary { font-size: 14px; }
+  body #app .rd-library:not(.rd-library-compact) .rd-page-header h1 { font-size: 27px; }
+  body #app .rd-library:not(.rd-library-compact) .rd-sort { margin-left: auto; }
+  .article-community-welcome { padding: 14px; font-size: 12px; }
+  .article-community-sidebar { grid-template-columns: minmax(0,1fr); }
+}

@@ -4,4 +4,4 @@ layout: page
 sidebar: false
 ---
 
-<ArticleLibrary />
+<div class="article-community-page"><ArticleLibrary /></div>

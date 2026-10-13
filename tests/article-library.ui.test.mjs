@@ -19,6 +19,18 @@ beforeEach(() => {
 afterEach(() => { wrapper?.unmount(); delete window.__api; window.history.replaceState(null, '', '/') })
 async function render(props = {}) { wrapper = mount(ArticleLibrary, { props }); await flushPromises() }
 describe('Article library', () => {
+  it('uses discussion cards and real topic counts, with working sidebar filters', async () => {
+    await render()
+    expect(wrapper.find('.article-community-sidebar').exists()).toBe(true)
+    expect(wrapper.findAll('.rd-article-discussion')).toHaveLength(12)
+    expect(wrapper.findAll('.discussion-avatar')).toHaveLength(12)
+    expect(wrapper.get('.article-community-sidebar a[href="/user/profile?tab=favorites"]').exists()).toBe(true)
+    const topic=wrapper.findAll('.article-community-topic').find(button=>button.text().includes('Godot'))
+    expect(topic.text()).toContain('8 篇')
+    await topic.trigger('click')
+    expect(wrapper.get('.rd-filter-summary').text()).toBe('Godot')
+    expect(wrapper.findAll('.rd-article')).toHaveLength(8)
+  })
   it('paginates and resets the page when searching', async () => {
     await render()
     expect(wrapper.findAll('.rd-article')).toHaveLength(12)
@@ -63,6 +75,8 @@ describe('Article library', () => {
     expect(calls[0].filters.visibility).toBe('public')
     expect(wrapper.findAll('.rd-article')).toHaveLength(3)
     expect(wrapper.find('input').exists()).toBe(false)
+    expect(wrapper.find('.article-community-sidebar').exists()).toBe(false)
+    expect(wrapper.find('.rd-article-discussion').exists()).toBe(false)
   })
   it('continues beyond a full API batch without truncating results', async () => {
     rows = Array.from({ length: 501 }, (_, i) => ({ id: String(i), title: `Note ${i}`, tags: [], visibility: 'public' }))
