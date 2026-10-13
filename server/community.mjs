@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { fail } from './repository.mjs'
+import { experience } from './experience.mjs'
+export { experience } from './experience.mjs'
 
 const DAY = 86400000, OFFSET = 28800000
 export const communityDay = time => new Date(time + OFFSET).toISOString().slice(0, 10)
 export const nextReset = time => Math.floor((time + OFFSET) / DAY) * DAY + DAY - OFFSET
-export function experience(db, user) {
-  return db.prepare('SELECT (SELECT coalesce(sum(amount),0) FROM experience_ledger WHERE user_id=? AND amount>0)+(SELECT coalesce(sum(amount),0) FROM community_experience WHERE user_id=?) xp').get(user, user).xp
-}
 export function levelFor(db, xp) {
   const levels = db.prepare('SELECT * FROM experience_levels ORDER BY threshold').all()
   const level = levels.filter(l => l.threshold <= xp).at(-1)

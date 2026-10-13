@@ -12,7 +12,8 @@ import { pipeline } from 'node:stream/promises'
 import { Transform } from 'node:stream'
 import { fileTypeFromBuffer } from 'file-type'
 import { SQLiteSessionStore } from './database.mjs'
-import { Repository, fail, member } from './repository.mjs'
+import { Repository, fail } from './repository.mjs'
+import { experience, formalMember, formalThreshold } from './experience.mjs'
 import { installReadingRoutes } from './reading.mjs'
 import { installTaskRoutes } from './tasks.mjs'
 import { installCatalogRoutes, catalogFileVisible } from './catalog.mjs'
@@ -150,7 +151,7 @@ export function createApp(db, config) {
     if (!req.user) fail(401, '请先登录')
     const { bucket, path } = fileLocation(req)
     if (bucket === 'resources' && req.user.role !== 'admin') fail(403, '需要管理员权限')
-    if (bucket === 'internal' && !member(req.user)) fail(403, '需要成员权限')
+    if (bucket === 'internal' && !formalMember(db,req.user)) fail(403, '需要正式社员权限')
     if (['task-evidence','catalog'].includes(bucket) && db.prepare('SELECT coalesce(sum(size),0) n FROM files WHERE owner_id=? AND bucket=?').get(req.user.id,bucket).n >= 500 * 1024 * 1024) fail(413, '文件存储已达上限')
     const parts = path.split('/')
     if (parts[0] !== req.user.id && !(['avatars', 'article-images', 'article-attachments'].includes(parts[0]) && parts[1] === req.user.id)) fail(403, '只能上传自己的文件')
@@ -183,7 +184,7 @@ export function createApp(db, config) {
   })
   app.get('/api/files/:bucket/*path', (req, res) => {
     const { bucket, path } = fileLocation(req)
-    if (['resources', 'internal'].includes(bucket) && !member(req.user)) fail(req.user ? 403 : 401, '需要成员权限')
+    if (['resources', 'internal'].includes(bucket) && !formalMember(db,req.user)) fail(req.user ? 403 : 401, '需要正式社员权限')
     const file = db.prepare('SELECT * FROM files WHERE bucket=? AND path=?').get(bucket, path)
     if (!file) fail(404, '文件不存在')
     if (bucket === 'catalog' && !catalogFileVisible(db,file,req.user)) fail(req.user ? 403 : 401,'文件尚未公开')
@@ -206,6 +207,7 @@ export function createApp(db, config) {
     }
     res.json(files.map(file => ({ name: file.path })))
   })
+  app.get('/api/internal/access', (req,res) => res.json({ allowed:formalMember(db,req.user), threshold:formalThreshold(db), xp:req.user ? experience(db,req.user.id) : 0 }))
   app.use('/api', (_req, res) => res.status(404).json({ message: '接口不存在' }))
   app.use((error, _req, res, _next) => {
     if (res.headersSent) return res.end()

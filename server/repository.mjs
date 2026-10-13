@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { formalMember } from './experience.mjs'
 
 const tables = new Set(['profiles', 'articles', 'article_likes', 'article_favorites', 'comments',
   'knowledge_branches', 'knowledge_branch_requests', 'profile_changes', 'internal_resources'])
@@ -18,24 +19,25 @@ const editable = {
 export function fail(status, message) { throw Object.assign(new Error(message), { status }) }
 export function member(user) { return user && ['member', 'admin'].includes(user.role) }
 
-function visibleArticles(user, alias, args) {
+function visibleArticles(user, alias, args, db) {
   if (user?.role === 'admin') return '1=1'
-  let sql = `(${alias}.status='published' AND (${alias}.visibility='public'${member(user) ? " OR " + alias + ".visibility='internal'" : ''}))`
-  if (user) { args.push(user.id); sql = `(${sql} OR ${alias}.author_id=?)` }
+  const internal = formalMember(db,user)
+  let sql = `(${alias}.status='published' AND (${alias}.visibility='public'${internal ? " OR " + alias + ".visibility='internal'" : ''}))`
+  if (user) { args.push(user.id); sql = `(${sql} OR (${alias}.author_id=?${internal ? '' : " AND " + alias + ".visibility='public'"}))` }
   return sql
 }
 
-function scope(table, user, action, args) {
+function scope(table, user, action, args, db) {
   const admin = user?.role === 'admin'
   if (action !== 'read' && !user) fail(401, '请先登录')
   if (table === 'articles') {
-    if (action === 'read') return visibleArticles(user, 't', args)
+    if (action === 'read') return visibleArticles(user, 't', args, db)
     if (admin) return '1=1'
     args.push(user.id)
-    return 't.author_id=?'
+    return "t.author_id=?" + (formalMember(db,user) ? '' : " AND t.visibility='public'")
   }
   if (['comments', 'article_likes', 'article_favorites'].includes(table)) {
-    const articleScope = visibleArticles(user, 'a', args)
+    const articleScope = visibleArticles(user, 'a', args, db)
     let sql = `EXISTS(SELECT 1 FROM articles a WHERE a.id=t.article_id AND ${articleScope})`
     if (table === 'comments' && !admin) {
       args.push(user?.id || '')
@@ -49,7 +51,7 @@ function scope(table, user, action, args) {
   }
   if (table === 'internal_resources') {
     if (action !== 'read' && !admin) fail(403, '需要管理员权限')
-    return admin ? '1=1' : member(user) ? "t.status='published'" : '0=1'
+    return admin ? '1=1' : formalMember(db,user) ? "t.status='published'" : '0=1'
   }
   if (['profile_changes', 'knowledge_branch_requests'].includes(table)) {
     if (action !== 'read' && !admin) fail(403, '需要管理员权限')
@@ -71,7 +73,7 @@ export class Repository {
   query(table, query, user, action = 'read', countOnly = false) {
     const columns = this.columns(table)
     const args = []
-    const conditions = [scope(table, user, action, args)]
+    const conditions = [scope(table, user, action, args, this.db)]
     let filterCount = 0
     for (const [column, raw] of Object.entries(query)) {
       if (['select', 'order', 'limit', 'offset'].includes(column)) continue
@@ -168,7 +170,7 @@ export class Repository {
       delete data.kb_sort_order
       data.author_id = user.id
       data.status = data.status === 'draft' ? 'draft' : 'pending'
-      if (data.visibility === 'internal' && !member(user)) fail(403, '需要成员权限')
+      if (data.visibility === 'internal' && !formalMember(this.db,user)) fail(403, '需要正式社员权限')
     } else if (['comments', 'article_likes', 'article_favorites'].includes(table)) {
       if (!this.visibleArticle(data.article_id, user)) fail(404, '文章不存在')
       data.user_id = user.id
@@ -209,7 +211,7 @@ export class Repository {
       if (table === 'articles' && user?.role !== 'admin') {
         if ('status' in data && !['draft', 'pending'].includes(data.status)) fail(403, '发布文章需要管理员审核')
         if (['reject_reason', 'published_at', 'kb_sort_order'].some(key => key in data && data[key] !== null)) fail(403, '禁止修改审核字段')
-        if (data.visibility === 'internal' && !member(user)) fail(403, '需要成员权限')
+        if (data.visibility === 'internal' && !formalMember(this.db,user)) fail(403, '需要正式社员权限')
         // Editing published content sends it back through review.
         if (Object.keys(data).some(key => ['title', 'summary', 'content', 'cover_url', 'tags', 'visibility', 'kb_enabled', 'kb_branch_id'].includes(key))) data.status = 'pending'
       }

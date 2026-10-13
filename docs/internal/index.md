@@ -9,6 +9,7 @@ import { ref, computed, onMounted } from 'vue'
 
 const loading = ref(true)
 const notMember = ref(false)
+const threshold = ref(300)
 const isAdmin = ref(false)
 const articles = ref([])
 const resources = ref([])
@@ -35,12 +36,16 @@ onMounted(async () => {
     if (!session) { notMember.value = true; loading.value = false; return }
     const profileResult = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle()
     const role = profileResult.data?.role || 'user'
-    if (!['member', 'admin'].includes(role)) { notMember.value = true; loading.value = false; return }
+    const accessResponse = await fetch('/api/internal/access', { credentials:'same-origin' })
+    if (!accessResponse.ok) throw new Error('无法读取内部访问权限')
+    const access = await accessResponse.json()
+    threshold.value = access.threshold
+    if (!access.allowed) { notMember.value = true; loading.value = false; return }
     isAdmin.value = role === 'admin'
     const { data } = await supabase.from('articles').select('id, title, summary, cover_url, tags, created_at, profiles!articles_author_id_fkey(username)').eq('status', 'published').eq('visibility', 'internal').order('created_at', { ascending: false })
     articles.value = data || []
     await loadResources()
-  } catch (e) { console.error('Internal articles error:', e) }
+  } catch (e) { notMember.value = true; console.error('Internal articles error:', e) }
   finally { loading.value = false }
 })
 
@@ -146,9 +151,9 @@ async function publishResource() {
 <div class="internal-page">
 <h1>🔒 内部文章</h1>
 <div v-show="loading" class="loading-state"><p>加载中...</p></div>
-<div v-show="notMember && !loading" class="not-member"><p>请先 <a href="/login">登录</a> 以查看内部文章</p></div>
+<div v-show="notMember && !loading" class="not-member"><p>内部内容仅正式社员及以上可见（累计 {{ threshold }} EXP）。<a href="/login">登录</a> 或前往 <a href="/tasks">任务中心</a> 查看等级。</p></div>
 <div v-show="!loading && !notMember">
-<div class="internal-notice"><p>⚠️ 此区域仅社员可见，请勿外传</p></div>
+<div class="internal-notice"><p>此区域仅正式社员及以上可见，请勿外传。</p></div>
 <section class="resources-section">
 <div class="section-heading">
 <div>

@@ -8,6 +8,7 @@
   --rd-lavender: #f1edfb;
   --rd-mint: #eaf5ee;
 }
+html:not([data-rd-internal-access="allowed"]) body #app :is(.VPNavBarMenuLink,.VPNavScreenMenuLink)[href^="/internal"] { display: none; }
 .dark {
   --rd-card-bg: #202023;
   --rd-card-border: #37373b;

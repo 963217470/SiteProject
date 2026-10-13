@@ -35,6 +35,8 @@ import { communityRequest } from '../lib/community-api.mjs'
 const unread=ref(0)
 function checkin(){close();window.dispatchEvent(new CustomEvent('rd:checkin'))}
 async function refreshUnread(){if(!user.value || document.hidden)return;const id=user.value.id;try{const result=await communityRequest('/messages');if(user.value?.id===id)unread.value=result.unread}catch{}}
+let accessRequest=0
+async function refreshInternalAccess(){const run=++accessRequest;document.documentElement.dataset.rdInternalAccess='denied';try{const response=await fetch('/api/internal/access',{credentials:'same-origin'});const result=response.ok ? await response.json() : null;if(run===accessRequest)document.documentElement.dataset.rdInternalAccess=result?.allowed ? 'allowed' : 'denied'}catch{}}
 const route = useRoute()
 const root = ref(null)
 const trigger = ref(null)
@@ -81,6 +83,7 @@ function navigateItems(event) {
 async function applySession(_event, session) {
   const id = ++requestId
   user.value = session?.user || null
+  refreshInternalAccess()
   unread.value=0
   if(user.value)refreshUnread()
   profile.value = null
@@ -105,15 +108,16 @@ async function logout() {
   } catch { error.value = '退出失败，请稍后重试' }
   finally { signingOut.value = false }
 }
-watch(() => route.path, () => close())
+watch(() => route.path, () => {close();refreshInternalAccess()})
 onMounted(() => {
   client = window.__api
   if (!client) { loading.value = false; return }
   subscription = client.auth.onAuthStateChange(applySession).data.subscription
   document.addEventListener('pointerdown', outside)
   document.addEventListener('focusin', focusOutside)
-  unreadTimer=setInterval(refreshUnread,60000)
+  unreadTimer=setInterval(()=>{refreshUnread();refreshInternalAccess()},60000)
   window.addEventListener('rd:community-updated',refreshUnread)
+  window.addEventListener('rd:community-updated',refreshInternalAccess)
   document.addEventListener('visibilitychange',refreshUnread)
 })
 onUnmounted(() => {
@@ -121,6 +125,8 @@ onUnmounted(() => {
   subscription?.unsubscribe()
   clearInterval(unreadTimer)
   window.removeEventListener('rd:community-updated',refreshUnread)
+  window.removeEventListener('rd:community-updated',refreshInternalAccess)
+  ++accessRequest
   document.removeEventListener('visibilitychange',refreshUnread)
   document.removeEventListener('pointerdown', outside)
   document.removeEventListener('focusin', focusOutside)
