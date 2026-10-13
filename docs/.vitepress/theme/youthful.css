@@ -114,6 +114,12 @@ body #app .rd-segments button svg { flex-shrink: 0; }
 body #app .rd-view-modes button { width: 40px; min-width: 40px; padding: 0; }
 body #app .rd-segments button[aria-pressed="true"] { color: var(--vp-c-brand-1); }
 body #app #profile-page .profile-hero { border-radius: 8px; background: var(--rd-mint); }
+body #app #profile-page .profile-sidebar { border-right: 0; min-width: 0; }
+body #app #profile-page .profile-tabs { gap: 6px; }
+body #app #profile-page .profile-tabs button { min-height: 48px; text-align: left; justify-items: start; border-bottom: 0; border-radius: 6px; }
+body #app #profile-page .profile-identity h1 { overflow-wrap: anywhere; }
+body #app #profile-page .role-block { flex-wrap: wrap; max-width: 100%; }
+body #app #profile-page .panel-head { flex-wrap: wrap; }
 body #app .notification-row { border-radius: 6px; margin-top: 8px; }
 body #app .notification-row.unread { background: var(--rd-lemon); }
 body #app :is(.rd-button, .btn-primary, .btn-secondary, .submit-button, .primary-link) { border-radius: 8px; }
@@ -144,6 +150,22 @@ body #app :is(.rd-search, .editor-shell .body-panel, .login-card) { border-radiu
 }
 @media (max-width: 520px) {
   body #app .knowledge-reading .rd-article { grid-template-columns: minmax(0,1fr); }
+  body #app #profile-page .profile-tabs { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  body #app #profile-page .profile-tabs button { justify-items: center; text-align: center; }
+  body #app #profile-page .status-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  body #app #profile-page .profile-hero { grid-template-columns: minmax(0,1fr); justify-items: center; text-align: center; gap: 16px; }
+  body #app #profile-page .stats-card { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  body #app #profile-page .stats-card div { padding: 10px 6px; border-bottom: 0; border-right: 1px solid var(--rd-card-border); }
+  body #app #profile-page .stats-card div:last-child { border-right: 0; }
+  body #app #profile-page .article-row { display: flex; flex-wrap: wrap; min-height: 0; gap: 10px 14px; padding: 18px 0; }
+  body #app #profile-page .article-title { flex-basis: 100%; }
+  body #app #profile-page .article-row > span { white-space: nowrap; }
+  body #app #profile-page .row-actions { margin-left: auto; }
+}
+@media (min-width: 768px) and (max-width: 959px) {
+  body #app :is(.VPNavBarMenu, .VPNavBarExtra, .VPNavBarAppearance) { display: none; }
+  body #app .VPNavBarHamburger { display: flex; }
+  body #app .VPNavScreen { display: block; }
 }
 @media (max-width: 360px) {
   body #app .VPNavBarTitle .title { font-size: 15px; gap: 6px; }
