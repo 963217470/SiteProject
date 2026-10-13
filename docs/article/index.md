@@ -24,6 +24,7 @@ layout: page
 <CommentThread />
 
 <script>
+import { articleBadges, articleTopicTags } from '../.vitepress/theme/lib/article-badges.mjs'
 // 动态加载 KaTeX（仅浏览器环境）
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   var link = document.createElement('link')
@@ -107,7 +108,7 @@ function saveRecentArticle(article) {
 async function loadArticleRecord(supabase, id) {
   var result = await supabase
     .from('articles')
-    .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count, views_count')
+    .select('id, title, summary, content, cover_url, tags, visibility, status, kb_enabled, author_id, created_at, likes_count, comments_count, views_count')
     .eq('id', id)
     .single()
 
@@ -115,7 +116,7 @@ async function loadArticleRecord(supabase, id) {
 
   return supabase
     .from('articles')
-    .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count')
+    .select('id, title, summary, content, cover_url, tags, visibility, status, kb_enabled, author_id, created_at, likes_count, comments_count')
     .eq('id', id)
     .single()
 }
@@ -123,7 +124,7 @@ async function loadArticleRecord(supabase, id) {
 async function loadArticleByTitle(supabase, title) {
   return supabase
     .from('articles')
-    .select('id, title, summary, content, cover_url, tags, visibility, status, author_id, created_at, likes_count, comments_count, views_count')
+    .select('id, title, summary, content, cover_url, tags, visibility, status, kb_enabled, author_id, created_at, likes_count, comments_count, views_count')
     .eq('title', title)
     .eq('status', 'published')
     .order('created_at', { ascending: false })
@@ -660,7 +661,7 @@ function renderArticle() {
     '          <span>约 ' + getReadingMinutes(article.content) + ' 分钟阅读</span>',
     '        </div>',
     '      </div>',
-    article.tags && article.tags.length ? '      <div class="article-tags">' + article.tags.map(function(tag) { return '<a class="tag" href="/articles?tag=' + encodeURIComponent(tag) + '">' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
+    articleTopicTags(article.tags).length ? '      <div class="article-tags">' + articleTopicTags(article.tags).map(function(tag) { return '<a class="tag" href="/articles?tag=' + encodeURIComponent(tag) + '">' + escapeHtml(tag) + '</a>' }).join('') + '</div>' : '',
     '      <div class="article-download-card">',
     '        <div>',
     '          <strong>打包下载</strong>',
@@ -677,6 +678,7 @@ function renderArticle() {
     '      <div class="article-body">' + renderMarkdown(article.content || '') + '</div>',
     '    </section>',
 
+    articleBadges(article).length ? '<div class="article-badges article-reader-badges" aria-label="文章标记">' + articleBadges(article).map(function(badge) { return '<span class="article-badge article-badge-' + badge.kind + '">' + badge.label + '</span>' }).join('') + '</div>' : '',
     '  </main>',
     '  <aside class="floating-actions" aria-label="文章互动">',
     renderActionButton('toggleLike', '点赞', likeCount, articleState.liked),

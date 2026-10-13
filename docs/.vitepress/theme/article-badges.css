@@ -1,0 +1,12 @@
+.rd-article-trailing { display: grid; justify-items: end; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+.article-badges { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
+.article-badge { display: inline-flex; align-items: center; font-size: 12px; font-weight: 550; line-height: 20px; padding: 2px 8px; border-radius: 5px; white-space: nowrap; }
+.article-badge-knowledge { color: #6737a0; background: #eee6fa; }
+.article-badge-video { color: #216640; background: #def2e5; }
+.article-badge-manual { color: #765611; background: #fcf0c5; }
+.dark .article-badge-knowledge { color: #dcc4ff; background: #392748; }
+.dark .article-badge-video { color: #b6e8c8; background: #213c2b; }
+.dark .article-badge-manual { color: #f6df94; background: #42371e; }
+.article-reader-badges { margin: 24px 0; }
+body #app .editor-shell .production-field { display: flex; align-items: center; gap: 16px; margin: 18px 0; }
+body #app .editor-shell .production-field select { border: 1px solid var(--vp-c-divider); border-radius: 6px; min-height: 42px; padding: 8px 12px; background: var(--vp-c-bg); color: var(--vp-c-text-1); }

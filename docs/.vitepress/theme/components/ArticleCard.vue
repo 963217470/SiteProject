@@ -5,14 +5,17 @@
       <div class="rd-article-meta"><span>{{ article.profiles?.username || 'RD STUDIO' }}</span><span>{{ date }}</span><span v-if="article.visibility === 'internal'"><LockKeyhole :size="12" aria-hidden="true" />内部</span></div>
       <h2><a :href="href">{{ article.title }}</a></h2>
       <p v-if="summary" class="rd-article-summary">{{ summary }}</p>
-      <div class="rd-article-bottom"><div class="rd-tags"><button v-for="tag in (article.tags || []).slice(0, 3)" :key="tag" type="button" :aria-label="'筛选标签 ' + tag" @click="$emit('tag', tag)">{{ tag }}</button></div><div class="rd-article-counts"><span :aria-label="(article.likes_count || 0) + ' 个赞'"><Heart :size="14" aria-hidden="true" />{{ article.likes_count || 0 }}</span><span :aria-label="(article.comments_count || 0) + ' 条评论'"><MessageCircle :size="14" aria-hidden="true" />{{ article.comments_count || 0 }}</span></div></div>
+      <div class="rd-article-bottom"><div class="rd-tags"><button v-for="tag in topicTags.slice(0, 3)" :key="tag" type="button" :aria-label="'筛选标签 ' + tag" @click="$emit('tag', tag)">{{ tag }}</button></div><div class="rd-article-trailing"><div v-if="badges.length" class="article-badges" aria-label="文章标记"><span v-for="badge in badges" :key="badge.kind" class="article-badge" :class="'article-badge-'+badge.kind">{{ badge.label }}</span></div><div class="rd-article-counts"><span :aria-label="(article.likes_count || 0) + ' 个赞'"><Heart :size="14" aria-hidden="true" />{{ article.likes_count || 0 }}</span><span :aria-label="(article.comments_count || 0) + ' 条评论'"><MessageCircle :size="14" aria-hidden="true" />{{ article.comments_count || 0 }}</span></div></div></div>
     </div>
   </article>
 </template>
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { Heart, LockKeyhole, MessageCircle } from 'lucide-vue-next'
+import { articleBadges, articleTopicTags } from '../lib/article-badges.mjs'
 const props = defineProps({ article: { type: Object, required: true } })
+const badges = computed(() => articleBadges(props.article))
+const topicTags = computed(() => articleTopicTags(props.article.tags))
 defineEmits(['tag'])
 const cover = ref('')
 watch(() => props.article.cover_url, value => { cover.value = value || '/images/default-cover.svg' }, { immediate: true })

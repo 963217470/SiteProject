@@ -49,6 +49,8 @@
         </div>
       </div>
 
+      <label class="production-field"><span class="field-label">创作方式</span><select v-model="production" aria-label="创作方式"><option value="">未标注</option><option value="视频转文">视频转文</option><option value="手搓">手搓</option></select></label>
+
       <div v-if="article.visibility !== 'internal'" class="knowledge-row">
         <label class="kb-toggle">
           <input v-model="article.kbEnabled" type="checkbox">
@@ -188,6 +190,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ArrowLeft, Save, Send, Heading2, Heading3, Bold, Italic, Quote, Code, List, ListOrdered, Link, Image, Minus } from 'lucide-vue-next'
 import MarkdownIt from 'markdown-it'
 import katexPlugin from '@vscode/markdown-it-katex'
+import { productionTag, withProductionTag } from '../lib/article-badges.mjs'
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
 md.use(katexPlugin.default || katexPlugin, { throwOnError: false })
@@ -211,6 +214,7 @@ const kbError = ref('')
 
 const presetTags = ['Unity', 'Godot', 'Unreal Engine', 'C#', '教程', '入门', '进阶', '2D游戏', '3D游戏', '团队合作']
 const selectedTags = ref([])
+const production = computed({ get: () => productionTag(selectedTags.value), set: value => { selectedTags.value = withProductionTag(selectedTags.value, value) } })
 const formatIcons = { h2: Heading2, h3: Heading3, bold: Bold, italic: Italic, quote: Quote, code: Code, ul: List, ol: ListOrdered, link: Link, image: Image, hr: Minus }
 const formatTools = [
   { type: 'h2', label: '二级标题', icon: 'M4 5h2v6h8V5h2v14h-2v-6H6v6H4V5Zm14 4h-3V7h8v2h-3v10h-2V9Z' },

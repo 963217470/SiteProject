@@ -27,6 +27,8 @@ db.prepare("INSERT INTO files VALUES('catalog-cover','catalog','00000000-0000-40
 copyFileSync(new URL('../../docs/public/images/hero-bg.jpg',import.meta.url),join(dataDir,'uploads','catalog-cover'))
 for(const [id,kind,title] of [['demo-game','game','开发原型 · 游戏演示'],['demo-tool','tool','素材整理工具']])db.prepare("INSERT INTO catalog_items(id,author_id,kind,title,summary,content,platform,external_url,cover_id,assets,status,created_at,updated_at) VALUES(?,'00000000-0000-4000-8000-000000001001',?,?,? ,?,'Windows','https://pan.baidu.com/s/local-preview','catalog-cover','[\"catalog-cover\"]','published',?,?)").run(id,kind,title,'仅用于本地验证图文介绍、浏览和下载入口。','# '+title+'\n\n![预览](/api/files/catalog/00000000-0000-4000-8000-000000001001/screenshot.jpg)\n\n## 使用说明\n\n- 解压文件\n- 运行程序\n\n```js\nconsole.log("Hello")\n```\n\n$x^2 + y^2 = 1$',new Date(time).toISOString(),new Date(time).toISOString())
 const app=express()
+db.prepare("UPDATE articles SET tags='[\"Godot\",\"手搓\"]' WHERE id='00000000-0000-4000-8000-000000000001'").run()
+db.prepare("UPDATE articles SET tags='[\"视频转文\"]' WHERE id='00000000-0000-4000-8000-000000000002'").run()
 app.get('/api/__preview/:role',(req,res)=>{
  if(!['admin','member'].includes(req.params.role))return res.sendStatus(404)
  const sid=randomUUID();db.prepare('INSERT INTO sessions(sid,data,expires) VALUES(?,?,?)').run(sid,JSON.stringify({passport:{user:ids[req.params.role]},cookie:{originalMaxAge:3600000,expires:new Date(Date.now()+3600000),httpOnly:true,path:'/'}}),Date.now()+3600000)
