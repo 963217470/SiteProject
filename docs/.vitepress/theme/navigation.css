@@ -1,0 +1,35 @@
+body #app .VPNavBar .VPNavBarMenuLink::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 13px;
+  width: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--vp-c-brand-1);
+  opacity: 0;
+  pointer-events: none;
+}
+body #app .VPNavBar .VPNavBarMenuLink.active::after {
+  left: calc(50% - 9px);
+  width: 18px;
+  opacity: 1;
+}
+body #app .VPNavScreen .VPNavScreenMenuLink[aria-current='page'] {
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
+}
+body #app .VPNavScreen .VPNavScreenMenuLink[aria-current='page'] > span {
+  position: relative;
+  display: inline-block;
+}
+body #app .VPNavScreen .VPNavScreenMenuLink[aria-current='page'] > span::after {
+  content: '';
+  position: absolute;
+  left: calc(50% - 9px);
+  bottom: -6px;
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--vp-c-brand-1);
+}
