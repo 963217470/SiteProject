@@ -6,16 +6,19 @@ import { z } from 'zod'
 import { createRdServer } from '../mcp/rd-studio-mcp/core.mjs'
 import { uploadSchemas } from '../mcp/rd-studio-mcp/upload-tools.mjs'
 import { createNoteUpload } from './note-upload.mjs'
+import { createKnowledgeWriter } from './mcp-knowledge.mjs'
 
 export function installMcpRoutes(app,repository,config){
   const siteUrl=new URL(config.siteUrl).origin
   const rate=rateLimit({windowMs:60000,limit:120,standardHeaders:'draft-8',legacyHeaders:false})
   const notes=createNoteUpload(repository,config)
+  const createNode=createKnowledgeWriter(repository,config)
   const operations=(user,name,input)=>{
     if(name==='get_upload_identity')return notes.identity(user)
     if(name==='get_own_draft')return notes.getDraft(user,input.id)
     if(name==='save_article_draft')return notes.saveDraft(user,input)
     if(name==='upload_note_image')return notes.uploadImage(user,input)
+    if(name==='create_knowledge_node')return createNode(user,input)
     throw Object.assign(new Error('上传接口不存在'),{status:404})
   }
   const originGuard=(req,res,next)=>{
@@ -41,7 +44,7 @@ export function installMcpRoutes(app,repository,config){
     next()
   },express.json({limit:'10mb'}),async(req,res,next)=>{
     const user=notes.authenticate(req)
-    const server=createRdServer({McpServer,z,siteUrl,readRows:async(table,query)=>repository.query(table,query,null),upload:user?(name,input)=>operations(user,name,input):undefined})
+    const server=createRdServer({McpServer,z,siteUrl,readRows:async(table,query)=>repository.query(table,query,null),upload:user?(name,input)=>operations(user,name,input):undefined,knowledgeWrite:!!user?.allow_knowledge_write})
     const transport=new StreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true,enableDnsRebindingProtection:true,allowedOrigins:[siteUrl],allowedHosts:[new URL(siteUrl).host,'127.0.0.1:'+req.socket.localPort,'localhost:'+req.socket.localPort]})
     res.on('close',()=>{void server.close().catch(()=>{})})
     try{await server.connect(transport);await transport.handleRequest(req,res,req.body)}catch(error){if(!res.headersSent)next(error)}

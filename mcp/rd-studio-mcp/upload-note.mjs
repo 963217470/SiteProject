@@ -23,7 +23,7 @@ function nodes(root) {
   walk(root)
   return result
 }
-export async function uploadVideoNote({note_path,title,summary='',tags=[],id,expected_revision,import_key}, {root,request}) {
+export async function uploadVideoNote({note_path,title,summary='',tags=[],id,expected_revision,import_key,knowledge_branch_id}, {root,request}) {
   if(!root)throw new Error('请先配置 RD_STUDIO_NOTES_ROOT，指定允许读取的笔记目录')
   if(id&&!expected_revision)throw new Error('更新前请读取 get_own_draft，并提供 expected_revision')
   const allowed=await realpath(resolve(root))
@@ -67,6 +67,7 @@ export async function uploadVideoNote({note_path,title,summary='',tags=[],id,exp
   const result=await request('save_article_draft',{
     ...(id?{id,expected_revision}:{import_key:import_key||'v2md-'+digest(note.actual)}),
     title:title||headingText||'视频笔记',summary,markdown:content,
+    ...(knowledge_branch_id!==undefined?{knowledge_branch_id}:{}),
     tags:[...new Set([...tags.filter(tag=>tag!=='手搓'),'视频转文'])]
   })
   return {...result,uploaded_images:uploads.size,rewritten_image_references:replacements.length,upload_user:identity.username}

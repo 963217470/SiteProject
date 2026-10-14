@@ -1,4 +1,5 @@
 import { fail } from './repository.mjs'
+import { formalMember } from './experience.mjs'
 
 export function installKnowledgeRoutes(app,repository,config) {
   const db=repository.db
@@ -20,6 +21,10 @@ export function installKnowledgeRoutes(app,repository,config) {
     if(!req.user)fail(401,'请先登录')
     if(req.user.role!=='admin')fail(403,'只有管理员可以固定或取消固定节点位置')
   }
+  app.get('/api/knowledge/creators',(req,res)=>{
+    const rows=db.prepare("SELECT 'b:'||b.id node_id,b.created_by creator_id,b.created_at,p.username,p.full_name FROM knowledge_branches b LEFT JOIN profiles p ON p.id=b.created_by UNION ALL SELECT 'a:'||a.id,a.author_id,a.created_at,p.username,p.full_name FROM articles a LEFT JOIN profiles p ON p.id=a.author_id WHERE a.kb_enabled=1 AND a.status='published' AND (a.visibility='public' OR ?=1)").all(Number(Boolean(formalMember(db,req.user))))
+    res.json({items:rows.map(row=>({node_id:row.node_id,created_at:row.created_at,creator:row.username?{id:row.creator_id,username:row.username,display_name:row.full_name||row.username}:null}))})
+  })
   app.get('/api/knowledge/positions',(req,res)=>{
     const items=db.prepare('SELECT node_id,x,y,updated_at FROM knowledge_positions').all().filter(position=>{
       try{node(position.node_id,req.user);return true}catch(error){if(error.status===404)return false;throw error}

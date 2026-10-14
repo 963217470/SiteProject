@@ -26,6 +26,14 @@ import McpUploadTokens from '../.vitepress/theme/components/McpUploadTokens.vue'
 
 远程 HTTP 客户端可配置 `Authorization: Bearer <上传令牌>`，使用 `get_upload_identity`、`upload_note_image`、`save_article_draft` 和 `get_own_draft`。HTTP 服务不能读取你电脑的文件；本地文件夹一键上传使用 stdio 连接器。
 
+## 让 AI 创建节点、撰写笔记
+
+创建新令牌时勾选“知识库节点写入”，旧令牌权限不变。本地连接器设置 `RD_STUDIO_KNOWLEDGE_WRITE=1` 并刷新连接，即可调用 `create_knowledge_node`，填写名称、说明、上级分支和稳定的 `request_key`。
+
+管理员可以直接创建分支；普通账号需先保存草稿，再提供本人文章的 `article_id` 提交申请，等待管理员审核。创建者绑定令牌账号，节点详情会显示公开昵称。已有同名节点会复用，不覆盖原作者和说明。
+
+AI 可用 `save_article_draft` 写 Markdown、标签，并通过 `knowledge_branch_id` 关联分支；本地 `upload_video_note` 也支持关联。内容只保存为草稿，图片仍按草稿权限保护，不能自动发布、删除节点或固定位置。默认上传为 HTTP 9 / 本地 10 个工具；节点授权后为 HTTP 10 / 本地 11 个工具。
+
 ## 可用能力
 
 - 搜索已发布的公开文章标题，获得摘要、标签和原文链接。
@@ -33,7 +41,7 @@ import McpUploadTokens from '../.vitepress/theme/components/McpUploadTokens.vue'
 - 浏览知识库分支，按分支查询公开笔记。
 - 获取网站公开入口和 MCP 使用说明。
 
-匿名连接只读取公开资料。上传令牌仅允许读写本人的公开草稿和上传笔记图片，不具备发布、审核、内部资料或经验管理权限。令牌有效期 90 天，可随时撤销。未公开的笔记图片仅作者和管理员可见。
+匿名连接只读取公开资料。上传令牌默认允许读写本人的公开草稿和上传笔记图片，可单独授权知识库节点创建或申请；不具备发布、审核、内部资料或经验管理权限。令牌有效期 90 天，可随时撤销。未公开的笔记图片仅作者和管理员可见。
 
 ## Claude Code
 
@@ -71,7 +79,7 @@ DeepSeek Harness 使用官方 `@deepseek-ai/dsh-mcp-client` 插件。`.patch.yam
 
 Gemini CLI、Qwen Code 的 HTTP 配置使用 `httpUrl`，CodeBuddy Code 使用 `type: "http"` 和 `url`，Harness 使用 `streamable-http`。网站接口不是 SSE。读取本地 `_assets` 请选本地上传配置。
 
-保存后刷新 MCP 或重启客户端：公开模式有 5 个工具；上传配置有效时有 10 个工具，先调用 `get_upload_identity` 核对账号，再调用 `upload_video_note`。
+保存后刷新 MCP 或重启客户端：公开模式有 5 个工具；本地上传默认 10 个，启用节点工具后 11 个。先调用 `get_upload_identity` 核对账号及权限，再调用 `upload_video_note` 或 `create_knowledge_node`。
 
 ## 其他兼容客户端
 

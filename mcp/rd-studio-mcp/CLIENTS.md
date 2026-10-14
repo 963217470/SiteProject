@@ -28,7 +28,7 @@
 - `RD_STUDIO_UPLOAD_TOKEN`：从 [网站接入页](https://rd-studio.club/mcp/)登录后创建的本人上传令牌。
 - `RD_STUDIO_NOTES_ROOT`：允许读取的笔记目录，必须包含笔记和 `_assets` 图片。
 
-令牌只用于本人公开草稿与笔记图片。不要将填写后的私人配置提交到 Git；配置不需要 GitHub OAuth Secret 或模型 API Key。
+默认令牌只用于本人公开草稿与笔记图片。创建新令牌时可勾选“知识库节点写入”；上传配置中的 `RD_STUDIO_KNOWLEDGE_WRITE=1` 启用节点工具，但不能绕过服务器的令牌授权。管理员直接创建，普通账号关联自己的文章提交申请。旧令牌权限不变。不要将填写后的私人配置提交到 Git；配置不需要 GitHub OAuth Secret 或模型 API Key。
 
 ## DeepSeek Harness
 
@@ -44,7 +44,7 @@
 
 公开查询不需要令牌。Gemini CLI 和 Qwen Code 使用 `httpUrl`；CodeBuddy Code 使用 `type: "http"` 与 `url`；Harness 使用 `transport: streamable-http`。不要将网站接口配成 SSE。
 
-远程客户端上传已准备的 Markdown / Base64 图片，需要在客户端提供的 HTTP 请求头设置中加入 `Authorization: Bearer <本人上传令牌>`。它会提供 9 个工具，但没有读取本地文件的 `upload_video_note`。本地 stdio 配置填好上传令牌后提供 10 个工具。
+远程客户端上传已准备的 Markdown / Base64 图片，需要在客户端提供的 HTTP 请求头设置中加入 `Authorization: Bearer <本人上传令牌>`。默认提供 9 个工具，授权节点写入后 10 个，但没有读取本地文件的 `upload_video_note`。本地 stdio 默认上传 10 个工具，设置 `RD_STUDIO_KNOWLEDGE_WRITE=1` 后 11 个；调用节点工具前确认令牌已授权。
 
 ## 验证与常见问题
 

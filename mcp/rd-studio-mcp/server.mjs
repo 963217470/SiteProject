@@ -18,11 +18,11 @@ async function readRows(table,query){
 }
 const token=process.env.RD_STUDIO_UPLOAD_TOKEN
 const upload=token?createUploadRequest(siteUrl,token):undefined
-const server=createRdServer({McpServer,z,readRows,siteUrl,upload})
+const server=createRdServer({McpServer,z,readRows,siteUrl,upload,knowledgeWrite:process.env.RD_STUDIO_KNOWLEDGE_WRITE==='1'})
 if(upload)server.registerTool('upload_video_note',{
   description:'读取 RD_STUDIO_NOTES_ROOT 内的本地 .md 笔记及相对图片（如 _assets），上传图片并替换路径，保存为本人草稿，返回检查链接。代码围栏内的图片示例不上传。更新需 id 和 expected_revision。',
   annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false},
-  inputSchema:{note_path:z.string().min(1).max(2000),title:z.string().max(300).optional(),summary:z.string().max(10000).default(''),tags:z.array(z.string().max(100)).max(49).default([]),id:z.string().uuid().optional(),expected_revision:z.string().length(64).optional(),import_key:z.string().max(100).optional()}
+  inputSchema:{note_path:z.string().min(1).max(2000),title:z.string().max(300).optional(),summary:z.string().max(10000).default(''),tags:z.array(z.string().max(100)).max(49).default([]),id:z.string().uuid().optional(),expected_revision:z.string().length(64).optional(),import_key:z.string().max(100).optional(),knowledge_branch_id:z.string().min(1).max(100).nullable().optional()}
 },async args=>{
   try {
     const value=await uploadVideoNote(args,{root:process.env.RD_STUDIO_NOTES_ROOT,request:upload})

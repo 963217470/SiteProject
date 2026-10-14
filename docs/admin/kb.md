@@ -232,6 +232,7 @@ function renderBranchRequests() {
       '  <div>',
       '    <h3>' + esc(getArticleTitle(request.article_id)) + '</h3>',
       '    <p class="request-path">' + esc(parts.join(' / ')) + '</p>',
+      request.requested_description ? '    <p>' + esc(request.requested_description) + '</p>' : '',
       '    <p class="request-meta">提交时间：' + esc(formatDateTime(request.created_at)) + '</p>',
       '  </div>',
       '  <div class="request-actions">',
@@ -357,7 +358,7 @@ async function assignArticleBranch(articleId, branchId) {
   renderAll()
 }
 
-async function createBranch(parentId, name, creatorId) {
+async function createBranch(parentId, name, creatorId, description) {
   var siblingCount = childBranches(parentId).length
   var payload = {
     parent_id: parentId || null,
@@ -368,6 +369,7 @@ async function createBranch(parentId, name, creatorId) {
   }
 
   if (creatorId) payload.created_by = creatorId
+  payload.description = description || ''
   var result = await kbAdminState.sb
     .from('knowledge_branches')
     .insert(payload)
@@ -380,7 +382,7 @@ async function createBranch(parentId, name, creatorId) {
   return branch
 }
 
-async function ensureBranchPath(path, creatorId) {
+async function ensureBranchPath(path, creatorId, description) {
   var parts = normalizeRequestPath(path)
   if (!parts.length) throw new Error('申请路径为空')
 
@@ -392,7 +394,7 @@ async function ensureBranchPath(path, creatorId) {
     current = kbAdminState.branches.find(function(branch) {
       return (branch.parent_id || '') === parentId && (branch.name === name || branch.slug === slug)
     })
-    if (!current) current = await createBranch(parentId, name, creatorId)
+    if (!current) current = await createBranch(parentId, name, creatorId, i === parts.length - 1 ? description : '')
     parentId = current.id
   }
   return current.id
@@ -408,7 +410,7 @@ async function approveBranchRequest(id) {
   if (!confirm('确定通过这个新分支申请，并把文章投入该分支吗？')) return
 
   try {
-    var branchId = await ensureBranchPath(request.requested_path, request.requester_id)
+    var branchId = await ensureBranchPath(request.requested_path, request.requester_id, request.requested_description)
     var articleResult = await kbAdminState.sb
       .from('articles')
       .update({ kb_enabled: true, kb_branch_id: branchId, updated_at: new Date().toISOString() })
@@ -472,7 +474,7 @@ async function loadKbAdmin() {
 
     var requestResult = await supabase
       .from('knowledge_branch_requests')
-      .select('id, article_id, requester_id, requested_path, status, review_note, created_at')
+      .select('id, article_id, requester_id, requested_path, requested_description, status, review_note, created_at')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
     if (requestResult.error) throw new Error('分支申请读取失败：' + requestResult.error.message + '。请重新执行最新版 supabase/knowledge-base.sql')

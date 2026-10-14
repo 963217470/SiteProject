@@ -172,7 +172,7 @@ export class Repository {
     if (!input || Array.isArray(input) || typeof input !== 'object') fail(400, '无效的数据')
     const data = this.encode(table, input)
     const createFields = table === 'profile_changes' ? ['username', 'avatar_url', 'bio', 'status']
-      : table === 'knowledge_branch_requests' ? ['requested_path', 'status'] : editable[table] || []
+      : table === 'knowledge_branch_requests' ? ['requested_path', 'requested_description', 'status'] : editable[table] || []
     const allowed = new Set([...createFields, 'article_id', 'user_id', 'requester_id', 'author_id', 'created_by'])
     if (Object.keys(data).some(key => !allowed.has(key))) fail(400, '禁止设置该字段')
     if (table === 'articles') {
@@ -192,7 +192,7 @@ export class Repository {
       data.user_id = user.id
       data.status = 'pending'
     } else if (table === 'knowledge_branch_requests') {
-      if (Object.keys(data).some(key => !['article_id', 'requester_id', 'requested_path', 'status'].includes(key))) fail(403, '禁止设置审核字段')
+      if (Object.keys(data).some(key => !['article_id', 'requester_id', 'requested_path', 'requested_description', 'status'].includes(key))) fail(403, '禁止设置审核字段')
       const article = this.visibleArticle(data.article_id, user)
       if (!article || article.author_id !== user.id) fail(403, '只能为自己的文章申请分支')
       data.requester_id = user.id

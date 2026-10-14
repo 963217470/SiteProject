@@ -35,7 +35,7 @@ async function fixture(t) {
     const response=await fetch(base+path,{method,headers:{'X-RD-CSRF':'1',...(user?{Cookie:cookies[user]}:{}),...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{}),...headers},body:body?JSON.stringify(body):undefined})
     return {status:response.status,body:await response.json().catch(()=>null)}
   }
-  const mint=async(name='author')=>(await call('/api/mcp-tokens',{method:'POST',user:name,body:{name:'test'}})).body
+  const mint=async(name='author',knowledge=false)=>(await call('/api/mcp-tokens',{method:'POST',user:name,body:{name:'test',allow_knowledge_write:knowledge}})).body
   return {db,base,call,mint,ids,cookies,dataDir,advance:ms=>time+=ms}
 }
 
@@ -134,4 +134,59 @@ test('local importer rejects traversal and missing images before network writes'
   writeFileSync(join(root,'missing.md'),'# Missing\n![missing](_assets/missing.png)')
   await assert.rejects(uploadVideoNote({note_path:'missing.md'},{root,request:async()=>{calls++}}))
   assert.equal(calls,0)
+})
+
+test('HTTP MCP creates admin nodes and linked Markdown drafts with creator metadata and retry safety',async t=>{
+  const f=await fixture(t),token=await f.mint('admin',true)
+  const client=new Client({name:'node-writer-test',version:'1'})
+  await client.connect(new StreamableHTTPClientTransport(new URL(f.base+'/api/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token.token}}}))
+  t.after(()=>client.close())
+  assert.equal((await client.listTools()).tools.length,10)
+  const input={request_key:'node-test',name:'Shader notes',description:'Explain shaders with Markdown notes.'}
+  const created=(await client.callTool({name:'create_knowledge_node',arguments:input})).structuredContent
+  assert.equal(created.status,'created');assert.equal(created.creator.id,f.ids.admin)
+  assert.equal(created.creator.username,'admin')
+  assert.equal((await client.callTool({name:'create_knowledge_node',arguments:input})).structuredContent.id,created.id)
+  assert.equal((await client.callTool({name:'create_knowledge_node',arguments:{...input,description:'Changed'}})).isError,true)
+  const content='# Shader\n\n$E=mc^2$\n\n```glsl\nvec4 color = vec4(1.0);\n```'
+  const draft=(await client.callTool({name:'save_article_draft',arguments:{import_key:'shader-note',title:'Shader',markdown:content,knowledge_branch_id:created.id}})).structuredContent
+  const row=f.db.prepare('SELECT * FROM articles WHERE id=?').get(draft.id)
+  assert.equal(row.status,'draft');assert.equal(row.content,content);assert.equal(row.kb_branch_id,created.id);assert.equal(row.kb_enabled,1)
+  const listed=(await client.callTool({name:'list_knowledge_branches',arguments:{}})).structuredContent.items
+  assert.equal(listed.find(b=>b.id===created.id).creator.username,'admin')
+  const credits=(await f.call('/api/knowledge/creators')).body.items
+  assert.equal(credits.find(c=>c.node_id===created.node_id).creator.username,'admin')
+  assert.ok(!credits.some(c=>c.node_id==='a:'+draft.id))
+})
+
+test('knowledge writes require opted-in token; normal users only submit their own article-linked request',async t=>{
+  const f=await fixture(t),old=await f.mint('admin'),token=await f.mint('author',true)
+  const body={request_key:'normal-node',name:'Study node',description:'Requested explanation'}
+  assert.equal((await f.call('/api/note-upload/create_knowledge_node',{method:'POST',token:old.token,body})).status,403)
+  assert.equal((await f.call('/api/note-upload/create_knowledge_node',{method:'POST',token:token.token,body})).status,403)
+  const draft=(await f.call('/api/note-upload/save_article_draft',{method:'POST',token:token.token,body:{import_key:'request-note',title:'Study',markdown:'# Study'}})).body
+  const client=new Client({name:'request-node-test',version:'1'})
+  await client.connect(new StreamableHTTPClientTransport(new URL(f.base+'/api/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token.token}}}))
+  t.after(()=>client.close())
+  const result=(await client.callTool({name:'create_knowledge_node',arguments:{...body,article_id:draft.id}})).structuredContent
+  assert.equal(result.status,'pending');assert.equal(result.creator.id,f.ids.author)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM knowledge_branches').get().n,0)
+  assert.equal(f.db.prepare('SELECT requested_description FROM knowledge_branch_requests WHERE id=?').get(result.request_id).requested_description,'Requested explanation')
+  assert.equal((await client.callTool({name:'create_knowledge_node',arguments:{...body,article_id:draft.id}})).structuredContent.request_id,result.request_id)
+  assert.equal((await client.callTool({name:'create_knowledge_node',arguments:{...body,article_id:draft.id,created_by:f.ids.admin}})).isError,true)
+  const other=await f.mint('other',true)
+  assert.equal((await f.call('/api/note-upload/create_knowledge_node',{method:'POST',token:other.token,body:{...body,article_id:draft.id}})).status,403)
+})
+
+test('stdio exposes opted-in node writing and preserves the creator of reused existing branches',async t=>{
+  const f=await fixture(t),token=await f.mint('admin',true)
+  const client=new Client({name:'stdio-node-test',version:'1'})
+  await client.connect(new StdioClientTransport({command:process.execPath,args:[resolve(import.meta.dirname,'../../mcp/rd-studio-mcp/server.mjs')],env:{...process.env,RD_STUDIO_URL:f.base,RD_STUDIO_UPLOAD_TOKEN:token.token,RD_STUDIO_KNOWLEDGE_WRITE:'1'},stderr:'pipe'}))
+  t.after(()=>client.close())
+  assert.equal((await client.listTools()).tools.length,11)
+  const id=randomUUID()
+  f.db.prepare("INSERT INTO knowledge_branches(id,name,slug,description,created_by) VALUES(?,'Existing','existing','Original',?)").run(id,f.ids.author)
+  const result=(await client.callTool({name:'create_knowledge_node',arguments:{request_key:'reuse',name:'Existing',description:'New'}})).structuredContent
+  assert.equal(result.id,id);assert.equal(result.reused,true);assert.equal(result.creator.id,f.ids.author);assert.equal(result.description,'Original')
+  assert.equal((await client.callTool({name:'create_knowledge_node',arguments:{request_key:'bad-parent',name:'Node',parent_id:'does-not-exist'}})).isError,true)
 })

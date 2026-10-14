@@ -1,4 +1,4 @@
-# RD STUDIO MCP v1.1.0
+# RD STUDIO MCP v1.2.0
 
 让支持 MCP 的 AI 使用 RD STUDIO 的真实公开资料，不需要付费模型 API，也不需要网站登录令牌。
 
@@ -48,6 +48,22 @@ Gemini / Qwen 的 HTTP 字段是 `httpUrl`，CodeBuddy Code 的字段是 `type: 
 同一文件路径默认生成稳定 `import_key`，完全相同的重试会复用草稿。修改笔记后需先 `get_own_draft` 获取最新 `revision`，调用 `upload_video_note` 时传入 `id`、`expected_revision`；内容冲突会返回错误而不覆盖。每张图片最大 5MB，每次最多 100 个图片引用，笔记图片总配额 500MB。上传中断后可重试，已传图片会按内容去重。
 
 ## 远程上传工具
+
+### 创建节点并帮助写作
+
+在网站创建新令牌时勾选“知识库节点写入”。旧令牌不会自动扩大权限。本地 stdio 还需设置 `RD_STUDIO_KNOWLEDGE_WRITE=1`，刷新连接后使用 `create_knowledge_node`；远程 HTTP 按令牌权限自动提供该工具。
+
+管理员可以直接创建分支，普通账号必须提供本人公开草稿或文章的 `article_id`，生成待管理员审核的申请。创建者由登录账号决定，AI 无法冒用其他人；已有同名分支会复用，保留原创建者和说明。不能删除节点、固定位置、审核或自动发布。
+
+AI 先调用 `get_upload_identity` 确认权限，再用 `list_knowledge_branches` 选择上级，然后调用：
+
+```json
+{"request_key":"ue-materials-v1","name":"UE 材质笔记","description":"材质学习路线和实践笔记","parent_id":null}
+```
+
+管理员拿到分支 `id` 后，可调用 `save_article_draft` 写入标题、Markdown、标签，并传 `knowledge_branch_id` 关联该分支；`upload_video_note` 同样支持这个字段。普通账号先保存自己的草稿，再以 `article_id` 申请分支，审核通过后由网站关联。关联草稿仍不公开，需本人检查并提交审核。重试使用相同 `request_key`，修改参数则换新键；更新草稿必须提供最新 `expected_revision`。
+
+不勾选节点权限时：HTTP 9 个工具、本地上传 10 个；勾选后：HTTP 10 个，本地设置上述环境变量后 11 个。知识库节点详情和分支查询会显示创建者的公开昵称，不暴露邮箱。
 
 HTTP 客户端在请求头配置 `Authorization: Bearer <令牌>` 后可调用：
 

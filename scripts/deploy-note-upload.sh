@@ -3,7 +3,7 @@ set -euo pipefail
 root=/opt/rd-studio
 database=/var/lib/rd-studio/site.sqlite
 kind=${RD_DEPLOY_KIND:-note-upload}
-expected_version=${RD_DB_VERSION:-7}
+expected_version=${RD_DB_VERSION:-8}
 [[ "$kind" =~ ^[a-z][a-z-]+$ && "$expected_version" =~ ^[0-9]+$ ]]
 package="/tmp/rd-$kind-backend.tar.gz"
 old=$(readlink -f "$root/current")

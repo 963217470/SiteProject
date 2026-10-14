@@ -6,6 +6,7 @@
       "env": {
         "RD_STUDIO_URL": "https://rd-studio.club",
         "RD_STUDIO_UPLOAD_TOKEN": "replace-with-your-upload-token",
+        "RD_STUDIO_KNOWLEDGE_WRITE": "1",
         "RD_STUDIO_NOTES_ROOT": "E:/replace-with/notes"
       }
     }

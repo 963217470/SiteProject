@@ -14,6 +14,7 @@
         <aside class="knowledge-inspector" aria-live="polite">
           <p class="rd-eyebrow">KNOWLEDGE EXPLORER</p><div class="knowledge-node-symbol"><Network :size="28" /></div>
           <p class="knowledge-path">{{ selected?.path || '全部分支' }}</p><h2>{{ selected?.label }}</h2>
+          <p class="knowledge-creator"><UserRound :size="15" />创建者：{{ nodeCreator(selected) }}</p>
           <p class="knowledge-description">{{ selected?.description || selected?.summary || (selected?.kind==='root' ? '程序、美术、策划与创作实践。' : '积累实践，连接知识。') }}</p>
           <p v-if="isPinned" class="knowledge-pin-status"><Pin :size="15" />位置已固定</p>
           <div class="knowledge-actions">
@@ -36,14 +37,16 @@
 </template>
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ArrowDown, ArrowUp, ArrowUpRight, BookOpen, ChevronDown, ChevronUp, FileText, LibraryBig, ListTree, LocateFixed, Network, Pin, PinOff, Plus, Scan, Search, Trash2, X, ZoomIn, ZoomOut } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, ArrowUpRight, BookOpen, ChevronDown, ChevronUp, FileText, LibraryBig, ListTree, LocateFixed, Network, Pin, PinOff, Plus, Scan, Search, Trash2, UserRound, X, ZoomIn, ZoomOut } from 'lucide-vue-next'
 import PageState from './PageState.vue'
 import ArticleCard from './ArticleCard.vue'
 import { knowledgeDescendants, knowledgeModel, knowledgeOutline, resolveKnowledge, visibleKnowledge } from '../knowledge.mjs'
 import { knowledgeRequest } from '../lib/knowledge-api.mjs'
 import { createKnowledgeMotion } from '../lib/knowledge-motion.mjs'
 const branches=ref([]),articles=ref([]),loading=ref(true),error=ref(''),graphError=ref(''),user=ref(null),mode=ref('graph'),search=ref(''),selectedId=ref('root'),collapsed=ref(new Set()),stage=ref(null),dialog=ref(null),nameInput=ref(null),saving=ref(false),saveError=ref(''),createParent=ref(null),form=ref({name:'',description:''})
-const nodes=computed(()=>knowledgeModel(branches.value,articles.value)),selected=computed(()=>nodes.value.find(n=>n.id===selectedId.value)||nodes.value[0]),parent=computed(()=>nodes.value.find(n=>n.id===selected.value?.parent)),children=computed(()=>nodes.value.filter(n=>n.parent===selectedId.value)),isAdmin=computed(()=>user.value?.app_metadata?.role==='admin')
+const creators=ref(new Map())
+const nodes=computed(()=>knowledgeModel(branches.value,articles.value).map(node=>({...node,creator:creators.value.get(node.id)||null}))),selected=computed(()=>nodes.value.find(n=>n.id===selectedId.value)||nodes.value[0]),parent=computed(()=>nodes.value.find(n=>n.id===selected.value?.parent)),children=computed(()=>nodes.value.filter(n=>n.parent===selectedId.value)),isAdmin=computed(()=>user.value?.app_metadata?.role==='admin')
+function nodeCreator(node){return node?.kind==='root'?'系统节点':node?.creator?.display_name||node?.creator?.username||'未记录'}
 const pins=ref(new Map()),deleteDialog=ref(null),deleteTarget=ref(null),nodeBusy=ref(false),nodeError=ref(''),graphReady=ref(false)
 const isPinned=computed(()=>pins.value.has(selectedId.value))
 const canDelete=computed(()=>selected.value?.kind!=='root' && !!user.value && (isAdmin.value || (selected.value?.kind==='branch' ? selected.value.created_by : selected.value?.author_id)===user.value.id))
@@ -53,7 +56,7 @@ let cy,motion,observer,subscription,request=0,disposed=false,graphRun=0,darkObse
 const positions=new Map()
 async function allRows(table,columns,filters={},run=request) {const rows=[];for(;;){if(disposed||run!==request)return [];let q=window.__api.from(table).select(columns).order('id',{ascending:true}).limit(500).offset(rows.length);for(const [key,value] of Object.entries(filters))q=q.eq(key,value);const result=await q;if(result.error)throw new Error(result.error.message);rows.push(...(result.data||[]));if((result.data||[]).length<500)return rows}}
 async function load(){const run=++request;++graphRun;motion?.destroy();motion=null;positions.clear();dialog.value?.close();deleteDialog.value?.close();deleteTarget.value=null;nodeError.value='';graphReady.value=false;loading.value=true;error.value='';cy?.destroy();cy=null
-  try{if(!window.__api)throw new Error('无法连接知识库服务');const auth=await window.__api.auth.getUser();const b=await allRows('knowledge_branches','id,parent_id,name,description,sort_order,created_by');const a=await allRows('articles','id,title,summary,content,cover_url,tags,visibility,status,kb_enabled,created_at,likes_count,comments_count,kb_branch_id,kb_sort_order,author_id',{status:'published',kb_enabled:true});const stored=await knowledgeRequest('/positions');if(disposed||run!==request)return;user.value=auth.data?.user;pins.value=new Map(stored.items.map(p=>[p.node_id,{x:p.x,y:p.y}]));branches.value=b.sort((x,y)=>(x.sort_order||0)-(y.sort_order||0));articles.value=a.sort((x,y)=>(x.kb_sort_order||0)-(y.kb_sort_order||0));const params=new URLSearchParams(location.search);selectedId.value=resolveKnowledge(nodes.value,params.get('branch')||params.get('path')||params.get('id')||'root').id;collapsed.value=new Set();loading.value=false;await renderGraph()}
+  try{if(!window.__api)throw new Error('无法连接知识库服务');const auth=await window.__api.auth.getUser();const b=await allRows('knowledge_branches','id,parent_id,name,description,sort_order,created_by');const a=await allRows('articles','id,title,summary,content,cover_url,tags,visibility,status,kb_enabled,created_at,likes_count,comments_count,kb_branch_id,kb_sort_order,author_id',{status:'published',kb_enabled:true});const [stored,credits]=await Promise.all([knowledgeRequest('/positions'),knowledgeRequest('/creators')]);if(disposed||run!==request)return;user.value=auth.data?.user;pins.value=new Map(stored.items.map(p=>[p.node_id,{x:p.x,y:p.y}]));creators.value=new Map(credits.items.map(c=>[c.node_id,c.creator]));branches.value=b.sort((x,y)=>(x.sort_order||0)-(y.sort_order||0));articles.value=a.sort((x,y)=>(x.kb_sort_order||0)-(y.kb_sort_order||0));const params=new URLSearchParams(location.search);selectedId.value=resolveKnowledge(nodes.value,params.get('branch')||params.get('path')||params.get('id')||'root').id;collapsed.value=new Set();loading.value=false;await renderGraph()}
   catch(cause){if(run===request&&!disposed)error.value=cause.message}finally{if(run===request&&!disposed)loading.value=false}
 }
 async function renderGraph(){const run=++graphRun;await nextTick();if(disposed||loading.value||error.value||!stage.value)return
@@ -96,6 +99,6 @@ onUnmounted(()=>{disposed=true;++request;++graphRun;motion?.destroy();cy?.destro
 </script>
 
 <style scoped>
-.knowledge-pin-status{display:flex;align-items:center;gap:6px;color:var(--vp-c-text-2);font-size:13px}
+.knowledge-pin-status,.knowledge-creator{display:flex;align-items:center;gap:6px;color:var(--vp-c-text-2);font-size:13px}
 .knowledge-actions .knowledge-delete,.knowledge-node-error{color:var(--vp-c-brand-1)}
 </style>
