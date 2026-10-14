@@ -1,6 +1,7 @@
 <template>
   <ReadingTracker />
   <CheckinDialog />
+  <StudioAtmosphere />
   <DefaultTheme.Layout>
     <template #home-hero-before><HeroSection /></template>
     <template #home-features-after><CommunityLinks /><HomeCommunity /></template>
@@ -16,6 +17,7 @@ import DefaultTheme from 'vitepress/theme'
 import UserNav from './components/UserNav.vue'
 import ReadingTracker from './components/ReadingTracker.vue'
 import CheckinDialog from './components/CheckinDialog.vue'
+import StudioAtmosphere from './components/StudioAtmosphere.vue'
 import HeroSection from './components/HeroSection.vue'
 import HomeCommunity from './components/HomeCommunity.vue'
 import CommunityLinks from './components/CommunityLinks.vue'

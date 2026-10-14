@@ -1,12 +1,14 @@
 <template>
   <div class="hero-fullscreen">
-    <div class="hero-bg" :style="{ backgroundImage: 'url(/images/hero-bg.jpg)' }"></div>
+    <div class="hero-bg" aria-hidden="true"><div class="hero-art"></div><div class="hero-plane hero-plane-mint"></div><div class="hero-plane hero-plane-lavender"></div></div>
     <div class="hero-overlay"></div>
     <div class="hero-content">
+      <p class="hero-kicker">GAME MAKERS CLUB</p>
       <h1 class="hero-title">
         <span class="hero-rd">RD</span> <span class="hero-studio">STUDIO</span>
       </h1>
       <p class="hero-tagline">创造 · 学习 · 分享</p>
+      <p class="hero-description">让灵感成为作品，让热爱有处相逢。</p>
       <div class="hero-actions"><a class="hero-explore" href="/games-tools/">探索游戏与工具<ArrowRight :size="22" aria-hidden="true" /></a><a class="hero-secondary" href="/kb/">进入知识库<ArrowUpRight :size="20" /></a></div>
     </div>
     <div class="hero-scroll-hint">

@@ -1,0 +1,62 @@
+const {chromium}=require('playwright')
+const assert=require('node:assert/strict')
+const {join}=require('node:path')
+const sharp=require('sharp')
+const base=process.env.RD_UI_TEST_URL||'http://127.0.0.1:5175'
+
+async function main() {
+  const browser=await chromium.launch({channel:'msedge',headless:true,args:['--disable-gpu']})
+  const errors=[]
+  try {
+    const page=await browser.newPage({viewport:{width:1440,height:960}})
+    page.on('pageerror',e=>errors.push(e.message))
+    page.setDefaultTimeout(15000)
+    await page.goto(base,{waitUntil:'domcontentloaded'})
+    await page.locator('.studio-pointer-toggle').waitFor()
+    assert.ok(await page.evaluate(()=>document.documentElement.classList.contains('rd-pixel-pointer')))
+    const image=await page.evaluate(async()=>{const img=new Image();img.src='/images/studio-geometric.webp';await img.decode();return {width:img.naturalWidth,height:img.naturalHeight}})
+    assert.ok(image.width>1000&&image.height>500)
+    const hero=page.locator('.hero-fullscreen')
+    const box=await hero.boundingBox()
+    await page.mouse.move(box.x+box.width*.8,box.y+box.height*.4)
+    await page.waitForTimeout(500)
+    assert.notEqual(await hero.evaluate(e=>e.style.getPropertyValue('--pointer-x')),'')
+    await page.screenshot({path:join(process.env.TEMP,'rd-studio-light-desktop.png'),fullPage:true})
+    const pixels=await sharp(await hero.screenshot()).stats()
+    assert.ok(pixels.channels.every(channel=>channel.stdev>5),'Hero bitmap should contain visible artwork and text')
+    await page.locator('.studio-pointer-toggle').click()
+    assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('rd-pixel-pointer')),false)
+    await page.reload()
+    await page.locator('.studio-pointer-toggle').waitFor()
+    assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('rd-pixel-pointer')),false)
+    await page.locator('.studio-pointer-toggle').click()
+    await page.emulateMedia({reducedMotion:'reduce'})
+    await page.mouse.move(box.x+box.width*.3,box.y+box.height*.2)
+    assert.equal(await page.locator('.hero-plane').first().evaluate(e=>getComputedStyle(e).animationName),'none')
+    assert.equal(await page.locator('.hero-bg').evaluate(e=>getComputedStyle(e).transform),'none')
+    await page.emulateMedia({reducedMotion:'no-preference'})
+    for(const width of [320,390,768,1440]) {
+      await page.setViewportSize({width,height:900})
+      await page.goto(base,{waitUntil:'domcontentloaded'})
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Overflow '+width)
+      const title=await page.locator('.hero-title').boundingBox()
+      const actions=await page.locator('.hero-actions').boundingBox()
+      assert.ok(title.y+title.height<actions.y,'Title must not overlap buttons')
+      if(width===390)await page.screenshot({path:join(process.env.TEMP,'rd-studio-light-mobile.png'),fullPage:true})
+    }
+    await page.evaluate(()=>document.documentElement.classList.add('dark'))
+    await page.screenshot({path:join(process.env.TEMP,'rd-studio-light-darkmode.png'),fullPage:true})
+    for(const path of ['/articles/','/kb/','/tasks/','/games-tools/','/login/']) {
+      await page.goto(base+path,{waitUntil:'domcontentloaded'})
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Overflow '+path)
+    }
+    const touch=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true})
+    await touch.goto(base,{waitUntil:'domcontentloaded'})
+    assert.equal(await touch.locator('.studio-pointer-toggle').count(),0)
+    assert.equal(await touch.evaluate(()=>document.documentElement.classList.contains('rd-pixel-pointer')),false)
+    await touch.close()
+    assert.deepEqual(errors,[])
+    console.log('PASS: art loaded and nonblank; cursor opt-out persists; pointer parallax; reduced motion; desktop/mobile/tablet/dark; routes and touch.')
+  } finally {await browser.close()}
+}
+main().catch(e=>{console.error(e);process.exitCode=1})
