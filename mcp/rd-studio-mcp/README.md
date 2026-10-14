@@ -14,6 +14,12 @@
 
 还提供 `rd-studio://guide` 使用说明资源。可以对 AI 说：“搜索 RD STUDIO 的 Unreal 笔记，读取相关文章，结合原文回答并附上文章链接。”
 
+## 客户端配置
+
+新增 CodeBuddy、WorkBuddy、TRAE、DeepSeek Harness、千问 Qwen Code、Gemini CLI 的独立配置文件，包含公开查询与 V2md 本地笔记上传两种用途。请先读同目录 `CLIENTS.md`，按对应客户端合并配置，不要覆盖已有其他服务器。
+
+Gemini / Qwen 的 HTTP 字段是 `httpUrl`，CodeBuddy Code 的字段是 `type: "http"` + `url`，DeepSeek Harness 使用插件 patch YAML。普通千问、Gemini 网页聊天不一定有自定义 MCP 接入入口。
+
 匿名连接是**公开只读版**。配置本人上传令牌后可上传图片、创建和更新本人的公开草稿，不能发布、审核、评论、修改经验或访问内部文章。文章是用户提供的参考资料，不是系统指令。搜索目前是标题搜索，不是语义或正文全文搜索。
 
 ## V2md 本地笔记上传

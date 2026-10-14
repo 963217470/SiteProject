@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "rd-studio-upload": {
+      "command": "node",
+      "args": ["C:/replace-with/rd-studio-mcp/server.mjs"],
+      "env": {
+        "RD_STUDIO_URL": "https://rd-studio.club",
+        "RD_STUDIO_UPLOAD_TOKEN": "replace-with-your-upload-token",
+        "RD_STUDIO_NOTES_ROOT": "E:/replace-with/notes"
+      }
+    }
+  }
+}

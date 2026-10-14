@@ -1,0 +1,7 @@
+- insert:
+    - id: mcp-rd-studio-public
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: rd_studio_public
+        transport: streamable-http
+        url: https://rd-studio.club/api/mcp

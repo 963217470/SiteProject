@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "rd-studio": { "httpUrl": "https://rd-studio.club/api/mcp", "timeout": 120000 }
+  }
+}

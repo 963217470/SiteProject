@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "rd-studio": {
+      "command": "node",
+      "args": ["C:/replace-with/rd-studio-mcp/server.mjs"],
+      "env": { "RD_STUDIO_URL": "https://rd-studio.club" }
+    }
+  }
+}
