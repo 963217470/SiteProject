@@ -2,6 +2,12 @@
 
 基于 VitePress 的游戏开发社团网站，支持文章发布、用户认证、权限管理等功能。
 
+## AI / MCP 接入
+
+公开只读 MCP 已提供 HTTP 和本地 stdio 两种接入方式。使用说明与源码位于 [mcp/rd-studio-mcp/README.md](mcp/rd-studio-mcp/README.md)，本机配置位于 `mcp/configs/this-computer.stdio.json`。
+
+线上说明：https://rd-studio.club/mcp/ 。连接地址：`https://rd-studio.club/api/mcp`。本版仅查询公开文章和知识库，不提供内部资料或写入权限。
+
 ## 功能特性
 
 - 🎨 现代化的 UI 设计，支持暗色模式

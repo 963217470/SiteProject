@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "rd-studio": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["REPLACE_WITH_ABSOLUTE_PATH/rd-studio-mcp/server.mjs"],
+      "env": { "RD_STUDIO_URL": "https://rd-studio.club" }
+    }
+  }
+}

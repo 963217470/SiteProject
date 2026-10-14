@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "rd-studio": {
+      "type": "http",
+      "url": "https://rd-studio.club/api/mcp"
+    }
+  }
+}

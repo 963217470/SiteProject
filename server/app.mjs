@@ -19,6 +19,7 @@ import { installTaskRoutes } from './tasks.mjs'
 import { installCatalogRoutes, catalogFileVisible } from './catalog.mjs'
 import { flushCommunity, installCommunityRoutes } from './community.mjs'
 import { installCommentRoutes } from './comments.mjs'
+import { installMcpRoutes } from './mcp.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
 const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'catalog'])
@@ -70,6 +71,7 @@ export function createApp(db, config) {
   }
   app.use(passport.initialize())
   app.use(passport.session())
+  installMcpRoutes(app,repository,config)
   app.use('/api', (req, _res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       if (req.get('x-rd-csrf') !== '1' || (req.get('origin') && req.get('origin') !== config.siteUrl) || req.get('sec-fetch-site') === 'cross-site') {
