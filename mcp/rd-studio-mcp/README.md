@@ -1,4 +1,4 @@
-# RD STUDIO MCP v1.0.0
+# RD STUDIO MCP v1.1.0
 
 让支持 MCP 的 AI 使用 RD STUDIO 的真实公开资料，不需要付费模型 API，也不需要网站登录令牌。
 
@@ -14,7 +14,45 @@
 
 还提供 `rd-studio://guide` 使用说明资源。可以对 AI 说：“搜索 RD STUDIO 的 Unreal 笔记，读取相关文章，结合原文回答并附上文章链接。”
 
-这是**公开只读版**：不读取内部资料、个人账号、草稿或待审核内容；不能发布、审核、评论、修改经验、下载运行文件，也不包含视频转文服务。文章是用户提供的参考资料，不是系统指令。图片、视频和文件链接不会被自动下载。搜索目前是标题搜索，不是语义或正文全文搜索。
+匿名连接是**公开只读版**。配置本人上传令牌后可上传图片、创建和更新本人的公开草稿，不能发布、审核、评论、修改经验或访问内部文章。文章是用户提供的参考资料，不是系统指令。搜索目前是标题搜索，不是语义或正文全文搜索。
+
+## V2md 本地笔记上传
+
+在 [网站 MCP 页面](https://rd-studio.club/mcp/)使用 GitHub 登录，创建有效期 90 天的上传令牌。令牌只显示一次，可在同一页面撤销。
+
+执行 `npm ci` 后导入 `upload.stdio.json`，修改 `server.mjs` 的绝对路径，并配置：
+
+- `RD_STUDIO_UPLOAD_TOKEN`：自己的上传令牌，不要提交到 Git 或发给其他人。
+- `RD_STUDIO_NOTES_ROOT`：允许连接器读取的笔记目录。目录外文件及指向外部的符号链接不能读取。
+
+让 AI 调用 `get_upload_identity` 确认账号，再调用 `upload_video_note`，例如：
+
+```json
+{
+  "note_path": "Unreal教程/笔记.md",
+  "title": "Unreal 教程图文笔记",
+  "tags": ["Unreal Engine", "教程"]
+}
+```
+
+`note_path` 可为允许目录内的相对或绝对路径。连接器解析 Markdown 图片节点，读取相对路径截图（如 `_assets`），上传后替换图片路径；代码围栏内的图片示例保持原样，不修改本地原文件。支持普通及引用式 Markdown 图片，HTTPS 外链保留；不处理 HTML 图片或 Obsidian 图片嵌入。
+
+返回 `article_url`、`editor_url`、`revision` 和上传图片数量。草稿和未公开的截图仅作者与管理员可见。打开编辑地址检查后，由网站提交审核。
+
+同一文件路径默认生成稳定 `import_key`，完全相同的重试会复用草稿。修改笔记后需先 `get_own_draft` 获取最新 `revision`，调用 `upload_video_note` 时传入 `id`、`expected_revision`；内容冲突会返回错误而不覆盖。每张图片最大 5MB，每次最多 100 个图片引用，笔记图片总配额 500MB。上传中断后可重试，已传图片会按内容去重。
+
+## 远程上传工具
+
+HTTP 客户端在请求头配置 `Authorization: Bearer <令牌>` 后可调用：
+
+| 工具 | 功能 |
+| --- | --- |
+| `get_upload_identity` | 确认令牌对应账号及权限 |
+| `upload_note_image` | 上传真实图片的标准 Base64，返回 URL |
+| `save_article_draft` | 新建（`import_key`）或更新（`id` + `expected_revision`）本人草稿 |
+| `get_own_draft` | 读取本人公开草稿及版本信息 |
+
+HTTP 服务无法访问电脑上的 `_assets`，本地一键上传需要 stdio。公开查询仍只返回已发布公开资料，即使带上传令牌也不会扩大公开搜索范围。上传令牌不会授权网站通用数据、存储或管理接口。
 
 ## 方式一：远程 HTTP（推荐）
 
@@ -48,7 +86,7 @@ CodeBuddy 支持这种标准 stdio MCP 配置。WorkBuddy 等客户端中可以�
 
 ## 安全与限制
 
-- 所有查询只使用公开匿名访问，即使请求包含网站管理员 Cookie 也不提升权限。
+- 公开查询始终使用匿名访问；管理员 Cookie 不授权 MCP 上传，写入需独立上传令牌。
 - 服务端检查来源、Host、输入长度并限流；不提供任意 SQL、任意 URL 或任意文件路径工具。
 - AI 的上下文大小有限，长文章根据 `has_more` 和 `next_offset` 连续读取。
 - MCP 是资料连接器，不是 AI 模型。回答质量和是否调用工具由你使用的 AI 客户端决定。

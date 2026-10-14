@@ -213,7 +213,7 @@ export class Repository {
         if (['reject_reason', 'published_at', 'kb_sort_order'].some(key => key in data && data[key] !== null)) fail(403, '禁止修改审核字段')
         if (data.visibility === 'internal' && !formalMember(this.db,user)) fail(403, '需要正式社员权限')
         // Editing published content sends it back through review.
-        if (Object.keys(data).some(key => ['title', 'summary', 'content', 'cover_url', 'tags', 'visibility', 'kb_enabled', 'kb_branch_id'].includes(key))) data.status = 'pending'
+        if (Object.keys(data).some(key => ['title', 'summary', 'content', 'cover_url', 'tags', 'visibility', 'kb_enabled', 'kb_branch_id'].includes(key)) && !(data.status === 'draft' && rows.every(row => row.status === 'draft'))) data.status = 'pending'
       }
       if (['profile_changes', 'knowledge_branch_requests'].includes(table)) {
         data.reviewed_by = user.id

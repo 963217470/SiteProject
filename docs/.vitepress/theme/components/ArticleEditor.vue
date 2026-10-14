@@ -199,6 +199,9 @@ const selectedFile = ref('')
 const selectedFolder = ref('')
 const selectedAttachment = ref('')
 const submitting = ref(false)
+const editingId = ref('')
+const loadingArticle = ref(false)
+const loadArticleError = ref(false)
 const statusMessage = ref('')
 const statusType = ref('success')
 const customTag = ref('')
@@ -245,7 +248,34 @@ const tags = computed(() => selectedTags.value)
 const previewHtml = computed(() => renderArticleMarkdown(article.content))
 const flatBranches = computed(() => flattenBranches(kbBranches.value))
 
-onMounted(loadKnowledgeBranches)
+onMounted(() => { loadKnowledgeBranches(); loadExistingArticle() })
+
+async function loadExistingArticle() {
+  const id = new URLSearchParams(window.location.search).get('id')
+  if (!id) return
+  editingId.value = id
+  loadingArticle.value = true
+  try {
+    const api = await waitForSupabase()
+    if (!api) throw new Error('账号服务未加载')
+    const { data: session } = await api.auth.getSession()
+    const user = session?.session?.user
+    if (!user) throw new Error('请先登录后编辑草稿')
+    const { data, error } = await api.from('articles').select('*').eq('id', id).eq('author_id', user.id).single()
+    if (error || !data) throw new Error(error?.message || '本人文章不存在')
+    article.title = data.title
+    article.summary = data.summary || ''
+    article.content = data.content
+    article.visibility = data.visibility
+    article.kbEnabled = !!data.kb_enabled
+    article.kbBranchId = data.kb_branch_id || ''
+    selectedTags.value = data.tags || []
+    showStatus('已加载文章，可编辑后保存或提交审核', 'info')
+  } catch (error) {
+    loadArticleError.value = true
+    showStatus(error.message, 'error')
+  } finally { loadingArticle.value = false }
+}
 
 function goBack() {
   window.location.href = '/articles'
@@ -725,7 +755,7 @@ async function submitArticle() {
 }
 
 async function saveArticle(status) {
-  if (submitting.value) return
+  if (submitting.value || loadingArticle.value || loadArticleError.value) return
 
   addCustomTag()
 
@@ -784,9 +814,11 @@ async function saveArticle(status) {
       articleData.kb_branch_id = article.kbEnabled ? article.kbBranchId : null
     }
 
-    const { data, error } = await supabase
-      .from('articles')
-      .insert(articleData)
+    if (editingId.value) delete articleData.author_id
+    const query = editingId.value
+      ? supabase.from('articles').update(articleData).eq('id', editingId.value).eq('author_id', userId)
+      : supabase.from('articles').insert(articleData)
+    const { data, error } = await query
       .select('id')
       .single()
 
@@ -801,6 +833,7 @@ async function saveArticle(status) {
       showStatus('保存失败：数据库没有返回文章 ID', 'error')
       return
     }
+    editingId.value = insertedArticle.id
 
     if (article.visibility !== 'internal' && article.kbEnabled && requestedBranchPath) {
       const requestResult = await supabase

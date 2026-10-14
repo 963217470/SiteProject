@@ -20,9 +20,10 @@ import { installCatalogRoutes, catalogFileVisible } from './catalog.mjs'
 import { flushCommunity, installCommunityRoutes } from './community.mjs'
 import { installCommentRoutes } from './comments.mjs'
 import { installMcpRoutes } from './mcp.mjs'
+import { installNoteTokenRoutes } from './note-upload.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
-const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'catalog'])
+const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'catalog','notes'])
 
 export function createApp(db, config) {
   const app = express()
@@ -83,6 +84,7 @@ export function createApp(db, config) {
   const parseJson = express.json({ limit: '3mb' })
   app.use((req,res,next) => req.method === 'POST' && req.path.startsWith('/api/storage/') ? next() : parseJson(req,res,next))
   app.use('/api', (_req, _res, next) => { try { repository.transaction(() => {}); next() } catch (error) { next(error) } })
+  installNoteTokenRoutes(app,repository,config)
   installCommunityRoutes(app, db, repository, now)
   installCommentRoutes(app, db, repository, now)
   installReadingRoutes(app, db, repository, config.now || Date.now)
@@ -152,6 +154,7 @@ export function createApp(db, config) {
   app.post('/api/storage/:bucket/*path', async (req, res) => {
     if (!req.user) fail(401, '请先登录')
     const { bucket, path } = fileLocation(req)
+    if (bucket === 'notes') fail(403,'笔记图片请使用上传令牌接口')
     if (bucket === 'resources' && req.user.role !== 'admin') fail(403, '需要管理员权限')
     if (bucket === 'internal' && !formalMember(db,req.user)) fail(403, '需要正式社员权限')
     if (['task-evidence','catalog'].includes(bucket) && db.prepare('SELECT coalesce(sum(size),0) n FROM files WHERE owner_id=? AND bucket=?').get(req.user.id,bucket).n >= 500 * 1024 * 1024) fail(413, '文件存储已达上限')
@@ -189,6 +192,11 @@ export function createApp(db, config) {
     if (['resources', 'internal'].includes(bucket) && !formalMember(db,req.user)) fail(req.user ? 403 : 401, '需要正式社员权限')
     const file = db.prepare('SELECT * FROM files WHERE bucket=? AND path=?').get(bucket, path)
     if (!file) fail(404, '文件不存在')
+    if (bucket === 'notes' && req.user?.id !== file.owner_id && req.user?.role !== 'admin') {
+      const url=new URL(config.siteUrl).origin+'/api/files/notes/'+path
+      const visible=db.prepare("SELECT 1 FROM articles WHERE status='published' AND (visibility='public' OR ?=1) AND instr(content,?)>0 LIMIT 1").get(Number(Boolean(formalMember(db,req.user))),url)
+      if(!visible)fail(404,'图片尚未公开')
+    }
     if (bucket === 'catalog' && !catalogFileVisible(db,file,req.user)) fail(req.user ? 403 : 401,'文件尚未公开')
     if (bucket === 'task-evidence' && (!req.user || (req.user.id !== file.owner_id && req.user.role !== 'admin'))) fail(req.user ? 403 : 401, '证明文件仅提交者和管理员可见')
     res.set('Content-Security-Policy', "default-src 'none'; sandbox")
@@ -199,6 +207,7 @@ export function createApp(db, config) {
   app.delete('/api/storage/:bucket', async (req, res) => {
     if (!req.user) fail(401, '请先登录')
     if (!buckets.has(req.params.bucket) || !Array.isArray(req.body?.prefixes) || req.body.prefixes.length > 100) fail(400, '无效的文件列表')
+    if (req.params.bucket === 'notes') fail(403,'笔记图片不能通过普通存储接口删除')
     const files = req.body.prefixes.map(path => db.prepare('SELECT * FROM files WHERE bucket=? AND path=?').get(req.params.bucket, path)).filter(Boolean)
     if (files.some(file => file.owner_id !== req.user.id && req.user.role !== 'admin')) fail(403, '只能删除自己的文件')
     if (files.some(file => db.prepare('SELECT 1 FROM task_submissions s,json_each(s.files) f WHERE f.value=? LIMIT 1').get(file.id))) fail(409, '已提交的证明文件不能删除')
