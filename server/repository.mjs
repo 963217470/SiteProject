@@ -30,6 +30,11 @@ function visibleArticles(user, alias, args, db) {
 function scope(table, user, action, args, db) {
   const admin = user?.role === 'admin'
   if (action !== 'read' && !user) fail(401, '请先登录')
+  if (table === 'knowledge_branches') {
+    if (action === 'read' || admin) return '1=1'
+    if (action === 'delete') { args.push(user.id); return 't.created_by=?' }
+    fail(403, '需要管理员权限')
+  }
   if (table === 'articles') {
     if (action === 'read') return visibleArticles(user, 't', args, db)
     if (admin) return '1=1'
@@ -154,6 +159,13 @@ export class Repository {
     return result
   }
   visibleArticle(id, user) { return this.query('articles', { id: 'eq.' + id }, user)[0] }
+  deleteBranch(row) {
+    const children=this.db.prepare('SELECT id,slug FROM knowledge_branches WHERE parent_id=?').all(row.id)
+    if (children.some(child=>this.db.prepare('SELECT 1 FROM knowledge_branches WHERE parent_id IS ? AND slug=? AND id<>?').get(row.parent_id,child.slug,row.id))) fail(409,'上一级已有同名分支，请先调整子分支再删除')
+    this.db.prepare('UPDATE knowledge_branches SET parent_id=? WHERE parent_id=?').run(row.parent_id,row.id)
+    this.db.prepare('UPDATE articles SET kb_branch_id=? WHERE kb_branch_id=?').run(row.parent_id,row.id)
+    this.db.prepare('DELETE FROM knowledge_branches WHERE id=?').run(row.id)
+  }
   insert(table, input, user) {
     if (table === 'comments') fail(403, '请使用评论审核接口')
     if (!user) fail(401, '请先登录')
@@ -187,7 +199,7 @@ export class Repository {
       data.status = 'pending'
     } else {
       if (user.role !== 'admin') fail(403, '需要管理员权限')
-      if (['knowledge_branches', 'internal_resources'].includes(table)) data.created_by = user.id
+      if (['knowledge_branches', 'internal_resources'].includes(table)) data.created_by = table === 'knowledge_branches' && data.created_by ? data.created_by : user.id
     }
     if (this.columns(table).has('id')) data.id = randomUUID()
     const keys = Object.keys(data)
@@ -198,8 +210,9 @@ export class Repository {
   }
   mutate(table, method, input, query, user) {
     if (table === 'comments') fail(403, '请使用评论审核接口')
+    if (table === 'knowledge_branches' && method === 'DELETE' && !query.id?.startsWith('eq.')) fail(400,'删除分支必须指定单个节点')
     const isCounter = table === 'articles' && method === 'PATCH' && input && Object.keys(input).length > 0 && Object.keys(input).every(key => counters.has(key))
-    const rows = this.query(table, query, user, isCounter ? 'read' : 'write')
+    const rows = this.query(table, query, user, isCounter ? 'read' : method === 'DELETE' ? 'delete' : 'write')
     if (isCounter) {
       if (!query.id?.startsWith('eq.') || Object.keys(query).some(key => !['id', 'select', 'limit'].includes(key))) fail(400, '计数必须指定文章')
       if ('views_count' in input) this.db.prepare('UPDATE articles SET views_count=views_count+1 WHERE id=?').run(rows[0]?.id || '')
@@ -228,6 +241,10 @@ export class Repository {
       const identity = row.id ? 'id=?' : 'article_id=? AND user_id=?'
       const ids = row.id ? [row.id] : [row.article_id, row.user_id]
       if (method === 'DELETE') {
+        if (table === 'knowledge_branches') {
+          this.deleteBranch(row)
+          return row
+        }
         this.db.prepare(`DELETE FROM "${table}" WHERE ${identity}`).run(...ids)
         return row
       }

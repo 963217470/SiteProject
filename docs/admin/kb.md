@@ -326,13 +326,7 @@ async function saveBranch() {
 async function deleteBranch() {
   var id = kbAdminState.selectedBranchId
   if (!id) return
-  var hasChildren = kbAdminState.branches.some(function(branch) { return branch.parent_id === id })
-  var hasArticles = kbAdminState.articles.some(function(article) { return article.kb_branch_id === id })
-  if (hasChildren || hasArticles) {
-    alert('该分支下还有子分支或文章，请先调整后再删除')
-    return
-  }
-  if (!confirm('确定删除这个知识库分支吗？')) return
+  if (!confirm('确定删除这个知识库分支吗？下级分支和笔记将移到上一级，文章本身会保留。')) return
 
   var result = await kbAdminState.sb.from('knowledge_branches').delete().eq('id', id).select('id')
   if (result.error) {
@@ -363,7 +357,7 @@ async function assignArticleBranch(articleId, branchId) {
   renderAll()
 }
 
-async function createBranch(parentId, name) {
+async function createBranch(parentId, name, creatorId) {
   var siblingCount = childBranches(parentId).length
   var payload = {
     parent_id: parentId || null,
@@ -373,6 +367,7 @@ async function createBranch(parentId, name) {
     updated_at: new Date().toISOString()
   }
 
+  if (creatorId) payload.created_by = creatorId
   var result = await kbAdminState.sb
     .from('knowledge_branches')
     .insert(payload)
@@ -385,7 +380,7 @@ async function createBranch(parentId, name) {
   return branch
 }
 
-async function ensureBranchPath(path) {
+async function ensureBranchPath(path, creatorId) {
   var parts = normalizeRequestPath(path)
   if (!parts.length) throw new Error('申请路径为空')
 
@@ -397,7 +392,7 @@ async function ensureBranchPath(path) {
     current = kbAdminState.branches.find(function(branch) {
       return (branch.parent_id || '') === parentId && (branch.name === name || branch.slug === slug)
     })
-    if (!current) current = await createBranch(parentId, name)
+    if (!current) current = await createBranch(parentId, name, creatorId)
     parentId = current.id
   }
   return current.id
@@ -413,7 +408,7 @@ async function approveBranchRequest(id) {
   if (!confirm('确定通过这个新分支申请，并把文章投入该分支吗？')) return
 
   try {
-    var branchId = await ensureBranchPath(request.requested_path)
+    var branchId = await ensureBranchPath(request.requested_path, request.requester_id)
     var articleResult = await kbAdminState.sb
       .from('articles')
       .update({ kb_enabled: true, kb_branch_id: branchId, updated_at: new Date().toISOString() })

@@ -2,13 +2,16 @@
 set -euo pipefail
 root=/opt/rd-studio
 database=/var/lib/rd-studio/site.sqlite
-package=/tmp/rd-note-upload-backend.tar.gz
+kind=${RD_DEPLOY_KIND:-note-upload}
+expected_version=${RD_DB_VERSION:-7}
+[[ "$kind" =~ ^[a-z][a-z-]+$ && "$expected_version" =~ ^[0-9]+$ ]]
+package="/tmp/rd-$kind-backend.tar.gz"
 old=$(readlink -f "$root/current")
 [[ -L "$root/current" && "$old" == "$root/releases/"* && -f "$old/server/app.mjs" ]]
 [[ -f "$database" && -f "$package" ]]
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
-release="$root/releases/rd-note-upload-$stamp"
-backup="/var/backups/rd-studio/note-upload-$stamp"
+release="$root/releases/rd-$kind-$stamp"
+backup="/var/backups/rd-studio/$kind-$stamp"
 [[ ! -e "$release" && ! -e "$backup" ]]
 mkdir -p "$backup"
 tar --exclude=node_modules -czf "$backup/previous-backend.tar.gz" -C "$old" .
@@ -61,10 +64,10 @@ systemctl start rd-studio
 for attempt in {1..15}; do if curl -fsS http://127.0.0.1:3100/api/health -o /dev/null; then break; fi; sleep 1; done
 curl -fsS http://127.0.0.1:3100/api/health -o /dev/null
 [[ $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3100/api/mcp-tokens) == 401 ]]
-node --input-type=module - "$database" <<'JS'
+node --input-type=module - "$database" "$expected_version" <<'JS'
 import { DatabaseSync } from 'node:sqlite'
 const db=new DatabaseSync(process.argv[2],{readOnly:true})
-if(db.prepare('PRAGMA user_version').get().user_version!==6)throw new Error('Migration did not complete')
+if(db.prepare('PRAGMA user_version').get().user_version!==Number(process.argv[3]))throw new Error('Migration did not complete')
 if(db.prepare('PRAGMA integrity_check').get().integrity_check!=='ok')throw new Error('Database integrity failed')
 db.close()
 JS
