@@ -9,7 +9,7 @@ import { createApp } from '../app.mjs'
 const dataDir=mkdtempSync(join(tmpdir(),'rd-tasks-ui-')),db=openDatabase(join(dataDir,'site.sqlite')),secret=randomUUID()+randomUUID(),time=Date.now()
 const ids={member:'00000000-0000-4000-8000-000000001001',admin:'00000000-0000-4000-8000-000000001002'}
 for(const role of ['member','admin']){db.prepare('INSERT INTO users(id,github_id,github_username) VALUES(?,?,?)').run(ids[role],'ui-'+role,role);db.prepare('INSERT INTO profiles(id,username,role) VALUES(?,?,?)').run(ids[role],role==='admin'?'预览管理员':'预览社员',role)}
-const backend=createApp(db,{dataDir,sessionSecret:secret,siteUrl:'http://127.0.0.1:5175',production:false,maxUploadMb:100,adminGithubIds:[]})
+const backend=createApp(db,{dataDir,sessionSecret:secret,siteUrl:process.env.RD_UI_PREVIEW_ORIGIN||'http://127.0.0.1:5175',production:false,maxUploadMb:100,adminGithubIds:[]})
 const branchRows=[['program',null,'程序'],['art',null,'美术'],['design',null,'策划'],['production',null,'项目实践'],['godot','program','Godot'],['unreal','program','Unreal Engine'],['shader','art','技术美术'],['pixel','art','像素美术'],['level','design','关卡设计'],['jam','production','Game Jam']]
 for(const [id,parent,name] of branchRows) db.prepare('INSERT INTO knowledge_branches(id,parent_id,name,slug,description) VALUES(?,?,?,?,?)').run(id,parent,name,id,name+'方向的学习笔记与项目实践。')
 for(const [index,branch,title] of [[1,'godot','角色移动与输入缓冲'],[2,'unreal','UE5 安装与项目结构'],[3,'shader','材质与光照基础'],[4,'level','关卡节奏与引导'],[5,'jam','Game Jam 项目复盘']]) db.prepare("INSERT INTO articles(id,title,summary,content,status,author_id,kb_enabled,kb_branch_id) VALUES(?,?,?,?,'published','00000000-0000-4000-8000-000000001002',1,?)").run('00000000-0000-4000-8000-'+String(index).padStart(12,'0'),title,'本地预览笔记，不会上传生产数据库。','# '+title+'\n\n知识图谱本地验证。',branch)
@@ -35,4 +35,5 @@ app.get('/api/__preview/:role',(req,res)=>{
  res.cookie('rd.sid','s:'+sid+'.'+createHmac('sha256',secret).update(sid).digest('base64').replace(/=+$/,''),{httpOnly:true,sameSite:'lax'});res.redirect(req.params.role==='admin'?'/admin/tasks':'/tasks')
 })
 app.use(backend)
-app.listen(3101,'127.0.0.1',()=>console.log('Local-only task UI fixture listening on 3101'))
+const previewPort=Number(process.env.RD_UI_FIXTURE_PORT||3101)
+app.listen(previewPort,'127.0.0.1',()=>console.log('Local-only task UI fixture listening on '+previewPort))

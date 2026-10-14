@@ -119,6 +119,11 @@
 
     <section class="body-panel" @dragover.prevent @drop.prevent="handleDrop">
       <div class="body-header">
+        <div class="rd-segments" aria-label="文章视图">
+          <button type="button" :aria-pressed="editorMode === 'source'" @click="editorMode = 'source'">Markdown</button>
+          <button type="button" :aria-pressed="editorMode === 'preview'" @click="editorMode = 'preview'">预览</button>
+          <button type="button" :aria-pressed="editorMode === 'split'" @click="editorMode = 'split'">分栏</button>
+        </div>
         <div class="block-toolbar" aria-label="正文排版工具">
           <button
             v-for="tool in formatTools"
@@ -145,29 +150,20 @@
         </div>
       </div>
 
-      <div class="editor-workspace">
+      <div class="editor-workspace" :class="{ 'with-source': editorMode === 'split' }">
         <textarea
-          v-show="false"
+          v-show="editorMode !== 'preview'"
           ref="contentInput"
           v-model="article.content"
-          class="content-editor source-buffer"
-          aria-hidden="true"
-          tabindex="-1"
+          class="content-editor"
+          aria-label="Markdown 正文"
           placeholder="直接输入正文，或上传 Markdown / 文件夹。支持拖拽图片到这里。"
           rows="20"
         ></textarea>
-        <div class="content-preview" aria-label="正文预览">
+        <div v-show="editorMode !== 'source'" class="content-preview" aria-label="正文预览">
           <div
-            ref="previewInput"
-            class="preview-body editable-preview"
-            contenteditable="true"
-            role="textbox"
-            aria-label="文章正文"
-            aria-multiline="true"
-            spellcheck="true"
-            data-placeholder="上传或输入内容后，这里会显示图片和排版效果。"
-            @blur="syncPreviewEdit"
-            @paste="handlePreviewPaste"
+            class="preview-body rd-markdown"
+            @copy="copyMarkdownSelection"
             v-html="previewHtml"
           ></div>
         </div>
@@ -186,21 +182,19 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ArrowLeft, Save, Send, Heading2, Heading3, Bold, Italic, Quote, Code, List, ListOrdered, Link, Image, Minus } from 'lucide-vue-next'
-import MarkdownIt from 'markdown-it'
-import katexPlugin from '@vscode/markdown-it-katex'
+import { renderArticleMarkdown } from '../lib/markdown.mjs'
+import { copyMarkdownSelection } from '../lib/markdown-copy.mjs'
+import '../markdown.css'
 import { productionTag, withProductionTag } from '../lib/article-badges.mjs'
-
-const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
-md.use(katexPlugin.default || katexPlugin, { throwOnError: false })
 
 const fileInput = ref(null)
 const folderInput = ref(null)
 const imageInput = ref(null)
 const attachmentInput = ref(null)
 const contentInput = ref(null)
-const previewInput = ref(null)
+const editorMode = ref('split')
 const selectedFile = ref('')
 const selectedFolder = ref('')
 const selectedAttachment = ref('')
@@ -248,7 +242,7 @@ const article = reactive({
 })
 
 const tags = computed(() => selectedTags.value)
-const previewHtml = computed(() => renderMarkdownPreview(article.content))
+const previewHtml = computed(() => renderArticleMarkdown(article.content))
 const flatBranches = computed(() => flattenBranches(kbBranches.value))
 
 onMounted(loadKnowledgeBranches)
@@ -345,162 +339,6 @@ function normalizeBranchPath(value) {
     .join('/')
 }
 
-function escapeHtml(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
-
-function renderMarkdownPreview(content) {
-  let html = md.render(String(content || ''))
-  html = html
-    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, function(match, alt, src) {
-      return '<figure class="preview-image"><img src="' + src + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + '</figcaption></figure>'
-    })
-    .replace(/\[\[#([^|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, tag, label) {
-      const cleanTag = String(tag || '').trim()
-      const text = String(label || cleanTag).trim().replace(/^#/, '')
-      return '<a class="wiki-tag" href="/articles?tag=' + encodeURIComponent(cleanTag) + '">#' + text + '</a>'
-    })
-    .replace(/\[\[([^#|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, title, label) {
-      const cleanTitle = String(title || '').trim()
-      const text = String(label || cleanTitle).trim()
-      return '<a class="wiki-link" href="/kb?branch=' + encodeURIComponent(cleanTitle) + '">' + text + '</a>'
-    })
-  return html
-}
-
-function syncPreviewEdit(event) {
-  const target = event.currentTarget
-  if (!target) return
-  const markdown = domChildrenToMarkdown(target).trim()
-  if (markdown !== article.content.trim()) article.content = markdown
-}
-
-function handlePreviewPaste(event) {
-  const text = event.clipboardData?.getData('text/plain')
-  if (!text) return
-  event.preventDefault()
-  document.execCommand('insertText', false, text)
-}
-
-function domChildrenToMarkdown(node) {
-  return Array.from(node.childNodes || [])
-    .map(child => domNodeToMarkdown(child, false))
-    .filter(part => part.trim())
-    .join('\n\n')
-}
-
-function domNodeToMarkdown(node, inline) {
-  if (!node) return ''
-  if (node.nodeType === 3) return node.textContent || ''
-  if (node.nodeType !== 1) return ''
-
-  const element = node
-  const tag = element.tagName.toLowerCase()
-
-  if (tag === 'br') return '\n'
-  if (tag === 'hr') return '---'
-  if (tag === 'img') return markdownImageFromElement(element)
-  if (tag === 'figure') return markdownFigureFromElement(element)
-  if (tag === 'pre') return '```\n' + (element.textContent || '').trim() + '\n```'
-  if (tag === 'blockquote') {
-    return inlineMarkdown(element).split('\n').map(line => '> ' + line).join('\n')
-  }
-  if (/^h[1-6]$/.test(tag)) {
-    const level = Math.min(Number(tag.slice(1)), 3)
-    return '#'.repeat(level) + ' ' + inlineMarkdown(element).trim()
-  }
-  if (tag === 'ul' || tag === 'ol') {
-    return Array.from(element.children || [])
-      .filter(child => child.tagName?.toLowerCase() === 'li')
-      .map((child, index) => (tag === 'ol' ? (index + 1) + '. ' : '- ') + inlineMarkdown(child).trim())
-      .join('\n')
-  }
-  if (tag === 'p' || tag === 'div' || tag === 'li') {
-    const value = inlineMarkdown(element).trim()
-    return inline ? value : value
-  }
-
-  return inlineMarkdown(element).trim()
-}
-
-function inlineMarkdown(element) {
-  return Array.from(element.childNodes || [])
-    .map(child => inlineNodeToMarkdown(child))
-    .join('')
-    .replace(/\n{3,}/g, '\n\n')
-}
-
-function inlineNodeToMarkdown(node) {
-  if (!node) return ''
-  if (node.nodeType === 3) return node.textContent || ''
-  if (node.nodeType !== 1) return ''
-
-  const element = node
-  const tag = element.tagName.toLowerCase()
-  const text = inlineMarkdown(element)
-
-  if (tag === 'br') return '\n'
-  if (tag === 'strong' || tag === 'b') return '**' + text + '**'
-  if (tag === 'em' || tag === 'i') return '*' + text + '*'
-  if (tag === 'code') return '`' + (element.textContent || '') + '`'
-  if (tag === 'img') return markdownImageFromElement(element)
-  if (tag === 'figure') return markdownFigureFromElement(element)
-  if (tag === 'span') {
-    const color = element.style?.color || ''
-    if (color) return '<span style="color: ' + normalizeCssColor(color) + ';">' + text + '</span>'
-    return text
-  }
-  if (tag === 'a') return markdownLinkFromElement(element, text)
-
-  return text
-}
-
-function markdownLinkFromElement(element, text) {
-  const cleanText = (text || element.textContent || '').trim()
-  const href = element.getAttribute('href') || ''
-
-  if (element.classList?.contains('wiki-tag')) {
-    return '[[#' + cleanText.replace(/^#/, '') + ']]'
-  }
-
-  if (element.classList?.contains('wiki-link')) {
-    try {
-      const url = new URL(href, window.location.origin)
-      const branch = url.searchParams.get('branch')
-      return branch && branch !== cleanText ? '[[' + branch + '|' + cleanText + ']]' : '[[' + cleanText + ']]'
-    } catch (error) {
-      return '[[' + cleanText + ']]'
-    }
-  }
-
-  return href ? '[' + cleanText + '](' + href + ')' : cleanText
-}
-
-function markdownFigureFromElement(element) {
-  const img = element.querySelector('img')
-  if (!img) return inlineMarkdown(element)
-  const caption = element.querySelector('figcaption')?.textContent?.trim()
-  return markdownImageFromElement(img, caption)
-}
-
-function markdownImageFromElement(element, caption = '') {
-  const src = element.getAttribute('src') || ''
-  if (!src) return ''
-  const alt = caption || element.getAttribute('alt') || 'image'
-  return '![' + alt + '](' + src + ')'
-}
-
-function normalizeCssColor(color) {
-  const value = String(color || '').trim()
-  const rgb = value.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i)
-  if (!rgb) return value
-  return '#' + rgb.slice(1).map(part => Number(part).toString(16).padStart(2, '0')).join('')
-}
 
 function parseFrontmatter(text) {
   const result = {}
@@ -823,51 +661,21 @@ function applyColor(color) {
 }
 
 function getSelectionText() {
-  const previewSelection = getPreviewSelection()
-  if (previewSelection) return previewSelection.toString()
-
   const textarea = contentInput.value
-  if (!textarea) return ''
-  return article.content.slice(textarea.selectionStart, textarea.selectionEnd)
+  return textarea ? article.content.slice(textarea.selectionStart, textarea.selectionEnd) : ''
 }
 
-function insertAtCursor(text, selectText = null) {
-  const previewSelection = getPreviewSelection()
-  if (previewSelection) {
-    previewSelection.deleteContents()
-    previewSelection.insertNode(document.createTextNode(text))
-    syncPreviewEdit({ currentTarget: previewInput.value })
-    return
-  }
-
+async function insertAtCursor(text, selectText = null) {
   const textarea = contentInput.value
-  if (!textarea || textarea.offsetParent === null) {
-    article.content += text
-    return
-  }
-
-  const start = textarea.selectionStart
-  const end = textarea.selectionEnd
+  const start = textarea?.selectionStart ?? article.content.length
+  const end = textarea?.selectionEnd ?? start
   article.content = article.content.slice(0, start) + text + article.content.slice(end)
-
-  requestAnimationFrame(() => {
-    textarea.focus()
-    if (selectText) {
-      const selectedStart = start + text.indexOf(selectText)
-      textarea.selectionStart = selectedStart
-      textarea.selectionEnd = selectedStart + selectText.length
-    } else {
-      textarea.selectionStart = textarea.selectionEnd = start + text.length
-    }
-  })
-}
-
-function getPreviewSelection() {
-  if (typeof window === 'undefined' || !previewInput.value) return null
-  const selection = window.getSelection()
-  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null
-  const range = selection.getRangeAt(0)
-  return previewInput.value.contains(range.commonAncestorContainer) ? range : null
+  if (editorMode.value === 'preview') editorMode.value = 'source'
+  await nextTick()
+  if (!textarea) return
+  textarea.focus()
+  const selectedStart = selectText ? start + text.indexOf(selectText) : start + text.length
+  textarea.setSelectionRange(selectedStart, selectText ? selectedStart + selectText.length : selectedStart)
 }
 
 async function waitForSupabase(maxAttempts = 30) {
@@ -1422,6 +1230,19 @@ function showStatus(message, type) {
 .editor-workspace.with-source {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
+
+.editor-workspace .content-editor {
+  min-width: 0;
+  width: 100%;
+  height: 640px;
+  min-height: 360px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 14px;
+  line-height: 1.7;
+  background: var(--vp-c-bg);
+}
+
+.editor-workspace .content-preview { max-height: 640px; }
 
 .content-preview {
   background: var(--vp-c-bg);

@@ -25,7 +25,7 @@
           <label class="rd-button catalog-file-button"><FileUp :size="16" />导入 MD<input type="file" accept=".md,.markdown,text/markdown" :disabled="busy" @change="importMarkdown"></label>
         </div>
         <label v-if="editorTab==='source'">Markdown 介绍<textarea ref="source" v-model="form.content" class="catalog-source" rows="16" maxlength="200000" required :disabled="busy"></textarea></label>
-        <div v-else class="catalog-prose vp-doc" v-html="preview"></div>
+        <div v-else class="catalog-prose vp-doc rd-markdown" @copy="copyMarkdownSelection" v-html="preview"></div>
         <section class="catalog-attachments"><h3>文件附件</h3><label class="rd-button catalog-file-button"><Upload :size="16" />上传文件<input type="file" :disabled="busy" @change="upload($event,false)"></label>
           <div v-for="file in form.assets" :key="file.id" class="catalog-file-row"><span>{{ file.name }} <small>{{ bytes(file.size) }}</small></span><button v-if="file.mime.startsWith('image/')" type="button" class="rd-button" :disabled="busy" @click="form.cover_id=file.id">{{ form.cover_id===file.id ? '当前封面' : '设为封面' }}</button><button type="button" class="rd-button" :disabled="busy" :aria-label="'移除 '+file.name" @click="removeFile(file)"><X :size="16" /></button></div>
         </section>
@@ -37,7 +37,7 @@
       <article class="catalog-detail">
         <header><p class="catalog-meta">{{ detail.kind==='game' ? '游戏' : '工具' }} · {{ states[detail.status] }} · {{ detail.username }}</p><h2>{{ detail.title }}</h2><p>{{ detail.summary }}</p><div class="catalog-meta">{{ detail.version }} {{ detail.platform }} {{ detail.license }}</div></header>
         <img v-if="detail.cover_url" class="catalog-detail-cover" :src="detail.cover_url" :alt="detail.title">
-        <div class="catalog-prose vp-doc" v-html="renderCatalogMarkdown(detail.content)"></div>
+        <div class="catalog-prose vp-doc rd-markdown" @copy="copyMarkdownSelection" v-html="renderCatalogMarkdown(detail.content)"></div>
         <section class="catalog-downloads"><h3>下载</h3><p class="catalog-meta">下载访问 {{ detail.downloads }}</p><div v-if="detail.external_url" class="catalog-download-row"><button class="rd-button rd-button-primary" :disabled="busy || detail.status!=='published'" @click="download('external')"><ExternalLink :size="16" />外部下载</button><span>{{ host(detail.external_url) }}</span><span v-if="detail.extraction_code">提取码：{{ detail.extraction_code }}</span></div><div v-for="file in downloads" :key="file.id" class="catalog-download-row"><span>{{ file.name }} <small>{{ bytes(file.size) }}</small></span><button class="rd-button" :disabled="busy || detail.status!=='published'" @click="download(file.id)"><Download :size="16" />下载</button></div></section>
         <p v-if="detail.review_note" class="catalog-notice">审核意见：{{ detail.review_note }}</p>
         <div class="catalog-detail-actions"><button v-if="detail.author_id===user?.id" class="rd-button" :disabled="busy" @click="edit"><Pencil :size="16" />编辑</button><template v-if="user?.app_metadata?.role==='admin'"><label>审核意见<input v-model="reviewNote" maxlength="1000" :disabled="busy"></label><button v-if="detail.status==='pending'" class="rd-button rd-button-primary" :disabled="busy" @click="review('published')"><Check :size="16" />通过</button><button v-if="detail.status==='pending'" class="rd-button" :disabled="busy" @click="review('rejected')">拒绝</button><button v-if="detail.status==='published'" class="rd-button" :disabled="busy" @click="review('archived')">下架</button></template></div>
@@ -60,6 +60,8 @@ import { ArrowLeft, Check, Download, ExternalLink, FileUp, Gamepad2, ImagePlus, 
 import PageState from './PageState.vue'
 import { catalogRequest, uploadCatalogFile, removeUnusedCatalogFiles } from '../lib/catalog-api.mjs'
 import { renderCatalogMarkdown } from '../lib/catalog-markdown.mjs'
+import { copyMarkdownSelection } from '../lib/markdown-copy.mjs'
+import '../markdown.css'
 
 const kinds=[{id:'',label:'全部'},{id:'game',label:'游戏'},{id:'tool',label:'工具'}]
 const states={draft:'草稿',pending:'待审核',published:'已发布',rejected:'未通过',archived:'已下架'}

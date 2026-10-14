@@ -25,18 +25,9 @@ layout: page
 
 <script>
 import { articleBadges, articleTopicTags } from '../.vitepress/theme/lib/article-badges.mjs'
-// 动态加载 KaTeX（仅浏览器环境）
-if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-  var link = document.createElement('link')
-  link.rel = 'stylesheet'
-  link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css'
-  document.head.appendChild(link)
-
-  var script = document.createElement('script')
-  script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js'
-  script.async = true
-  document.head.appendChild(script)
-}
+import { renderArticleMarkdown as renderMarkdown } from '../.vitepress/theme/lib/markdown.mjs'
+import { copyMarkdownSelection } from '../.vitepress/theme/lib/markdown-copy.mjs'
+import '../.vitepress/theme/markdown.css'
 
 var articleState = {
   id: '',
@@ -142,63 +133,6 @@ async function updateViewCountIfAvailable(supabase) {
     .eq('id', articleState.id)
 }
 
-function renderInlineMarkdown(value) {
-  // 先提取数学公式，避免被 escapeHtml 转义
-  var mathBlocks = []
-  value = value.replace(/\$([^$\n]+)\$/g, function(match, latex) {
-    var index = mathBlocks.length
-    mathBlocks.push(renderKatexInline(latex.trim()))
-    return '__MATH_BLOCK_' + index + '__'
-  })
-
-  // 处理其他 markdown 格式
-  value = escapeHtml(value)
-    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/g, '<figure class="article-image"><img src="$2" alt="$1"><figcaption>$1</figcaption></figure>')
-    .replace(/&lt;span style=&quot;color:\s*(#[0-9a-fA-F]{3,8}|[a-zA-Z]+);?&quot;&gt;/g, '<span style="color: $1;">')
-    .replace(/&lt;\/span&gt;/g, '</span>')
-    .replace(/\[\[#([^|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, tag, label) {
-      var cleanTag = String(tag || '').trim()
-      var text = String(label || cleanTag).trim()
-      return '<a class="wiki-tag" href="/articles?tag=' + encodeURIComponent(cleanTag) + '">#' + escapeHtml(text).replace(/^#/, '') + '</a>'
-    })
-    .replace(/\[\[([^#|\]]+)(?:\|([^\]]+))?\]\]/g, function(_, title, label) {
-      var cleanTitle = String(title || '').trim()
-      var text = String(label || cleanTitle).trim()
-      return '<a class="wiki-link" data-wiki-title="' + escapeHtml(cleanTitle) + '" href="/article?title=' + encodeURIComponent(cleanTitle) + '">' + escapeHtml(text) + '</a>'
-    })
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-
-  // 还原数学公式
-  mathBlocks.forEach(function(html, index) {
-    value = value.replace('__MATH_BLOCK_' + index + '__', html)
-  })
-
-  return value
-}
-
-function renderKatexInline(latex) {
-  try {
-    if (typeof katex !== 'undefined') {
-      return katex.renderToString(latex, { displayMode: false, throwOnError: false })
-    }
-    return escapeHtml('$' + latex + '$')
-  } catch (e) {
-    return escapeHtml('$' + latex + '$')
-  }
-}
-
-function renderKatexBlock(latex) {
-  try {
-    if (typeof katex !== 'undefined') {
-      return katex.renderToString(latex, { displayMode: true, throwOnError: false })
-    }
-    return escapeHtml(latex)
-  } catch (e) {
-    return escapeHtml(latex)
-  }
-}
 
 function normalizeWikiTarget(value) {
   return String(value || '')
@@ -243,158 +177,6 @@ async function hydrateWikiLinks() {
   })
 }
 
-function isTableSeparator(line) {
-  return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line)
-}
-
-function isTableRow(line) {
-  return /^\s*\|.*\|\s*$/.test(line)
-}
-
-function splitTableRow(line) {
-  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(function(cell) {
-    return cell.trim()
-  })
-}
-
-function renderTable(headerLine, rowLines) {
-  var headers = splitTableRow(headerLine)
-  var rows = rowLines.map(splitTableRow)
-  return [
-    '<div class="article-table-wrap"><table class="article-table">',
-    '<thead><tr>' + headers.map(function(cell) { return '<th>' + renderInlineMarkdown(cell) + '</th>' }).join('') + '</tr></thead>',
-    '<tbody>' + rows.map(function(row) {
-      return '<tr>' + headers.map(function(_, index) {
-        return '<td>' + renderInlineMarkdown(row[index] || '') + '</td>'
-      }).join('') + '</tr>'
-    }).join('') + '</tbody>',
-    '</table></div>'
-  ].join('')
-
-  hydrateWikiLinks().catch(function(error) {
-    console.warn('Wiki branch links skipped:', error)
-  })
-}
-
-function renderMarkdown(content) {
-  // 先处理块级公式 $$...$$，用占位符替换
-  var blockMaths = []
-  content = content.replace(/\$\$([\s\S]+?)\$\$/g, function(match, latex) {
-    var index = blockMaths.length
-    blockMaths.push(renderKatexBlock(latex.trim()))
-    return '\n__BLOCK_MATH_' + index + '__\n'
-  })
-
-  var lines = String(content || '').replace(/\r\n/g, '\n').split('\n')
-  var blocks = []
-  var i = 0
-
-  while (i < lines.length) {
-    var line = lines[i]
-    var trimmed = line.trim()
-
-    if (!trimmed) {
-      i += 1
-      continue
-    }
-
-    // 处理块级公式占位符
-    var blockMathMatch = trimmed.match(/^__BLOCK_MATH_(\d+)__$/)
-    if (blockMathMatch) {
-      var mathIndex = parseInt(blockMathMatch[1])
-      blocks.push('<p class="katex-block">' + blockMaths[mathIndex] + '</p>')
-      i += 1
-      continue
-    }
-
-    if (isTableRow(trimmed) && isTableSeparator((lines[i + 1] || '').trim())) {
-      var tableRows = []
-      i += 2
-      while (i < lines.length && isTableRow(lines[i].trim())) {
-        tableRows.push(lines[i])
-        i += 1
-      }
-      blocks.push(renderTable(trimmed, tableRows))
-      continue
-    }
-
-    if (/^---+$/.test(trimmed)) {
-      blocks.push('<hr>')
-      i += 1
-      continue
-    }
-
-    if (/^###\s+/.test(trimmed)) {
-      blocks.push('<h3>' + renderInlineMarkdown(trimmed.replace(/^###\s+/, '')) + '</h3>')
-      i += 1
-      continue
-    }
-
-    if (/^##\s+/.test(trimmed)) {
-      blocks.push('<h2>' + renderInlineMarkdown(trimmed.replace(/^##\s+/, '')) + '</h2>')
-      i += 1
-      continue
-    }
-
-    if (/^#\s+/.test(trimmed)) {
-      blocks.push('<h1>' + renderInlineMarkdown(trimmed.replace(/^#\s+/, '')) + '</h1>')
-      i += 1
-      continue
-    }
-
-    if (/^>\s?/.test(trimmed)) {
-      var quoteLines = []
-      while (i < lines.length && /^>\s?/.test(lines[i].trim())) {
-        quoteLines.push(lines[i].trim().replace(/^>\s?/, ''))
-        i += 1
-      }
-      blocks.push('<blockquote><p>' + quoteLines.map(renderInlineMarkdown).join('<br>') + '</p></blockquote>')
-      continue
-    }
-
-    if (/^[-*+]\s+/.test(trimmed)) {
-      var items = []
-      while (i < lines.length && /^[-*+]\s+/.test(lines[i].trim())) {
-        items.push(lines[i].trim().replace(/^[-*+]\s+/, ''))
-        i += 1
-      }
-      blocks.push('<ul>' + items.map(function(item) { return '<li>' + renderInlineMarkdown(item) + '</li>' }).join('') + '</ul>')
-      continue
-    }
-
-    if (/^\d+\.\s+/.test(trimmed)) {
-      var orderedItems = []
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
-        orderedItems.push(lines[i].trim().replace(/^\d+\.\s+/, ''))
-        i += 1
-      }
-      blocks.push('<ol>' + orderedItems.map(function(item) { return '<li>' + renderInlineMarkdown(item) + '</li>' }).join('') + '</ol>')
-      continue
-    }
-
-    if (/^!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)$/.test(trimmed)) {
-      blocks.push(renderInlineMarkdown(trimmed))
-      i += 1
-      continue
-    }
-
-    var paragraph = [trimmed]
-    i += 1
-    while (i < lines.length && lines[i].trim() && !/^#{1,3}\s+/.test(lines[i].trim()) && !/^---+$/.test(lines[i].trim()) && !/^>\s?/.test(lines[i].trim()) && !/^[-*+]\s+/.test(lines[i].trim()) && !/^\d+\.\s+/.test(lines[i].trim()) && !(isTableRow(lines[i].trim()) && isTableSeparator((lines[i + 1] || '').trim())) && !/^__BLOCK_MATH_\d+__$/.test(lines[i].trim())) {
-      paragraph.push(lines[i].trim())
-      i += 1
-    }
-    blocks.push('<p>' + paragraph.map(renderInlineMarkdown).join('<br>') + '</p>')
-  }
-
-  // 还原块级公式
-  var result = blocks.join('')
-  blockMaths.forEach(function(html, index) {
-    result = result.replace('<p>' + renderInlineMarkdown('__BLOCK_MATH_' + index + '__') + '</p>', '<p class="katex-block">' + html + '</p>')
-  })
-
-  return result
-}
 
 function setVisible(id, visible) {
   var el = document.getElementById(id)
@@ -675,7 +457,7 @@ function renderArticle() {
     article.summary ? '    <section class="article-summary"><strong>摘要</strong><p>' + escapeHtml(article.summary) + '</p></section>' : '',
     '    <section class="article-body-card">',
     '      <div class="body-title">正文</div>',
-    '      <div class="article-body">' + renderMarkdown(article.content || '') + '</div>',
+    '      <div class="article-body rd-markdown">' + renderMarkdown(article.content || '') + '</div>',
     '    </section>',
 
     articleBadges(article).length ? '<div class="article-badges article-reader-badges" aria-label="文章标记">' + articleBadges(article).map(function(badge) { return '<span class="article-badge article-badge-' + badge.kind + '">' + badge.label + '</span>' }).join('') + '</div>' : '',
@@ -689,6 +471,8 @@ function renderArticle() {
     '  </aside>',
     '</div>'
   ].join('')
+  shell.querySelector('.article-body').addEventListener('copy', copyMarkdownSelection)
+  hydrateWikiLinks().catch(function(error) { console.warn('Wiki links unavailable:', error) })
 }
 
 async function loadProfiles(supabase, userIds) {

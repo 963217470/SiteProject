@@ -32,5 +32,5 @@ it('signed in authors can edit markdown and submit owned asset identifiers',asyn
 })
 it('safe markdown supports images formulas and blocks raw html and script urls',()=>{
   const html=renderCatalogMarkdown('# Title\n\n![Screenshot](https://example.com/test.png)\n\n$x^2$\n\n```js\nalert(1)\n```\n\n<script>alert(1)</script>\n[x](javascript:alert(1))')
-  expect(html).toContain('<h1>Title');expect(html).toContain('<img');expect(html).toContain('katex');expect(html).toContain('language-js');expect(html).not.toContain('<script>');expect(html).not.toContain('href="javascript:')
+  expect(html).toMatch(/<h1[^>]*>Title/);expect(html).toContain('<img');expect(html).toContain('katex');expect(html).toContain('language-js');expect(html).not.toContain('<script>');expect(html).not.toContain('href="javascript:')
 })

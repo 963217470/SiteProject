@@ -5,6 +5,7 @@ export default defineConfig({
   description: '创造 · 学习 · 分享',
   base: '/',
   cleanUrls: true,
+  srcExclude: ['public/examples/**'],
 
   head: [
     ['script', { src: '/api-client.js?v=20261008-reading-history' }],
