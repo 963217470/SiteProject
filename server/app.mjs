@@ -166,7 +166,7 @@ export function createApp(db, config) {
     const id = randomUUID()
     const file = join(uploadDir, id)
     let size = 0
-    const maxBytes = config.maxUploadMb * 1024 * 1024
+    const maxBytes = bucket === 'avatars' ? 2 * 1024 * 1024 : config.maxUploadMb * 1024 * 1024
     if (Number(req.get('content-length')) > maxBytes) fail(413, '文件过大')
     const limiter = new Transform({ transform(chunk, _encoding, callback) {
       size += chunk.length
@@ -181,7 +181,7 @@ export function createApp(db, config) {
       finally { await handle.close() }
       const type = size ? await fileTypeFromBuffer(buffer).catch(() => null) : null
       const mime = type && rasterTypes.has(type.mime) ? type.mime : 'application/octet-stream'
-      if (parts[0] === 'avatars' && (mime === 'application/octet-stream' || size > 2 * 1024 * 1024)) fail(400, '头像需要是 2MB 以内的图片')
+      if (bucket === 'avatars' && (mime === 'application/octet-stream' || !size)) fail(400, '头像需要是 2MB 以内的 PNG、JPEG、GIF、WebP 或 AVIF 图片')
       repository.transaction(() => {
         if (['task-evidence','catalog'].includes(bucket) && db.prepare('SELECT coalesce(sum(size),0) n FROM files WHERE owner_id=? AND bucket=?').get(req.user.id,bucket).n + size > 500 * 1024 * 1024) fail(413, '文件存储已达上限')
         db.prepare('INSERT INTO files(id,bucket,path,owner_id,mime,size) VALUES(?,?,?,?,?,?)').run(id, bucket, path, req.user.id, mime, size)
@@ -219,6 +219,15 @@ export function createApp(db, config) {
       db.prepare('DELETE FROM files WHERE id=?').run(file.id)
     }
     res.json(files.map(file => ({ name: file.path })))
+  })
+  app.get('/api/members/:id',(req,res)=>{
+    const profile=db.prepare('SELECT id,username,full_name,avatar_url,bio,role FROM profiles WHERE id=?').get(req.params.id)
+    if(!profile)fail(404,'用户不存在')
+    const offset=Number(req.query.offset||0)
+    if(!Number.isInteger(offset)||offset<0||offset>1000000)fail(400,'无效的分页')
+    const articles=db.prepare("SELECT id,title,summary,cover_url,created_at,likes_count,comments_count,views_count FROM articles WHERE author_id=? AND status='published' AND visibility='public' ORDER BY created_at DESC,id LIMIT 21 OFFSET ?").all(profile.id,offset)
+    const stats=db.prepare("SELECT count(*) articles,coalesce(sum(likes_count),0) likes FROM articles WHERE author_id=? AND status='published' AND visibility='public'").get(profile.id)
+    res.json({profile,articles:articles.slice(0,20),has_more:articles.length>20,stats})
   })
   app.get('/api/internal/access', (req,res) => res.json({ allowed:formalMember(db,req.user), threshold:formalThreshold(db), xp:req.user ? experience(db,req.user.id) : 0 }))
   app.use('/api', (_req, res) => res.status(404).json({ message: '接口不存在' }))

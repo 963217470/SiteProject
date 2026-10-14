@@ -11,6 +11,45 @@ import { Repository } from '../repository.mjs'
 
 const secret = 'test-secret-at-least-thirty-two-characters'
 
+test('public member pages expose only public publications and safe profile fields',async t=>{
+  const f=await fixture(t),publicId=f.article(),draft=f.article('public','draft'),internal=f.article('internal')
+  f.db.prepare('UPDATE articles SET author_id=? WHERE id=?').run(f.ids.user,internal)
+  f.db.prepare("UPDATE users SET email='private@example.com' WHERE id=?").run(f.ids.user)
+  const result=await f.call('/members/'+f.ids.user)
+  assert.equal(result.status,200)
+  assert.deepEqual(result.body.articles.map(a=>a.id),[publicId])
+  assert.equal(result.body.stats.articles,1)
+  assert.ok(!JSON.stringify(result.body).includes(draft))
+  assert.ok(!JSON.stringify(result.body).includes('private@example.com'))
+  assert.ok(!('email' in result.body.profile))
+  assert.equal((await f.call('/members/'+f.ids.user,{role:'admin'})).body.articles.length,1)
+  assert.equal((await f.call('/members/missing')).status,404)
+  assert.equal((await f.call('/members/'+f.ids.user+'?offset=-1')).status,400)
+})
+
+test('avatars validate actual raster bytes and ownership, then remain pending until approval',async t=>{
+  const f=await fixture(t)
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhF8AAAAASUVORK5CYII=','base64')
+  const upload=async(path,body)=>fetch(f.base+'/api/storage/avatars/'+path,{method:'POST',headers:{'X-RD-CSRF':'1',Cookie:f.cookies.user,'Content-Type':'image/png'},body})
+  const path=f.ids.user+'/avatar.png'
+  assert.equal((await upload(f.ids.user+'/fake.png',Buffer.from('<svg/>'))).status,400)
+  assert.equal((await upload(f.ids.other+'/wrong.png',png)).status,403)
+  assert.equal((await upload(f.ids.user+'/large.png',Buffer.alloc(2*1024*1024+1))).status,413)
+  assert.equal((await upload(path,png)).status,201)
+  const url='/api/files/avatars/'+path
+  const submit=async(role,avatar)=>f.call('/data/profile_changes',{method:'POST',role,body:{username:role,avatar_url:avatar,bio:'',status:'pending'}})
+  assert.equal((await submit('other',url)).status,400)
+  assert.equal((await submit('user','https://example.com/avatar.png')).status,400)
+  const request=await submit('user',url)
+  assert.equal(request.status,200)
+  assert.notEqual(f.db.prepare('SELECT avatar_url FROM profiles WHERE id=?').get(f.ids.user).avatar_url,url)
+  await f.call('/data/profiles?id=eq.'+f.ids.user,{role:'admin',method:'PATCH',body:{avatar_url:url}})
+  await f.call('/data/profile_changes?id=eq.'+request.body[0].id,{role:'admin',method:'PATCH',body:{status:'approved'}})
+  assert.equal((await f.call('/members/'+f.ids.user)).body.profile.avatar_url,url)
+  f.db.prepare("INSERT INTO knowledge_branches(id,name,slug,created_by) VALUES('credit','Credit','credit',?)").run(f.ids.user)
+  assert.equal((await f.call('/knowledge/creators')).body.items.find(n=>n.node_id==='b:credit').creator.avatar_url,url)
+})
+
 test('reading time is bounded, deduplicated across tabs and inactive gaps earn nothing', async t => {
   let time = 200000
   const f = await fixture(t, () => time)

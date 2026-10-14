@@ -14,7 +14,7 @@ function setup({fine=true,reduced=false}={}) {
   graph=cytoscape({headless:true,elements:[{data:{id:'moving'},position:{x:50,y:50}},{data:{id:'pinned'},position:{x:90,y:50}},{data:{id:'root'},position:{x:20,y:20}}],layout:{name:'preset',fit:false},zoom:1,pan:{x:0,y:0}})
   const stage=document.createElement('div')
   stage.getBoundingClientRect=()=>({left:0,top:0})
-  motion=createKnowledgeMotion(graph,stage,id=>id==='pinned')
+  motion=createKnowledgeMotion(graph,stage)
   const tick=()=>{for(let i=0;i<80&&frames.size;i++){const [id,callback]=frames.entries().next().value;frames.delete(id);callback()}}
   return {stage,screens,tick,frames}
 }
@@ -23,16 +23,17 @@ it('bounds pointer displacement and ignores distant points',()=>{
   expect(Math.hypot(...Object.values(nodePointerOffset({x:50,y:50},{x:45,y:50})))).toBeLessThanOrEqual(5)
   expect(nodePointerOffset({x:500,y:500},{x:0,y:0})).toEqual({x:0,y:0})
 })
-it('moves only nearby unfixed nodes, returns to the same base, and stops rendering when settled',()=>{
+it('moves nearby nodes including pinned anchors, returns to the same base, and stops rendering when settled',()=>{
   const f=setup()
   f.stage.dispatchEvent(new MouseEvent('pointermove',{clientX:45,clientY:50}));f.tick()
   expect(graph.getElementById('moving').position('x')).toBeGreaterThan(50)
   expect(graph.getElementById('moving').position('x')).toBeLessThanOrEqual(55)
-  expect(graph.getElementById('pinned').position()).toEqual({x:90,y:50})
+  expect(graph.getElementById('pinned').position('x')).toBeGreaterThan(90)
   expect(graph.getElementById('root').position()).toEqual({x:20,y:20})
   expect(f.frames.size).toBe(0)
   f.stage.dispatchEvent(new Event('pointerleave'));f.tick()
   expect(graph.getElementById('moving').position()).toEqual({x:50,y:50})
+  expect(graph.getElementById('pinned').position()).toEqual({x:90,y:50})
 })
 it('preserves a manually dragged base instead of baking the hover offset into it',()=>{
   const f=setup()

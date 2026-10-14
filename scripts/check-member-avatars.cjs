@@ -1,0 +1,47 @@
+const {chromium}=require('playwright')
+const assert=require('node:assert/strict')
+const base=process.env.RD_UI_TEST_URL||'http://127.0.0.1:5192'
+assert.equal(new URL(base).hostname,'127.0.0.1')
+async function api(page,path,method='GET',body){const r=await page.request.fetch(base+'/api'+path,{method,headers:{'X-RD-CSRF':'1'},...(body?{data:body}:{})});assert.ok(r.ok(),await r.text());return r.json()}
+async function main(){
+  const b=await chromium.launch({channel:'msedge',headless:true,args:['--disable-gpu']})
+  try{
+    const member=await b.newPage({viewport:{width:1440,height:1000}}),admin=await b.newPage(),guest=await b.newPage({viewport:{width:1440,height:1000}})
+    const errors=[];for(const p of [member,admin,guest])p.on('pageerror',e=>errors.push(e.message))
+    await member.goto(base+'/api/__preview/member')
+    const owner=(await api(member,'/auth/session')).session.user.id
+    await member.goto(base+'/user/profile?tab=settings')
+    await member.locator('#avatar-input').setInputFiles({name:'avatar.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhF8AAAAASUVORK5CYII=','base64')})
+    await member.waitForFunction(()=>document.getElementById('settings-avatar')?.dataset.uploadedUrl)
+    const uploaded=await member.locator('#settings-avatar').getAttribute('src')
+    const submitted=member.waitForResponse(r=>r.url().includes('/data/profile_changes')&&r.request().method()==='POST')
+    await member.getByRole('button',{name:'提交审核',exact:true}).click()
+    const submitResponse=await submitted;assert.ok(submitResponse.ok(),await submitResponse.text())
+    await member.getByText('资料修改已提交，等待管理员审核后生效',{exact:true}).waitFor()
+    const before=await api(guest,'/members/'+owner);assert.notEqual(before.profile.avatar_url,new URL(uploaded,base).pathname)
+    await admin.goto(base+'/api/__preview/admin')
+    await admin.goto(base+'/admin/profile-review')
+    admin.on('dialog',d=>d.accept())
+    await admin.getByRole('button',{name:'通过',exact:true}).first().click()
+    await admin.waitForFunction(()=>document.querySelector('#stat-approved')?.textContent==='1')
+    const after=await api(guest,'/members/'+owner);assert.equal(after.profile.avatar_url,new URL(uploaded,base).pathname)
+    const node=(await api(admin,'/data/knowledge_branches','POST',{name:'头像测试节点',slug:'avatar-'+Date.now(),created_by:owner}))[0]
+    await guest.goto(base+'/kb/?branch='+node.id)
+    const creator=guest.locator('a.knowledge-creator')
+    await creator.waitFor()
+    assert.equal(await creator.innerText(),'预览社员')
+    assert.ok((await creator.locator('img').getAttribute('src')).includes('/api/files/avatars/'))
+    await creator.locator('img').click()
+    await guest.locator('#profile-name').filter({hasText:'预览社员'}).waitFor()
+    assert.ok(guest.url().includes('id='+owner))
+    assert.equal(await guest.locator('.profile-sidebar').isVisible(),false)
+    await guest.waitForFunction(()=>document.getElementById('profile-avatar')?.naturalWidth>0)
+    await guest.screenshot({path:'artifacts/member-avatar-desktop.png',fullPage:true})
+    await guest.setViewportSize({width:390,height:844})
+    assert.ok(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1))
+    await guest.screenshot({path:'artifacts/member-avatar-mobile.png',fullPage:true})
+    assert.deepEqual(errors,[])
+    console.log('PASS: avatar upload, pending review, admin approval, creator avatar, anonymous profile, mobile layout')
+  }finally{await b.close()}
+}
+main().catch(e=>{console.error(e);process.exitCode=1})

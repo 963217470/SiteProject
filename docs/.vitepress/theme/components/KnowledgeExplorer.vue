@@ -14,7 +14,8 @@
         <aside class="knowledge-inspector" aria-live="polite">
           <p class="rd-eyebrow">KNOWLEDGE EXPLORER</p><div class="knowledge-node-symbol"><Network :size="28" /></div>
           <p class="knowledge-path">{{ selected?.path || '全部分支' }}</p><h2>{{ selected?.label }}</h2>
-          <p class="knowledge-creator"><UserRound :size="15" />创建者：{{ nodeCreator(selected) }}</p>
+          <a v-if="selected?.creator?.id" class="knowledge-creator" :href="'/user/profile?id='+encodeURIComponent(selected.creator.id)" :aria-label="'查看 '+nodeCreator(selected)+' 的个人主页'"><img :src="selected.creator.avatar_url || '/images/default-avatar.svg'" alt="" width="32" height="32" @error="avatarFallback"><span>{{ nodeCreator(selected) }}</span></a>
+          <p v-else class="knowledge-creator"><UserRound :size="15" />{{ nodeCreator(selected) }}</p>
           <p class="knowledge-description">{{ selected?.description || selected?.summary || (selected?.kind==='root' ? '程序、美术、策划与创作实践。' : '积累实践，连接知识。') }}</p>
           <p v-if="isPinned" class="knowledge-pin-status"><Pin :size="15" />位置已固定</p>
           <div class="knowledge-actions">
@@ -47,6 +48,7 @@ const branches=ref([]),articles=ref([]),loading=ref(true),error=ref(''),graphErr
 const creators=ref(new Map())
 const nodes=computed(()=>knowledgeModel(branches.value,articles.value).map(node=>({...node,creator:creators.value.get(node.id)||null}))),selected=computed(()=>nodes.value.find(n=>n.id===selectedId.value)||nodes.value[0]),parent=computed(()=>nodes.value.find(n=>n.id===selected.value?.parent)),children=computed(()=>nodes.value.filter(n=>n.parent===selectedId.value)),isAdmin=computed(()=>user.value?.app_metadata?.role==='admin')
 function nodeCreator(node){return node?.kind==='root'?'系统节点':node?.creator?.display_name||node?.creator?.username||'未记录'}
+function avatarFallback(event){event.target.onerror=null;event.target.src='/images/default-avatar.svg'}
 const pins=ref(new Map()),deleteDialog=ref(null),deleteTarget=ref(null),nodeBusy=ref(false),nodeError=ref(''),graphReady=ref(false)
 const isPinned=computed(()=>pins.value.has(selectedId.value))
 const canDelete=computed(()=>selected.value?.kind!=='root' && !!user.value && (isAdmin.value || (selected.value?.kind==='branch' ? selected.value.created_by : selected.value?.author_id)===user.value.id))
@@ -68,11 +70,11 @@ async function renderGraph(){const run=++graphRun;await nextTick();if(disposed||
     const layout=visible.every(n=>positions.has(n.id)) ? {name:'preset',padding:40} : {name:'cose',animate:false,nodeDimensionsIncludeLabels:true,nodeRepulsion:()=>8000,idealEdgeLength:()=>100,componentSpacing:80,padding:40,randomize:true,boundingBox:{x1:0,y1:0,w:Math.max(720,stage.value.clientWidth-100),h:Math.max(500,stage.value.clientHeight-100)}}
     cy=cytoscape({container:stage.value,elements:[...visible.map(n=>({data:{id:n.id,label:n.label,kind:n.kind},position:positions.get(n.id),locked:pins.value.has(n.id)})),...visible.filter(n=>ids.has(n.parent)).map(n=>({data:{id:'e:'+n.id,source:n.parent,target:n.id}}))],style:graphStyles(),layout,minZoom:.1,maxZoom:3})
     graphReady.value=true
-    if(isAdmin.value)for(const [id] of pins.value)cy.getElementById(id).unlock()
+    for(const [id] of pins.value){const node=cy.getElementById(id);node.unlock();if(!isAdmin.value)node.ungrabify()}
     if(stage.value.clientWidth<600){cy.zoom(Math.max(cy.zoom(),.8));cy.center(cy.getElementById(selectedId.value))}
     cy.on('tap','node',event=>select(event.target.id()));cy.on('mouseover','node',event=>highlight(event.target));cy.on('mouseout','node',()=>highlight());highlight()
     cy.on('dragfree','node',event=>{const node=event.target;if(isAdmin.value && pins.value.has(node.id()))savePin(node.id(),{...node.position()})})
-    motion=createKnowledgeMotion(cy,stage.value,id=>pins.value.has(id))
+    motion=createKnowledgeMotion(cy,stage.value)
   }
   catch{graphReady.value=false;graphError.value='图谱暂时无法显示，目录与笔记仍可正常阅读。'}
 }
@@ -93,12 +95,13 @@ async function savePin(id,position){if(nodeBusy.value||!isAdmin.value)return;nod
 async function togglePin(){if(nodeBusy.value||!isAdmin.value||!cy)return;motion?.reset();const id=selectedId.value;if(!pins.value.has(id)){const position=cy.getElementById(id).position();if(position)await savePin(id,{...position});return}nodeBusy.value=true;nodeError.value='';const run=request;try{await knowledgeRequest('/nodes/'+encodeURIComponent(id)+'/position',{method:'DELETE'});if(disposed||run!==request)return;const next=new Map(pins.value);next.delete(id);pins.value=next;cy?.getElementById(id).unlock()}catch(cause){if(run===request&&!disposed)nodeError.value=cause.message}finally{nodeBusy.value=false}}
 async function createBranch(){if(saving.value||!isAdmin.value)return;saving.value=true;saveError.value='';try{const name=form.value.name.trim();if(!name)throw new Error('请填写分支名称');const result=await window.__api.from('knowledge_branches').insert({name,slug:crypto.randomUUID(),description:form.value.description.trim(),parent_id:createParent.value.kind==='root'?null:createParent.value.sourceId,sort_order:0}).select('id').single();if(result.error)throw new Error(result.error.message);dialog.value.close();await load();select('b:'+result.data.id,true)}catch(cause){saveError.value=cause.message}finally{saving.value=false}}
 watch(mode,async()=>{motion?.reset();await nextTick();if(mode.value==='graph'){cy?.resize();fit()}})
-watch(nodeBusy,busy=>{if(busy)motion?.reset();const nodes=cy?.nodes?.();if(busy)nodes?.ungrabify();else nodes?.grabify()})
+watch(nodeBusy,busy=>{if(busy)motion?.reset();const nodes=cy?.nodes?.();if(busy)nodes?.ungrabify();else {nodes?.grabify();if(!isAdmin.value)for(const [id] of pins.value)cy?.getElementById(id).ungrabify()}})
 onMounted(()=>{load();subscription=window.__api?.auth.onAuthStateChange(event=>{if(event!=='INITIAL_SESSION')load()}).data.subscription;observer=new ResizeObserver(()=>cy?.resize());observer.observe(document.documentElement);darkObserver=new MutationObserver(()=>{cy?.style(graphStyles());highlight()});darkObserver.observe(document.documentElement,{attributes:true,attributeFilter:['class']})})
 onUnmounted(()=>{disposed=true;++request;++graphRun;motion?.destroy();cy?.destroy();observer?.disconnect();darkObserver?.disconnect();subscription?.unsubscribe()})
 </script>
 
 <style scoped>
 .knowledge-pin-status,.knowledge-creator{display:flex;align-items:center;gap:6px;color:var(--vp-c-text-2);font-size:13px}
+.knowledge-creator{width:fit-content;max-width:100%;gap:10px;margin:16px 0;text-decoration:none}.knowledge-creator img{width:32px;height:32px;flex:none;border-radius:50%;object-fit:cover}.knowledge-creator span{overflow-wrap:anywhere}.knowledge-creator:hover{color:var(--vp-c-brand-1)}
 .knowledge-actions .knowledge-delete,.knowledge-node-error{color:var(--vp-c-brand-1)}
 </style>

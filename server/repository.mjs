@@ -191,6 +191,14 @@ export class Repository {
       if (Object.keys(data).some(key => !keys.includes(key))) fail(403, '禁止设置审核字段')
       data.user_id = user.id
       data.status = 'pending'
+      if(data.avatar_url){
+        let path
+        try{path=decodeURIComponent(new URL(data.avatar_url,'https://local.invalid').pathname)}catch{fail(400,'无效的头像地址')}
+        const prefix='/api/files/avatars/'
+        const file=path.startsWith(prefix)&&this.db.prepare("SELECT owner_id,mime,size FROM files WHERE bucket='avatars' AND path=?").get(path.slice(prefix.length))
+        if(!file||file.owner_id!==user.id||!file.mime.startsWith('image/')||file.size>2*1024*1024)fail(400,'请选择本人上传的头像图片')
+        data.avatar_url=path
+      }
     } else if (table === 'knowledge_branch_requests') {
       if (Object.keys(data).some(key => !['article_id', 'requester_id', 'requested_path', 'requested_description', 'status'].includes(key))) fail(403, '禁止设置审核字段')
       const article = this.visibleArticle(data.article_id, user)

@@ -6,7 +6,7 @@ export function nodePointerOffset(position,pointer,radius=110,strength=5) {
   return {x:dx/distance*amount,y:dy/distance*amount}
 }
 
-export function createKnowledgeMotion(graph,container,isPinned) {
+export function createKnowledgeMotion(graph,container) {
   const fine=window.matchMedia('(pointer: fine) and (hover: hover) and (min-width: 768px)')
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)')
   const records=new Map()
@@ -27,7 +27,7 @@ export function createKnowledgeMotion(graph,container,isPinned) {
     const zoom=graph.zoom(),pan=graph.pan()
     let unsettled=false
     graph.batch(()=>{for(const [id,record] of records){
-      const target=isPinned(id)||id==='root'?{x:0,y:0}:nodePointerOffset({x:record.base.x*zoom+pan.x,y:record.base.y*zoom+pan.y},pointer)
+      const target=id==='root'?{x:0,y:0}:nodePointerOffset({x:record.base.x*zoom+pan.x,y:record.base.y*zoom+pan.y},pointer)
       const x=record.offset.x+(target.x-record.offset.x)*.18,y=record.offset.y+(target.y-record.offset.y)*.18
       const next={x:Math.abs(x-target.x)<.02?target.x:x,y:Math.abs(y-target.y)<.02?target.y:y}
       unsettled ||= next.x!==target.x || next.y!==target.y

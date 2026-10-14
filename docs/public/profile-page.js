@@ -30,6 +30,7 @@ async function waitSupabase() {
 }
 
 function setTab(tab) {
+  if (state.publicView) return
   if (!['articles', 'favorites', 'recent', 'settings'].includes(tab)) tab = 'articles'
   state.tab = tab
   Array.prototype.forEach.call(document.querySelectorAll('.profile-tabs button'), function(button) { button.classList.remove('active') })
@@ -52,6 +53,7 @@ function setProfile(session, profile) {
   var role = profile.role || 'member'
   state.profile = { username: name, avatar: avatar, bio: profile.bio || '', role: role, email: session.user.email || '' }
   $('profile-avatar').src = avatar
+  $('profile-avatar').onerror = function() { this.onerror = null; this.src = '/images/default-avatar.svg' }
   $('profile-name').textContent = name
   var identity = document.createElement('a')
   identity.id = 'profile-experience'
@@ -226,27 +228,35 @@ function settingSuccess(msg) { var el = $('settings-success'); if (el) { el.text
 async function uploadAvatar(e) {
   var file = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files[0] : e.target.files && e.target.files[0]
   if (!file) return
-  if (!file.type.startsWith('image/')) return settingError('请选择图片文件')
+  if (!['image/png','image/jpeg','image/gif','image/webp','image/avif'].includes(file.type)) return settingError('请选择 PNG、JPEG、GIF、WebP 或 AVIF 图片')
   if (file.size > 2 * 1024 * 1024) return settingError('头像图片不能超过 2MB')
   var button = $('upload-button')
+  if (state.avatarUploading) return
+  state.avatarUploading = true
+  $('settings-submit').disabled = true
+  $('avatar-input').disabled = true
   if (button) button.childNodes[0].nodeValue = '上传中...'
   try {
     var ext = file.name.split('.').pop() || 'png'
-    var path = 'avatars/' + state.uid + '/' + Date.now() + '.' + ext
+    var path = state.uid + '/' + crypto.randomUUID() + '.' + ext
     var up = await state.sb.storage.from('avatars').upload(path, file)
     if (up.error) throw up.error
-    var url = state.sb.storage.from('avatars').getPublicUrl(path).data.publicUrl
+    var url = new URL(state.sb.storage.from('avatars').getPublicUrl(path).data.publicUrl, location.origin).pathname
     $('settings-avatar').src = url
     $('settings-avatar').dataset.uploadedUrl = url
   } catch (err) {
     settingError('头像上传失败：' + (err.message || '未知错误'))
   } finally {
+    state.avatarUploading = false
+    $('settings-submit').disabled = false
+    $('avatar-input').disabled = false
     if (button) button.childNodes[0].nodeValue = '点击或拖拽上传头像'
     if (e.target) e.target.value = ''
   }
 }
 
 async function saveSettings() {
+  if (state.avatarUploading) return
   var button = $('settings-submit')
   $('settings-success').style.display = 'none'
   $('settings-error').style.display = 'none'
@@ -269,12 +279,39 @@ async function saveSettings() {
   }
 }
 
+async function loadPublicProfile(id,offset) {
+  state.publicView = true
+  var response = await fetch('/api/members/' + encodeURIComponent(id) + '?offset=' + offset, { credentials: 'same-origin' })
+  var data = await response.json()
+  if (!response.ok) throw new Error(data.message || '无法加载个人主页')
+  state.uid = id
+  setProfile({ user: { user_metadata: {} } }, data.profile)
+  $('role-desc').textContent = 'RD STUDIO 创作者'
+  $('profile-experience').remove()
+  document.querySelector('.profile-sidebar').style.display = 'none'
+  document.querySelector('.profile-body').classList.add('public-profile-body')
+  $('stat-favorites').parentElement.style.display = 'none'
+  $('stat-articles').textContent = data.stats.articles
+  $('stat-likes').textContent = data.stats.likes
+  $('panel-articles').innerHTML = '<div class="panel-head"><h2>发布的文章</h2></div>' + (data.articles.length ? data.articles.map(function(a) {return '<article class="history-row"><a href="' + articleUrl(a.id) + '"><h3>' + esc(a.title) + '</h3><span>' + date(a.created_at) + ' · 点赞 ' + Number(a.likes_count || 0) + '</span><p>' + esc(a.summary) + '</p></a></article>'}).join('') : '<div class="empty-state">暂无公开文章</div>') + '<div class="history-pagination"><button id="public-prev" ' + (!offset ? 'disabled' : '') + '>上一页</button><button id="public-next" ' + (!data.has_more ? 'disabled' : '') + '>下一页</button></div>'
+  $('public-prev').onclick = function() { publicPage(Math.max(0, offset - 20)) }
+  $('public-next').onclick = function() { publicPage(offset + 20) }
+  show('loading', false); show('profile-app', true); show('panel-articles', true)
+}
+async function publicPage(offset) {
+  try { await loadPublicProfile(state.uid, offset) }
+  catch (err) { $('profile-error').textContent = err.message; show('profile-error', true) }
+}
+
 async function init() {
   var root = $('profile-page')
   if (!root || root.dataset.loaded) return
   root.dataset.loaded = '1'
   renderShell()
   try {
+    state.publicView = false
+    var publicId = new URLSearchParams(window.location.search).get('id')
+    if (publicId) { await loadPublicProfile(publicId, 0); return }
     state.tab = new URLSearchParams(window.location.search).get('tab') || 'articles'
     state.sb = await waitSupabase()
     if (!state.sb) throw new Error('服务未加载，请刷新页面后重试')

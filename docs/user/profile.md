@@ -54,6 +54,7 @@ sidebar: false
   grid-template-columns: 210px minmax(0, 1fr);
   min-height: 520px;
 }
+.profile-body.public-profile-body { display: block; }
 
 .profile-sidebar {
   border-right: 1px solid var(--vp-c-divider);
