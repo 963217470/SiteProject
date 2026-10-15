@@ -24,6 +24,97 @@ async function fixture(t){
   return{db,call,article,time:()=>time,set:at=>{time=at},advance:ms=>{time+=ms}}
 }
 
+test('admin overview and merged queue enforce role, include every review type and support safe filters',async t=>{
+  const f=await fixture(t);f.article('member','pending');f.article('member','draft')
+  assert.equal((await f.call('/admin/overview',null)).status,401)
+  assert.equal((await f.call('/admin/overview','member')).status,403)
+  const overview=(await f.call('/admin/overview','admin')).data
+  assert.equal(overview.queues.length,6);assert.equal(overview.pending,1)
+  const queue=await f.call('/admin/queue','admin');assert.equal(queue.status,200);assert.equal(queue.data.items.length,1)
+  assert.equal(queue.data.items[0].kind,'article');assert.equal(queue.data.items[0].username,'member')
+  assert.equal((await f.call('/admin/queue?kind=article&q=Post','admin')).data.items.length,1)
+  assert.equal((await f.call('/admin/queue?kind=invalid','admin')).status,400)
+  assert.equal((await f.call('/admin/activity','member')).status,403)
+  assert.equal((await f.call('/data/profiles?id=eq.admin','admin','PATCH',{role:'user'})).status,409)
+  assert.equal(f.db.prepare("SELECT role FROM profiles WHERE id='admin'").get().role,'admin')
+})
+
+test('admin announcements are confirmed, scoped, idempotent and do not accept unsafe navigation',async t=>{
+  const f=await fixture(t),body={request_key:'notice-one',title:'活动通知',body:'本周交流',href:'/tasks/',audience:'all'}
+  assert.equal((await f.call('/admin/notices','member','POST',body)).status,403)
+  assert.equal((await f.call('/admin/notice-preview','admin','POST',body)).data.recipient_count,3)
+  const first=await f.call('/admin/notices','admin','POST',body);assert.equal(first.status,200);assert.equal(first.data.recipient_count,3)
+  const again=await f.call('/admin/notices','admin','POST',body);assert.equal(again.data.reused,true)
+  assert.equal(f.db.prepare("SELECT count(*) n FROM notifications WHERE category='announcement'").get().n,3)
+  assert.equal((await f.call('/admin/notices','admin','POST',{...body,title:'Changed'})).status,409)
+  assert.equal((await f.call('/admin/notices','admin','POST',{...body,request_key:'evil',href:'//evil.example'})).status,400)
+  assert.equal((await f.call('/admin/notice-preview','admin','POST',{audience:'formal'})).data.recipient_count,1)
+  const one=await f.call('/admin/notices','admin','POST',{...body,request_key:'one-user',audience:'user',user_id:'member'})
+  assert.equal(one.data.recipient_count,1)
+  assert.equal((await f.call('/messages?category=announcement','other')).data.items.length,1)
+  assert.equal((await f.call('/admin/activity','admin')).data.items.filter(a=>a.action==='发送通知').length,2)
+})
+
+test('profile approval atomically updates public data, records the actor and cannot be repeated',async t=>{
+  const f=await fixture(t)
+  const created=await f.call('/data/profile_changes','member','POST',{username:'New name',bio:'New bio'})
+  const id=created.data[0].id
+  assert.equal((await f.call('/admin/profile/'+id+'/review','member','POST',{approved:true})).status,403)
+  assert.equal((await f.call('/admin/profile/'+id+'/review','admin','POST',{approved:false})).status,400)
+  assert.equal((await f.call('/admin/profile/'+id+'/review','admin','POST',{approved:true})).status,200)
+  assert.equal(f.db.prepare("SELECT username FROM profiles WHERE id='member'").get().username,'New name')
+  assert.equal(f.db.prepare('SELECT reviewed_by FROM profile_changes WHERE id=?').get(id).reviewed_by,'admin')
+  assert.equal((await f.call('/admin/profile/'+id+'/review','admin','POST',{approved:true})).status,409)
+  assert.equal((await f.call('/messages?category=result')).data.items.filter(n=>n.title.includes('资料修改审核通过')).length,1)
+})
+
+test('branch review is atomic on failure, binds original creator and never publishes a draft',async t=>{
+  const f=await fixture(t),article=f.article('member','draft')
+  const request=await f.call('/data/knowledge_branch_requests','member','POST',{article_id:article,requested_path:'Root / New branch',requested_description:'Branch explanation'})
+  const id=request.data[0].id
+  f.db.exec("CREATE TEMP TRIGGER simulate_approval_failure BEFORE UPDATE ON knowledge_branch_requests WHEN NEW.status='approved' BEGIN SELECT RAISE(ABORT,'test rollback'); END;")
+  assert.notEqual((await f.call('/admin/branch/'+id+'/review','admin','POST',{approved:true})).status,200)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM knowledge_branches').get().n,0)
+  assert.equal(f.db.prepare('SELECT kb_enabled FROM articles WHERE id=?').get(article).kb_enabled,0)
+  f.db.exec('DROP TRIGGER simulate_approval_failure')
+  assert.equal((await f.call('/admin/branch/'+id+'/review','admin','POST',{approved:true})).status,200)
+  const branch=f.db.prepare("SELECT * FROM knowledge_branches WHERE name='New branch'").get()
+  assert.equal(branch.created_by,'member');assert.equal(branch.description,'Branch explanation')
+  const note=f.db.prepare('SELECT * FROM articles WHERE id=?').get(article)
+  assert.equal(note.status,'draft');assert.equal(note.kb_branch_id,branch.id)
+  assert.equal((await f.call('/admin/branch/'+id+'/review','admin','POST',{approved:true})).status,409)
+})
+
+test('interaction notifications arrive only after approval and do not notify the commenter about themselves',async t=>{
+  const f=await fixture(t),article=f.article('admin')
+  const comment=await f.call('/comments','member','POST',{article_id:article,content:'First'})
+  assert.equal((await f.call('/messages?category=interaction','admin')).data.items.length,0)
+  await f.call('/comments/'+comment.data.id+'/review','admin','POST',{approved:true})
+  assert.equal((await f.call('/messages?category=interaction','admin')).data.items.length,1)
+  const reply=await f.call('/comments','other','POST',{article_id:article,parent_id:comment.data.id,content:'Reply'})
+  assert.equal((await f.call('/messages?category=interaction','member')).data.items.length,0)
+  await f.call('/comments/'+reply.data.id+'/review','admin','POST',{approved:true})
+  assert.equal((await f.call('/messages?category=interaction','member')).data.items.length,1)
+  assert.equal((await f.call('/messages?category=interaction','other')).data.items.length,0)
+})
+
+test('message filters, read watermark and archive/restore are scoped to the recipient',async t=>{
+  const f=await fixture(t)
+  await f.call('/admin/notices','admin','POST',{request_key:'n1',title:'One',body:'One',audience:'all'})
+  const inbox=(await f.call('/messages')).data,id=inbox.items[0].id
+  assert.equal((await f.call('/messages/read','member','POST',{id:''})).status,400)
+  assert.equal((await f.call('/messages/unread')).data.unread,1)
+  assert.equal((await f.call('/messages/'+id+'/archive','other','POST',{})).status,404)
+  await f.call('/messages/'+id+'/archive','member','POST',{})
+  assert.equal((await f.call('/messages/unread')).data.unread,0)
+  assert.equal((await f.call('/messages?state=archived')).data.items.length,1)
+  await f.call('/messages/'+id+'/restore','member','POST',{})
+  await f.call('/admin/notices','admin','POST',{request_key:'n2',title:'Two',body:'Two',audience:'all'})
+  await f.call('/messages/read','member','POST',{before:inbox.sync_at,cursor:inbox.sync_cursor})
+  assert.equal((await f.call('/messages?state=unread')).data.items.length,1)
+  assert.equal((await f.call('/messages?category=invalid')).status,400)
+})
+
 test('checkin is authenticated, once daily, Beijing midnight, consecutive bonus and gap reset',async t=>{
   const f=await fixture(t)
   assert.equal((await f.call('/community/checkin',null,'POST',{})).status,401)

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import {adminAudit} from './admin-audit.mjs'
 import { fail } from './repository.mjs'
 import { experience, levelFor } from './community.mjs'
 
@@ -101,14 +102,17 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
     if (body.is_advanced !== undefined && typeof body.is_advanced !== 'boolean') fail(400, '进阶任务标记无效')
     if (body.is_advanced && reward !== 100) fail(400, '进阶任务固定奖励 100 EXP')
     const id = randomUUID()
+    repository.transaction(()=>{
     db.prepare("INSERT INTO tasks(id,title,description,type,target,reward,status,deadline,requirements,created_by,created_at) VALUES(?,?,?,?,?,?,'draft',?,?,?,?)").run(id, title, description, body.type, target, reward, deadline, JSON.stringify(requirements), req.user.id, now())
     db.prepare('UPDATE tasks SET is_advanced=? WHERE id=?').run(body.is_advanced ? 1 : 0, id)
+    adminAudit(db,req.user,'创建任务','task',id,title,now())
+    })
     res.status(201).json({ id })
   })
   app.patch('/api/tasks/:id/status', (req, res) => {
     admin(req.user); const task = getTask(req.params.id, req.user), status = req.body?.status
     if (!['active', 'closed'].includes(status) || (status === 'active' && task.deadline !== null && task.deadline < now())) fail(400, '任务状态无效或已过期')
-    db.prepare('UPDATE tasks SET status=? WHERE id=?').run(status, task.id); res.json({ ok: true })
+    repository.transaction(()=>{db.prepare('UPDATE tasks SET status=? WHERE id=?').run(status, task.id);adminAudit(db,req.user,'调整任务状态','task',task.id,status,now())}); res.json({ ok: true })
   })
   app.post('/api/tasks/:id/join', (req, res) => {
     repository.transaction(() => {
@@ -154,6 +158,7 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
       const note = text(req.body?.note || '', 1000, !approved), task = getTask(row.task_id, req.user)
       if (approved) validateEvidence(task, { ...row, files: JSON.parse(row.files) }, row.user_id)
       db.prepare('UPDATE task_submissions SET status=?,review_note=?,reviewed_by=?,reviewed_at=? WHERE id=?').run(approved ? 'approved' : 'rejected', note, req.user.id, now(), row.id)
+      adminAudit(db,req.user,'任务证明审核','proof',row.id,approved?'通过':note,now())
       if (approved) award(task, row.user_id, req.user.id)
       else db.prepare("UPDATE task_enrollments SET state='rejected' WHERE task_id=? AND user_id=?").run(task.id, row.user_id)
     }); res.json({ ok: true })
@@ -169,13 +174,13 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
   app.put('/api/tasks/people/:id', (req, res) => {
     admin(req.user); const office = req.body?.office
     if (!offices.has(office) || !db.prepare('SELECT 1 FROM profiles WHERE id=?').get(req.params.id)) fail(400, '职位或社员无效')
-    db.prepare('INSERT INTO member_identity(user_id,office) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET office=excluded.office').run(req.params.id, office)
+    repository.transaction(()=>{db.prepare('INSERT INTO member_identity(user_id,office) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET office=excluded.office').run(req.params.id, office);adminAudit(db,req.user,'调整职位','member',req.params.id,office,now())})
     res.json({ ok: true })
   })
   app.put('/api/tasks/levels', (req, res) => {
     admin(req.user); const levels = req.body?.levels
     if (!Array.isArray(levels) || levels.length !== 4 || levels[0]?.threshold !== 0 || levels.some((l,i) => !Number.isSafeInteger(l.threshold) || l.threshold < 0 || l.threshold>100000000 || (i>0 && l.threshold<=levels[i-1].threshold))) fail(400, '等级门槛必须从 0 开始严格递增')
-    repository.transaction(() => { db.exec('DELETE FROM experience_levels'); for (const l of levels) db.prepare('INSERT INTO experience_levels(threshold,title) VALUES(?,?)').run(l.threshold, text(l.title,30,true)) })
+    repository.transaction(() => { db.exec('DELETE FROM experience_levels'); for (const l of levels) db.prepare('INSERT INTO experience_levels(threshold,title) VALUES(?,?)').run(l.threshold, text(l.title,30,true));adminAudit(db,req.user,'调整经验等级','levels','',JSON.stringify(levels),now()) })
     res.json({ ok: true })
   })
 }

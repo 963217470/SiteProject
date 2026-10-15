@@ -22,6 +22,7 @@ import { installCommentRoutes } from './comments.mjs'
 import { installMcpRoutes } from './mcp.mjs'
 import { installNoteTokenRoutes } from './note-upload.mjs'
 import { installKnowledgeRoutes } from './knowledge.mjs'
+import { installAdminDashboard } from './admin-dashboard.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
 const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'catalog','notes'])
@@ -220,6 +221,7 @@ export function createApp(db, config) {
     }
     res.json(files.map(file => ({ name: file.path })))
   })
+  installAdminDashboard(app,db,repository,now)
   app.get('/api/members/:id',(req,res)=>{
     const profile=db.prepare('SELECT id,username,full_name,avatar_url,bio,role FROM profiles WHERE id=?').get(req.params.id)
     if(!profile)fail(404,'用户不存在')

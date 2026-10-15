@@ -12,13 +12,13 @@ sidebar: false
     </div>
     <div class="header-actions">
       <button class="btn-secondary" type="button" onclick="loadProfileReviews()">刷新</button>
-      <a href="/admin" class="btn-secondary">返回文章审核</a>
+      <a href="/admin" class="btn-secondary">管理总览</a>
     </div>
   </div>
 
   <nav class="admin-section-nav" aria-label="审核类型">
     <a href="/admin/tasks">任务管理</a>
-    <a href="/admin">文章审核</a>
+    <a href="/admin/articles">文章审核</a>
     <a class="active" href="/admin/profile-review">个人信息审核</a>
     <a href="/admin/kb">知识库管理</a>
   </nav>
@@ -395,79 +395,27 @@ function setBusy(id, busy) {
   })
 }
 
-async function approveProfileChange(id) {
-  var change = findChange(id)
-  if (!change) return alert('找不到这条审核记录，请刷新后重试')
-  if (!confirm('确定通过该用户的个人信息修改吗？')) return
-
+async function reviewProfileChange(id, approved) {
+  if (approved && !confirm('确定通过该用户的个人信息修改吗？')) return
+  var note = approved ? '' : prompt('请输入拒绝原因')
+  if (note === null) return
+  if (!approved && !note.trim()) return alert('请填写拒绝原因')
   setBusy(id, true)
   try {
-    var supabase = await waitForSupabase()
-    if (!supabase) {
-      alert('Supabase 未加载，请刷新页面后重试')
-      return
-    }
-    if (!await requireAdmin(supabase)) return
-
-    var profile = getProfile(change.user_id)
-    var updateData = {}
-    if (change.username) updateData.username = change.username
-    if (change.avatar_url) updateData.avatar_url = change.avatar_url
-    if (Object.prototype.hasOwnProperty.call(change, 'bio')) updateData.bio = change.bio || ''
-
-    if (!Object.keys(updateData).length) {
-      alert('这条记录没有可写入的资料字段')
-      return
-    }
-
-    var profileResult = await supabase
-      .from('profiles')
-      .update(updateData)
-      .eq('id', change.user_id)
-      .select('id')
-      .useServiceRole()
-
-    if (profileResult.error) {
-      alert('写入资料失败：' + profileResult.error.message)
-      return
-    }
-
-    if (!profileResult.data || profileResult.data.length === 0) {
-      var insertData = Object.assign({ id: change.user_id, role: profile.role || 'member' }, updateData)
-      profileResult = await supabase
-        .from('profiles')
-        .insert(insertData)
-        .select('id')
-        .useServiceRole()
-      if (profileResult.error) {
-        alert('创建资料失败：' + profileResult.error.message)
-        return
-      }
-    }
-
-    if (await updateChangeStatus(id, 'approved')) {
-      alert('已通过，资料已更新')
-      loadProfileReviews()
-    }
-  } catch (error) {
-    alert('操作失败：' + (error.message || '未知错误'))
-  } finally {
-    setBusy(id, false)
-  }
+    var response = await fetch('/api/admin/profile/' + encodeURIComponent(id) + '/review', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-RD-CSRF': '1' },
+      body: JSON.stringify({ approved: approved, note: note })
+    })
+    var result = await response.json()
+    if (!response.ok) throw new Error(result.message || '审核失败')
+    alert(approved ? '已通过，资料已更新' : '已拒绝')
+    await loadProfileReviews()
+  } catch (error) { alert(error.message || '审核失败') }
+  finally { setBusy(id, false) }
 }
-
-async function rejectProfileChange(id) {
-  if (!confirm('确定拒绝这条个人信息修改吗？')) return
-  setBusy(id, true)
-  try {
-    if (await updateChangeStatus(id, 'rejected')) {
-      alert('已拒绝')
-      loadProfileReviews()
-    }
-  } finally {
-    setBusy(id, false)
-  }
-}
+async function approveProfileChange(id) { return reviewProfileChange(id, true) }
+async function rejectProfileChange(id) { return reviewProfileChange(id, false) }
 
 if (typeof window !== 'undefined') {
   window.loadProfileReviews = loadProfileReviews

@@ -62,3 +62,12 @@ it('rank colors include white newcomer and independent red presidency',()=>{
   expect(rankClass({title:'资深社员'})).toBe('rank-senior')
   expect(rankClass({title:'新人'},'president')).toBe('rank-president')
 })
+it('message categories reset pagination and archive requests only contain the selected ID',async()=>{
+  communityRequest.mockImplementation(async(path,options)=>options?{ok:true}:{items:[{id:'n',title:'通知',body:'Body',href:'javascript:alert(1)',created_at:1,category:'announcement'}],unread:1,has_more:false,sync_at:100})
+  wrapper=mount(MessageInbox);await flushPromises()
+  expect(wrapper.find('.notification-row a').attributes('href')).toBe('/messages/')
+  await wrapper.findAll('button').find(b=>b.text()==='站内通知').trigger('click');await flushPromises()
+  expect(communityRequest.mock.calls.some(([p])=>p.includes('category=announcement'))).toBe(true)
+  await wrapper.get('[aria-label="归档消息"]').trigger('click');await flushPromises()
+  expect(communityRequest).toHaveBeenCalledWith('/messages/n/archive',{method:'POST',body:{}})
+})

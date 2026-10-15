@@ -1,5 +1,6 @@
 import { fail } from './repository.mjs'
 import { formalMember } from './experience.mjs'
+import {adminAudit} from './admin-audit.mjs'
 
 export function installKnowledgeRoutes(app,repository,config) {
   const db=repository.db
@@ -39,12 +40,13 @@ export function installKnowledgeRoutes(app,repository,config) {
     repository.transaction(()=>{
       node(req.params.node,req.user)
       db.prepare('INSERT INTO knowledge_positions(node_id,x,y,pinned_by,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(node_id) DO UPDATE SET x=excluded.x,y=excluded.y,pinned_by=excluded.pinned_by,updated_at=excluded.updated_at').run(req.params.node,x,y,req.user.id,updated_at)
+      adminAudit(db,req.user,'保存节点中心','knowledge',req.params.node,JSON.stringify({x,y}),now())
     })
     res.json({node_id:req.params.node,x,y,updated_at})
   })
   app.delete('/api/knowledge/nodes/:node/position',(req,res)=>{
     admin(req)
-    repository.transaction(()=>{node(req.params.node,req.user);db.prepare('DELETE FROM knowledge_positions WHERE node_id=?').run(req.params.node)})
+    repository.transaction(()=>{node(req.params.node,req.user);db.prepare('DELETE FROM knowledge_positions WHERE node_id=?').run(req.params.node);adminAudit(db,req.user,'取消固定','knowledge',req.params.node,'',now())})
     res.json({ok:true})
   })
   app.delete('/api/knowledge/nodes/:node',(req,res)=>{
@@ -54,6 +56,7 @@ export function installKnowledgeRoutes(app,repository,config) {
       if(selected.kind==='root')fail(400,'知识库根节点不能删除')
       const owner=selected.kind==='branch'?selected.created_by:selected.author_id
       if(req.user.role!=='admin' && owner!==req.user.id)fail(403,'只能删除自己创建的节点')
+      adminAudit(db,req.user,'删除节点','knowledge',req.params.node,selected.name||selected.title,now())
       if(selected.kind==='branch') {
         const parent=selected.parent_id
         repository.deleteBranch(selected)

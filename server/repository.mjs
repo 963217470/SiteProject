@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import {adminAudit} from './admin-audit.mjs'
 import { formalMember } from './experience.mjs'
 
 const tables = new Set(['profiles', 'articles', 'article_likes', 'article_favorites', 'comments',
@@ -213,6 +214,7 @@ export class Repository {
     const keys = Object.keys(data)
     const conflict = ['article_likes', 'article_favorites'].includes(table) ? ' ON CONFLICT(article_id,user_id) DO NOTHING' : ''
     this.db.prepare(`INSERT INTO "${table}"(${keys.map(key => `"${key}"`).join(',')}) VALUES(${keys.map(() => '?').join(',')})${conflict}`).run(...Object.values(data))
+    if(user.role==='admin'&&['articles','knowledge_branches','internal_resources'].includes(table))adminAudit(this.db,user,'创建',table,data.id,data.title||data.name||'')
     return data.id ? this.db.prepare(`SELECT * FROM "${table}" WHERE id=?`).get(data.id)
       : this.db.prepare(`SELECT * FROM "${table}" WHERE article_id=? AND user_id=?`).get(data.article_id, data.user_id)
   }
@@ -242,12 +244,14 @@ export class Repository {
       }
     }
     return this.transaction(() => rows.map(row => {
+      if(table==='profiles'&&row.role==='admin'&&((data.role&&data.role!=='admin')||method==='DELETE')&&this.db.prepare("SELECT count(*) n FROM profiles WHERE role='admin'").get().n<=1)fail(409,'不能移除最后一位管理员')
       if (table === 'knowledge_branches' && data.parent_id) {
         const ancestor = this.db.prepare('WITH RECURSIVE parents(id,parent_id) AS (SELECT id,parent_id FROM knowledge_branches WHERE id=? UNION SELECT k.id,k.parent_id FROM knowledge_branches k JOIN parents p ON k.id=p.parent_id) SELECT id FROM parents WHERE id=?').get(data.parent_id, row.id)
         if (ancestor) fail(400, '分支不能循环嵌套')
       }
       const identity = row.id ? 'id=?' : 'article_id=? AND user_id=?'
       const ids = row.id ? [row.id] : [row.article_id, row.user_id]
+      if(user?.role==='admin'&&['articles','profiles','profile_changes','knowledge_branches','knowledge_branch_requests','internal_resources'].includes(table))adminAudit(this.db,user,method==='DELETE'?'删除':'更新',table,row.id,'role' in data?String(row.role||'')+' → '+data.role:'status' in data?String(row.status||'')+' → '+data.status:Object.keys(data).join(', '))
       if (method === 'DELETE') {
         if (table === 'knowledge_branches') {
           this.deleteBranch(row)

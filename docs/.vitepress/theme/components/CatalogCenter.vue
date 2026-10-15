@@ -104,7 +104,7 @@ async function review(status){await action(async()=>{const current=revision,id=d
 function protectEdits(event){if(editing.value){event.preventDefault();event.returnValue=''}}
 onMounted(()=>{
   window.addEventListener('beforeunload',protectEdits)
-  const initialize=async(session)=>{if(disposed)return;user.value=session?.user || null;++revision;detail.value=null;editing.value=false;form.value=empty();scope.value='public';offset.value=0;await load();const id=location.hash.slice(1)||new URLSearchParams(location.search).get('id')||'';if(/^[a-zA-Z0-9-]{1,100}$/.test(id))await open(id)}
+  const initialize=async(session)=>{if(disposed)return;user.value=session?.user || null;++revision;detail.value=null;editing.value=false;form.value=empty();scope.value=user.value?.app_metadata?.role==='admin'&&new URLSearchParams(location.search).get('scope')==='review'?'review':'public';offset.value=0;await load();const id=location.hash.slice(1)||new URLSearchParams(location.search).get('id')||'';if(/^[a-zA-Z0-9-]{1,100}$/.test(id))await open(id)}
   if(window.__api)subscription=window.__api.auth.onAuthStateChange((_event,session)=>initialize(session)).data.subscription
   else initialize(null)
 })

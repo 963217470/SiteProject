@@ -14,7 +14,8 @@ sidebar: false
 </div>
 <nav class="admin-section-nav" aria-label="管理后台导航">
 <a href="/admin/tasks">任务管理</a>
-<a href="/admin">文章审核</a>
+<a href="/admin">管理总览</a>
+<a href="/admin/articles">文章审核</a>
 <a href="/admin/profile-review">个人信息审核</a>
 <a class="active" href="/admin/kb">知识库管理</a>
 </nav>
@@ -404,50 +405,24 @@ function getBranchRequest(id) {
   return kbAdminState.branchRequests.find(function(request) { return request.id === id })
 }
 
-async function approveBranchRequest(id) {
-  var request = getBranchRequest(id)
-  if (!request) return
-  if (!confirm('确定通过这个新分支申请，并把文章投入该分支吗？')) return
-
-  try {
-    var branchId = await ensureBranchPath(request.requested_path, request.requester_id, request.requested_description)
-    var articleResult = await kbAdminState.sb
-      .from('articles')
-      .update({ kb_enabled: true, kb_branch_id: branchId, updated_at: new Date().toISOString() })
-      .eq('id', request.article_id)
-      .select('id')
-
-    if (articleResult.error) throw new Error('更新文章分支失败：' + articleResult.error.message)
-
-    var updateResult = await kbAdminState.sb
-      .from('knowledge_branch_requests')
-      .update({ status: 'approved', reviewed_at: new Date().toISOString(), review_note: null, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select('id')
-
-    if (updateResult.error) throw new Error('更新申请状态失败：' + updateResult.error.message)
-    await loadKbAdmin()
-  } catch (error) {
-    alert(error.message || '通过失败')
-  }
-}
-
-async function rejectBranchRequest(id) {
-  var note = prompt('请输入拒绝原因（可选）')
+async function reviewBranchRequest(id, approved) {
+  if (approved && !confirm('确定通过这个新分支申请，并把文章投入该分支吗？')) return
+  var note = approved ? '' : prompt('请输入拒绝原因')
   if (note === null) return
-
-  var updateResult = await kbAdminState.sb
-    .from('knowledge_branch_requests')
-    .update({ status: 'rejected', review_note: note || '', reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select('id')
-
-  if (updateResult.error) {
-    alert('拒绝失败：' + updateResult.error.message)
-    return
-  }
-  await loadKbAdmin()
+  if (!approved && !note.trim()) return alert('请填写拒绝原因')
+  try {
+    var response = await fetch('/api/admin/branch/' + encodeURIComponent(id) + '/review', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-RD-CSRF': '1' },
+      body: JSON.stringify({ approved: approved, note: note })
+    })
+    var result = await response.json()
+    if (!response.ok) throw new Error(result.message || '审核失败')
+    await loadKbAdmin()
+  } catch (error) { alert(error.message || '审核失败') }
 }
+async function approveBranchRequest(id) { return reviewBranchRequest(id, true) }
+async function rejectBranchRequest(id) { return reviewBranchRequest(id, false) }
 
 async function loadKbAdmin() {
   show('loading', true)

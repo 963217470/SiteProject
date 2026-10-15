@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { fail } from './repository.mjs'
+import {adminAudit} from './admin-audit.mjs'
 
 export function installCommentRoutes(app, db, repository, now = Date.now) {
   const requireUser = req => { if (!req.user) fail(401, '请先登录') }
@@ -46,6 +47,7 @@ export function installCommentRoutes(app, db, repository, now = Date.now) {
       if (typeof approved !== 'boolean' || typeof note !== 'string' || note.length > 1000 || !approved && !note.trim()) fail(400, '请填写有效的审核说明')
       if (approved && row.parent_id && db.prepare('SELECT status FROM comments WHERE id=?').get(row.parent_id)?.status !== 'approved') fail(409, '被回复的评论已下架')
       db.prepare('UPDATE comments SET status=?,review_note=?,reviewed_by=?,reviewed_at=? WHERE id=?').run(approved ? 'approved' : 'rejected', note.trim(), req.user.id, now(), row.id)
+      adminAudit(db,req.user,'评论审核','comment',row.id,approved?'通过':note.trim(),now())
       if (!approved) db.prepare("WITH RECURSIVE replies(id) AS (SELECT id FROM comments WHERE parent_id=? UNION ALL SELECT c.id FROM comments c JOIN replies r ON c.parent_id=r.id) UPDATE comments SET status='rejected',review_note=?,reviewed_by=?,reviewed_at=? WHERE id IN (SELECT id FROM replies) AND status<>'rejected'").run(row.id, '所属评论已下架：' + note.trim(), req.user.id, now())
     })
     res.json({ ok: true })

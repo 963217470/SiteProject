@@ -34,7 +34,7 @@ import { Bell, CalendarCheck, Bookmark, ChevronDown, FileText, History, LogIn, L
 import { communityRequest } from '../lib/community-api.mjs'
 const unread=ref(0)
 function checkin(){close();window.dispatchEvent(new CustomEvent('rd:checkin'))}
-async function refreshUnread(){if(!user.value || document.hidden)return;const id=user.value.id;try{const result=await communityRequest('/messages');if(user.value?.id===id)unread.value=result.unread}catch{}}
+async function refreshUnread(){if(!user.value || document.hidden)return;const id=user.value.id;try{const result=await communityRequest('/messages/unread');if(user.value?.id===id)unread.value=result.unread}catch{}}
 let accessRequest=0
 async function refreshInternalAccess(){const run=++accessRequest;document.documentElement.dataset.rdInternalAccess='denied';try{const response=await fetch('/api/internal/access',{credentials:'same-origin'});const result=response.ok ? await response.json() : null;if(run===accessRequest)document.documentElement.dataset.rdInternalAccess=result?.allowed ? 'allowed' : 'denied'}catch{}}
 const route = useRoute()

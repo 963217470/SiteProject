@@ -1,5 +1,5 @@
 ---
-title: 消息
+title: 消息中心
 layout: page
 ---
 

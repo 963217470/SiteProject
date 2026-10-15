@@ -1,4 +1,5 @@
 import { randomUUID, createHmac } from 'node:crypto'
+import {adminAudit} from './admin-audit.mjs'
 import { fail } from './repository.mjs'
 
 export const catalogFileUrl = file => '/api/files/catalog/' + file.path.split('/').map(encodeURIComponent).join('/')
@@ -81,7 +82,7 @@ export function installCatalogRoutes(app, db, repository, config) {
     if (!['published','rejected','archived'].includes(status) || (status !== 'published' && !note)) fail(400,'请填写审核或下架原因')
     const row=item(req.params.id,req.user)
     if (status !== 'archived' && row.status !== 'pending') fail(409,'作品已不在待审核状态')
-    const result=repository.transaction(() => db.prepare('UPDATE catalog_items SET status=?,review_note=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?').run(status,note,new Date(now()).toISOString(),row.id,req.body.revision))
+    const result=repository.transaction(() => {const result=db.prepare('UPDATE catalog_items SET status=?,review_note=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?').run(status,note,new Date(now()).toISOString(),row.id,req.body.revision);if(result.changes)adminAudit(db,req.user,'作品审核','catalog',row.id,status+(note?'：'+note:''),now());return result})
     if (!result.changes) fail(409,'作品已更新，请刷新后审核')
     res.json({ok:true})
   })
