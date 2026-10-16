@@ -9,7 +9,7 @@ export default defineConfig({
 
   head: [
     ['script', { src: '/api-client.js?v=20261008-reading-history' }],
-    ['script', { src: '/profile-page.js?v=20261010-community' }]
+    ['script', { src: '/profile-page.js?v=20261016-profile-self-review' }]
   ],
 
   vite: {

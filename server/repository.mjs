@@ -160,6 +160,13 @@ export class Repository {
     return result
   }
   visibleArticle(id, user) { return this.query('articles', { id: 'eq.' + id }, user)[0] }
+  applyProfileChange(row, at) {
+    const fields = ['username', 'avatar_url', 'bio'].filter(key => row[key] !== null && row[key] !== undefined && (key !== 'avatar_url' || row[key]))
+    if (!fields.length) fail(400, '没有可更新的资料')
+    if (fields.includes('username') && !row.username.trim()) fail(400, '昵称不能为空')
+    const result = this.db.prepare(`UPDATE profiles SET ${fields.map(key => key + '=?').join(',')},updated_at=? WHERE id=?`).run(...fields.map(key => row[key]), at, row.user_id)
+    if (!result.changes) fail(404, '用户资料不存在')
+  }
   deleteBranch(row) {
     const children=this.db.prepare('SELECT id,slug FROM knowledge_branches WHERE parent_id=?').all(row.id)
     if (children.some(child=>this.db.prepare('SELECT 1 FROM knowledge_branches WHERE parent_id IS ? AND slug=? AND id<>?').get(row.parent_id,child.slug,row.id))) fail(409,'上一级已有同名分支，请先调整子分支再删除')
@@ -200,6 +207,12 @@ export class Repository {
         if(!file||file.owner_id!==user.id||!file.mime.startsWith('image/')||file.size>2*1024*1024)fail(400,'请选择本人上传的头像图片')
         data.avatar_url=path
       }
+      if (user.role === 'admin') {
+        data.status = 'approved'
+        data.reviewed_by = user.id
+        data.reviewed_at = new Date(this.db.prepare('SELECT rd_now() time').get().time).toISOString()
+        data.review_note = '管理员本人资料免审通过'
+      }
     } else if (table === 'knowledge_branch_requests') {
       if (Object.keys(data).some(key => !['article_id', 'requester_id', 'requested_path', 'requested_description', 'status'].includes(key))) fail(403, '禁止设置审核字段')
       const article = this.visibleArticle(data.article_id, user)
@@ -214,6 +227,10 @@ export class Repository {
     const keys = Object.keys(data)
     const conflict = ['article_likes', 'article_favorites'].includes(table) ? ' ON CONFLICT(article_id,user_id) DO NOTHING' : ''
     this.db.prepare(`INSERT INTO "${table}"(${keys.map(key => `"${key}"`).join(',')}) VALUES(${keys.map(() => '?').join(',')})${conflict}`).run(...Object.values(data))
+    if (table === 'profile_changes' && data.status === 'approved') {
+      this.applyProfileChange(data, data.reviewed_at)
+      adminAudit(this.db,user,'资料自动通过','profile',data.id,'管理员本人资料免审通过',Date.parse(data.reviewed_at))
+    }
     if(user.role==='admin'&&['articles','knowledge_branches','internal_resources'].includes(table))adminAudit(this.db,user,'创建',table,data.id,data.title||data.name||'')
     return data.id ? this.db.prepare(`SELECT * FROM "${table}" WHERE id=?`).get(data.id)
       : this.db.prepare(`SELECT * FROM "${table}" WHERE article_id=? AND user_id=?`).get(data.article_id, data.user_id)

@@ -62,9 +62,7 @@ export function installAdminDashboard(app,db,repository,now=Date.now){
       const row=db.prepare('SELECT * FROM profile_changes WHERE id=?').get(req.params.id)
       if(!row||row.status!=='pending')fail(409,'资料申请已处理或不存在')
       if(approved){
-        const fields=['username','avatar_url','bio'].filter(k=>row[k]!==null&&(k!=='avatar_url'||row[k]))
-        if(!fields.length)fail(400,'没有可更新的资料')
-        db.prepare(`UPDATE profiles SET ${fields.map(k=>k+'=?').join(',')},updated_at=? WHERE id=?`).run(...fields.map(k=>row[k]),new Date(now()).toISOString(),row.user_id)
+        repository.applyProfileChange(row,new Date(now()).toISOString())
       }
       db.prepare('UPDATE profile_changes SET status=?,review_note=?,reviewed_by=?,reviewed_at=? WHERE id=?').run(approved?'approved':'rejected',note,req.user.id,new Date(now()).toISOString(),row.id)
       adminAudit(db,req.user,'资料审核','profile',row.id,approved?'通过':note,now())

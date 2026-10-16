@@ -50,6 +50,39 @@ test('avatars validate actual raster bytes and ownership, then remain pending un
   assert.equal((await f.call('/knowledge/creators')).body.items.find(n=>n.node_id==='b:credit').creator.avatar_url,url)
 })
 
+test('admin own profile is approved atomically while other accounts and avatar ownership stay protected', async t => {
+  const f=await fixture(t)
+  const before=f.db.prepare('SELECT * FROM profiles WHERE id=?').get(f.ids.user)
+  const saved=await f.call('/data/profile_changes',{method:'POST',role:'admin',body:{user_id:f.ids.user,username:'New admin',bio:'Immediate bio',status:'pending'}})
+  assert.equal(saved.status,200)
+  const row=saved.body[0]
+  assert.equal(row.status,'approved');assert.equal(row.user_id,f.ids.admin);assert.equal(row.reviewed_by,f.ids.admin);assert.ok(row.reviewed_at)
+  assert.equal(f.db.prepare('SELECT username FROM profiles WHERE id=?').get(f.ids.admin).username,'New admin')
+  assert.equal(f.db.prepare('SELECT bio FROM profiles WHERE id=?').get(f.ids.admin).bio,'Immediate bio')
+  assert.deepEqual(f.db.prepare('SELECT * FROM profiles WHERE id=?').get(f.ids.user),before)
+  assert.equal(f.db.prepare("SELECT count(*) n FROM profile_changes WHERE user_id=? AND status='pending'").get(f.ids.admin).n,0)
+  assert.ok(f.db.prepare("SELECT 1 FROM admin_activity WHERE entity_id=? AND action='资料自动通过'").get(row.id))
+  assert.equal(f.db.prepare("SELECT count(*) n FROM notifications WHERE category='review'").get().n,0)
+  assert.equal((await f.call('/admin/profile/'+row.id+'/review',{method:'POST',role:'admin',body:{approved:true}})).status,409)
+  const beforeCount=f.db.prepare('SELECT count(*) n FROM profile_changes').get().n
+  assert.equal((await f.call('/data/profile_changes',{method:'POST',role:'admin',body:{username:'   '}})).status,400)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM profile_changes').get().n,beforeCount)
+  assert.equal(f.db.prepare('SELECT username FROM profiles WHERE id=?').get(f.ids.admin).username,'New admin')
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhF8AAAAASUVORK5CYII=','base64')
+  const path=f.ids.admin+'/own-avatar.png'
+  assert.equal((await fetch(f.base+'/api/storage/avatars/'+path,{method:'POST',headers:{'X-RD-CSRF':'1',Cookie:f.cookies.admin,'Content-Type':'image/png'},body:png})).status,201)
+  const url='/api/files/avatars/'+path
+  assert.equal((await f.call('/data/profile_changes',{method:'POST',role:'user',body:{avatar_url:url}})).status,400)
+  const avatar=await f.call('/data/profile_changes',{method:'POST',role:'admin',body:{avatar_url:url,bio:''}})
+  assert.equal(avatar.body[0].status,'approved')
+  assert.equal(f.db.prepare('SELECT avatar_url FROM profiles WHERE id=?').get(f.ids.admin).avatar_url,url)
+  assert.equal(f.db.prepare('SELECT bio FROM profiles WHERE id=?').get(f.ids.admin).bio,'')
+  const member=await f.call('/data/profile_changes',{method:'POST',role:'user',body:{username:'Pending name',status:'approved'}})
+  assert.equal(member.body[0].status,'pending')
+  assert.equal(f.db.prepare('SELECT username FROM profiles WHERE id=?').get(f.ids.user).username,before.username)
+  assert.equal((await f.call('/data/profile_changes',{method:'POST',role:'user',body:{username:'Escalation',role:'admin'}})).status,400)
+})
+
 test('reading time is bounded, deduplicated across tabs and inactive gaps earn nothing', async t => {
   let time = 200000
   const f = await fixture(t, () => time)

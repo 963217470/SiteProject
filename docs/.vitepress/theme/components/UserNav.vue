@@ -97,6 +97,7 @@ async function applySession(_event, session) {
   } catch { /* Session metadata still provides a usable account menu. */ }
   finally { if (id === requestId) loading.value = false }
 }
+async function refreshProfile(){try{const result=await client?.auth.getSession();if(result?.data)await applySession('PROFILE_UPDATED',result.data.session)}catch{}}
 async function logout() {
   if (signingOut.value) return
   signingOut.value = true
@@ -118,6 +119,7 @@ onMounted(() => {
   unreadTimer=setInterval(()=>{refreshUnread();refreshInternalAccess()},60000)
   window.addEventListener('rd:community-updated',refreshUnread)
   window.addEventListener('rd:community-updated',refreshInternalAccess)
+  window.addEventListener('rd:profile-updated',refreshProfile)
   document.addEventListener('visibilitychange',refreshUnread)
 })
 onUnmounted(() => {
@@ -126,6 +128,7 @@ onUnmounted(() => {
   clearInterval(unreadTimer)
   window.removeEventListener('rd:community-updated',refreshUnread)
   window.removeEventListener('rd:community-updated',refreshInternalAccess)
+  window.removeEventListener('rd:profile-updated',refreshProfile)
   ++accessRequest
   document.removeEventListener('visibilitychange',refreshUnread)
   document.removeEventListener('pointerdown', outside)
