@@ -57,7 +57,7 @@ export function fromCanvasTree(tree) {
   return normalizeMindmap({ text: tree.data.text, body: tree.data.rdBody || '', children: (tree.children || []).map(fromCanvasTree) })
 }
 
-export const starterMindmap = () => ({ text: '我的游戏创意', body: '', children: [
+export const starterMindmap = () => ({ text: '中心节点', body: '', children: [
   { text: '核心玩法', body: '', children: [{ text: '玩家目标', body: '', children: [] }, { text: '操作与反馈', body: '', children: [] }] },
   { text: '美术与世界', body: '', children: [] }, { text: '开发计划', body: '', children: [] }
 ] })

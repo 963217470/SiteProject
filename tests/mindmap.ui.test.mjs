@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { markdownToMindmap, mindmapToMarkdown, normalizeMindmap, toCanvasTree, fromCanvasTree } from '../docs/.vitepress/theme/lib/mindmap.mjs'
+import { markdownToMindmap, mindmapToMarkdown, normalizeMindmap, toCanvasTree, fromCanvasTree, starterMindmap } from '../docs/.vitepress/theme/lib/mindmap.mjs'
 
 describe('mindmap interchange', () => {
+  it('names only new maps 中心节点 and preserves existing imported roots', () => {
+    expect(starterMindmap().text).toBe('中心节点')
+    expect(markdownToMindmap('# My saved title').text).toBe('My saved title')
+  })
   it('imports headings and nested lists without treating fenced headings as structure', () => {
     const source='# Game\n\nIntro $E=mc^2$\n\n## Gameplay\n\n- Jump\n  - Double jump\n- Run\n\n````md\n# not a node\n```js\nconst x=1\n```\n````\n\n![shot](/api/files/notes/image.png)'
     const tree=markdownToMindmap(source)

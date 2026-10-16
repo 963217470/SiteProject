@@ -10,6 +10,7 @@
       <label class="map-layout"><select v-model="layout" aria-label="导图布局" :disabled="!ready" @change="changeLayout"><option value="mindMap">左右布局</option><option value="logicalStructure">向右布局</option><option value="organizationStructure">组织结构</option></select></label>
       <div class="map-tool-group"><button class="rd-icon-button" aria-label="导入文件" title="导入 Markdown / 导图 JSON" :disabled="loading" @click="fileInput.click()"><Upload :size="19" /></button><button class="rd-icon-button" aria-label="导出 Markdown" title="导出 Markdown" @click="download('md')"><FileDown :size="19" /></button><button class="rd-icon-button" aria-label="导出导图 JSON" title="导出导图 JSON" @click="download('json')"><Download :size="19" /></button><button class="rd-icon-button" aria-label="导出 SVG" title="导出 SVG" :disabled="!ready" @click="exportSVG"><ImageDown :size="19" /></button></div>
       <input ref="fileInput" type="file" accept=".md,.markdown,.json,text/markdown,application/json" hidden @change="importFile">
+      <button class="rd-button" aria-label="导出 PNG" title="导出完整导图为 PNG" :disabled="!ready || exporting || loading" @click="exportPNG"><FileImage :size="18" />{{ exporting ? '导出中…' : 'PNG' }}</button>
     </div>
     <div class="map-workspace" :class="['mode-'+mode,{'has-inspector':selected}]">
       <div v-show="mode!=='markdown'" class="map-canvas-panel"><div ref="stage" class="map-canvas" tabindex="0" aria-label="思维导图画布" /><div v-if="!ready" class="map-loading" role="status">{{ canvasError || '正在加载画布…' }}<button v-if="canvasError" class="rd-button" @click="initCanvas">重试</button></div><div class="map-zoom"><button class="rd-icon-button" aria-label="缩小导图" title="缩小导图" @click="map?.view.narrow()"><ZoomOut :size="19" /></button><button class="rd-icon-button" aria-label="适应画布" title="适应画布" @click="map?.view.fit()"><Scan :size="19" /></button><button class="rd-icon-button" aria-label="放大导图" title="放大导图" @click="map?.view.enlarge()"><ZoomIn :size="19" /></button></div></div>
@@ -23,12 +24,12 @@
 
 <script setup>
 import { computed, markRaw, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { ArrowLeft, ArrowLeftRight, Check, Columns2, Copy, Download, FileDown, FilePenLine, FileText, ImageDown, Network, Plus, Redo2, Save, Scan, Sparkles, Trash2, Undo2, Upload, X, ZoomIn, ZoomOut, ListPlus } from 'lucide-vue-next'
+import { ArrowLeft, ArrowLeftRight, Check, Columns2, Copy, Download, FileDown, FileImage, FilePenLine, FileText, ImageDown, Network, Plus, Redo2, Save, Scan, Sparkles, Trash2, Undo2, Upload, X, ZoomIn, ZoomOut, ListPlus } from 'lucide-vue-next'
 import { communityRequest } from '../lib/community-api.mjs'
 import { countMindmap, fromCanvasTree, markdownToMindmap, mindmapToMarkdown, normalizeMindmap, starterMindmap, toCanvasTree } from '../lib/mindmap.mjs'
 
 const stage=ref(null),fileInput=ref(null),aiDialog=ref(null),ready=ref(false),canvasError=ref(''),loading=ref(true),loadError=ref(''),busy=ref(false)
-const tree=ref(starterMindmap()),title=ref('我的游戏创意'),markdown=ref(mindmapToMarkdown(tree.value)),mode=ref('map'),layout=ref('mindMap')
+const tree=ref(starterMindmap()),title=ref('中心节点'),markdown=ref(mindmapToMarkdown(tree.value)),mode=ref('map'),layout=ref('mindMap'),exporting=ref(false)
 const selected=ref(null),nodeTitle=ref(''),nodeBody=ref(''),dirty=ref(false),sourceDirty=ref(false),message=ref(''),messageError=ref(false),userId=ref('')
 const savedId=ref(''),revision=ref(''),aiTopic=ref(''),aiResult=ref(''),aiMessage=ref('')
 const nodeCount=computed(()=>countMindmap(tree.value))
@@ -45,16 +46,18 @@ async function initCanvas(){
     const {default:MindMap}=await import('simple-mind-map')
     const {default:Drag}=await import('simple-mind-map/src/plugins/Drag.js')
     const {default:TouchEvent}=await import('simple-mind-map/src/plugins/TouchEvent.js')
+    const {default:Export}=await import('simple-mind-map/src/plugins/Export.js')
     if(disposed)return
-    MindMap.usePlugin(Drag).usePlugin(TouchEvent)
+    MindMap.usePlugin(Drag).usePlugin(TouchEvent).usePlugin(Export)
     map?.destroy()
     map=markRaw(new MindMap({
       el:stage.value,data:toCanvasTree(tree.value),layout:layout.value,textAutoWrapWidth:220,
       maxHistoryCount:60,addHistoryTime:0,fitPadding:35,enableAutoEnterTextEditWhenKeydown:false,
-      themeConfig:{backgroundColor:'transparent',lineColor:'#c9b9ba',lineStyle:'curve',
-        root:{fillColor:'#982f2b',color:'#ffffff',fontSize:21,borderRadius:8,paddingX:20,paddingY:14},
-        second:{fillColor:'#f5ebd1',color:'#343638',borderColor:'#e5dbbf',borderWidth:1,fontSize:16,borderRadius:8,paddingX:16,paddingY:10},
-        node:{fillColor:'#eef5f0',color:'#343638',borderColor:'#dce7df',borderWidth:1,fontSize:15,borderRadius:6,paddingX:14,paddingY:8}}
+      exportPaddingX:40,exportPaddingY:40,minExportImgCanvasScale:2,maxCanvasSize:4096,
+      themeConfig:{backgroundColor:'#ffffff',lineColor:'#d98b88',lineWidth:2,lineStyle:'curve',rootLineStartPositionKeepSameInCurve:true,
+        root:{fillColor:'transparent',color:'#282a2c',fontSize:30,borderColor:'transparent',borderWidth:0,borderRadius:0,paddingX:24,paddingY:18},
+        second:{fillColor:'#f2aaa5',color:'#3d2928',borderColor:'transparent',borderWidth:0,fontSize:19,borderRadius:8,paddingX:20,paddingY:13},
+        node:{fillColor:'transparent',color:'#493c3a',borderColor:'transparent',borderWidth:0,fontSize:16,borderRadius:0,paddingX:8,paddingY:7}}
     }))
     map.on('data_change',syncCanvas)
     map.on('node_active',(_node,nodes)=>{
@@ -82,9 +85,27 @@ function updateNode(){
 }
 function applyMarkdown(){try{replaceTree(markdownToMindmap(markdown.value,title.value));say('Markdown 已转为导图')}catch(e){say(e.message,true)}}
 function confirmReplace(){return !dirty.value||window.confirm('替换当前导图？未保存的更改将丢失。')}
-function newMap(){if(busy.value||!confirmReplace())return;savedId.value='';revision.value='';loadError.value='';meta={summary:'',tags:[]};importKey=crypto.randomUUID();history.replaceState(history.state,'','/mindmap/');title.value='我的游戏创意';replaceTree(starterMindmap());say('已新建导图')}
+function newMap(){if(busy.value||!confirmReplace())return;savedId.value='';revision.value='';loadError.value='';meta={summary:'',tags:[]};importKey=crypto.randomUUID();history.replaceState(history.state,'','/mindmap/');title.value='中心节点';replaceTree(starterMindmap());say('已新建导图')}
 function download(kind){try{const current=sourceDirty.value?markdownToMindmap(markdown.value,title.value):readTree();const content=kind==='md'? (sourceDirty.value?markdown.value:mindmapToMarkdown(current)):JSON.stringify({format:'rd-mindmap',version:1,title:title.value,tree:current},null,2);saveFile(content,kind,kind==='md'?'text/markdown':'application/json')}catch(e){say(e.message,true)}}
-function saveFile(content,extension,type){const url=URL.createObjectURL(new Blob([content],{type:type+';charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=(title.value.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_')||'mindmap')+'.'+extension;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function saveFile(content,extension,type){const blob=content instanceof Blob?content:new Blob([content],{type:type+';charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(title.value.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_')||'mindmap')+'.'+extension;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+async function exportPNG(){
+  if(exporting.value||!map)return
+  if(sourceDirty.value){say('请先将 Markdown 应用到导图再导出图片',true);return}
+  exporting.value=true
+  try{
+    if(mode.value==='markdown')await setMode('map')
+    await document.fonts.ready
+    if(disposed)return
+    // The engine crops to the entire rendered diagram, independent of pan/zoom.
+    const data=await map.doExport.png('mindmap',false)
+    if(disposed)return
+    if(typeof data!=='string'||!data.startsWith('data:image/png;base64,'))throw new Error('未生成有效图片')
+    const blob=await (await fetch(data)).blob()
+    if(disposed)return
+    saveFile(blob,'png','image/png');say('完整导图已导出为 PNG')
+  }catch{if(!disposed)say('PNG 导出失败，请重试或改用 SVG 导出',true)}
+  finally{exporting.value=false}
+}
 function exportSVG(){try{if(sourceDirty.value)throw new Error('请先将 Markdown 应用到导图再导出图片');const svg=stage.value.querySelector('svg')?.cloneNode(true);if(!svg)throw new Error('画布尚未准备好');svg.querySelectorAll('.smm-hover-node,.smm-expand-btn').forEach(el=>el.remove());svg.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile(new XMLSerializer().serializeToString(svg),'svg','image/svg+xml')}catch(e){say(e.message,true)}}
 function parseImport(value){if(value.trim().startsWith('{')){const data=JSON.parse(value);return normalizeMindmap(data.format==='rd-mindmap'?data.tree:data)}return markdownToMindmap(value,title.value)}
 async function importFile(event){const file=event.target.files?.[0];event.target.value='';if(!file)return;try{if(file.size>800000)throw new Error('文件不能超过 800KB');const value=parseImport(await file.text());if(busy.value)throw new Error('正在保存，请稍后再导入');if(!confirmReplace())return;replaceTree(value);title.value=value.text.slice(0,300);say('文件已导入；尚未保存到网站')}catch(e){say('导入失败：'+e.message,true)}}
@@ -131,7 +152,7 @@ onMounted(async()=>{
     const nextUser=session?.user?.id||''
     if(nextUser===userId.value)return
     ++epoch;userId.value=nextUser;savedId.value='';revision.value='';loadError.value=''
-    meta={summary:'',tags:[]};importKey=crypto.randomUUID();title.value='我的游戏创意'
+    meta={summary:'',tags:[]};importKey=crypto.randomUUID();title.value='中心节点'
     replaceTree(starterMindmap());dirty.value=false
     history.replaceState(history.state,'','/mindmap/')
   })?.data?.subscription
