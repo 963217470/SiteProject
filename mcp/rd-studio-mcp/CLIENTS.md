@@ -13,11 +13,15 @@
 | 千问 Qwen Code | `qwen-code.http.json` | `qwen-code.upload.stdio.json` | `~/.qwen/settings.json` 的 `mcpServers` |
 | Gemini CLI | `gemini-cli.http.json` | `gemini-cli.upload.stdio.json` | `~/.gemini/settings.json` 的 `mcpServers` |
 | Claude Code | `claude-code.http.json` | `upload.stdio.json` | 项目 `.mcp.json` 或客户端 MCP 配置 |
-| Codex | `codex.http.toml` | `upload.stdio.json` 的 command / args / env 迁入 TOML | 用户 MCP 配置 |
+| Codex | `codex.http.toml` | 远程草稿用 `codex.upload.http.toml`；本地目录上传将 `upload.stdio.json` 的 command / args / env 迁入 TOML | 用户 MCP 配置 |
 
 千问、Gemini 在这里指支持 MCP 的 Qwen Code、Gemini CLI；普通网页聊天不一定提供自定义 MCP 入口。云端客户端只能访问其运行环境中的文件，不能直接读取你电脑上的 `_assets`。
 
 ## 安装本地连接器
+
+Codex 只上传文本、Markdown 或导图草稿时，无需安装本地连接器。将 `codex.upload.http.toml` 合并到私人 `~/.codex/config.toml`，同名服务器配置只保留一份；在启动 Codex 的环境中设置 `RD_STUDIO_UPLOAD_TOKEN` 为本人网站上传令牌。Windows 可使用账户环境变量设置，完全退出并重新打开 Codex 后再连接；必要时注销重新登录以刷新环境。不要把令牌提交到 Git 或发送到聊天。
+
+先调用 `get_upload_identity`，再调用 `save_article_draft` / `import_text_draft`。草稿保存后不会自动发布；更新先读取 `get_own_draft`，再提供 `id` 和最新 `expected_revision`。HTTP 模式默认 11 个工具；仅见 5 个工具说明没有传入上传令牌。网站不使用 MCP OAuth，上传令牌不是 GitHub Client Secret。
 
 在解压目录执行 `npm ci`（Node.js 20+），按表中客户端选取一个配置，合并到已有 `mcpServers`，保留其他服务器。
 

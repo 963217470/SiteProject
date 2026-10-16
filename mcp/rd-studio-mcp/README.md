@@ -16,6 +16,8 @@
 
 ## 客户端配置
 
+Codex 上传文章 / 文本 / 思维导图草稿：使用 `codex.upload.http.toml`，在启动客户端的环境中设置 `RD_STUDIO_UPLOAD_TOKEN`。`codex.http.toml` 仅用于公开只读查询。保存仍保持草稿，不自动发布；修改已存草稿先读取最新 revision。详细设置见 `CLIENTS.md`。
+
 新增 CodeBuddy、WorkBuddy、TRAE、DeepSeek Harness、千问 Qwen Code、Gemini CLI 的独立配置文件，包含公开查询与 V2md 本地笔记上传两种用途。请先读同目录 `CLIENTS.md`，按对应客户端合并配置，不要覆盖已有其他服务器。
 
 Gemini / Qwen 的 HTTP 字段是 `httpUrl`，CodeBuddy Code 的字段是 `type: "http"` + `url`，DeepSeek Harness 使用插件 patch YAML。普通千问、Gemini 网页聊天不一定有自定义 MCP 接入入口。

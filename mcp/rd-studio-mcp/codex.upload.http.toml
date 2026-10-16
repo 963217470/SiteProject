@@ -1,0 +1,8 @@
+# Merge this table into your private ~/.codex/config.toml.
+# Set RD_STUDIO_UPLOAD_TOKEN in the environment used to launch Codex.
+# Never replace this variable name with the token itself.
+[mcp_servers.rd_studio]
+url = "https://rd-studio.club/api/mcp"
+bearer_token_env_var = "RD_STUDIO_UPLOAD_TOKEN"
+startup_timeout_sec = 30
+tool_timeout_sec = 120

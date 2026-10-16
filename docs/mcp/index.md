@@ -93,12 +93,25 @@ claude mcp add --transport http rd-studio https://rd-studio.club/api/mcp
 
 ## Codex
 
-将下面内容合并到 `~/.codex/config.toml`：
+只读取公开资料时，将包内 `codex.http.toml` 合并到 `~/.codex/config.toml`。
+
+**上传和保留草稿**请改用 `codex.upload.http.toml`，同名配置只保留一份：
 
 ```toml
 [mcp_servers.rd_studio]
 url = "https://rd-studio.club/api/mcp"
+bearer_token_env_var = "RD_STUDIO_UPLOAD_TOKEN"
+startup_timeout_sec = 30
+tool_timeout_sec = 120
 ```
+
+先登录本页创建本人上传令牌，再将令牌设置为启动 Codex 的环境变量 `RD_STUDIO_UPLOAD_TOKEN`。不要把令牌填进上述变量名称、项目文件或聊天。Windows 可在“编辑账户的环境变量”中新建该用户变量，设置后完全退出并重新打开 Codex；若仍未继承新变量，注销 Windows 后重新登录。
+
+这不是 GitHub Client Secret，也不是模型 API Key。无需执行 `codex mcp login`：本站上传接口使用本人授权令牌，而不是 MCP OAuth 登录。
+
+连接后先让 AI 调用 `get_upload_identity` 核对账号。然后可以说：“把下面的 Markdown 保存到我的 RD STUDIO 草稿，不要发布，返回编辑地址。”AI 使用 `save_article_draft` 或 `import_text_draft`，结果保持草稿，可在“个人面板 → 我的文章 → 草稿”继续编辑。更新已有草稿必须先 `get_own_draft` 读取最新版本，再传 `id` 和 `expected_revision`，避免覆盖网站中的后续修改。
+
+HTTP 上传模式默认 11 个工具；只有 5 个代表未传入令牌，401 代表令牌无效、过期或已撤销。HTTP 不能直接读取本机 `_assets`，需要一键上传整个 V2md 目录时仍使用本地 stdio 连接器。
 
 ## CodeBuddy、WorkBuddy、TRAE、DeepSeek、千问与 Gemini
 
