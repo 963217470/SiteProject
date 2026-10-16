@@ -61,7 +61,7 @@ test('authenticated HTTP MCP saves owner drafts, deduplicates retries, checks re
   const client=new Client({name:'upload-test',version:'1'})
   await client.connect(new StreamableHTTPClientTransport(new URL(f.base+'/api/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token.token}}}))
   t.after(()=>client.close())
-  assert.equal((await client.listTools()).tools.length,9)
+  assert.equal((await client.listTools()).tools.length,10)
   const payload={import_key:'unique-note',title:'V2md',markdown:'# Note\n$E=mc^2$\n```js\nlet n=1\n```',tags:['视频转文']}
   const created=(await client.callTool({name:'save_article_draft',arguments:payload})).structuredContent
   assert.equal(created.status,'draft')
@@ -108,7 +108,7 @@ test('stdio imports real local note and assets without rewriting code, then upda
   const client=new Client({name:'local-upload',version:'1'})
   await client.connect(new StdioClientTransport({command:process.execPath,args:[resolve(import.meta.dirname,'../../mcp/rd-studio-mcp/server.mjs')],env:{...process.env,RD_STUDIO_URL:f.base,RD_STUDIO_UPLOAD_TOKEN:token.token,RD_STUDIO_NOTES_ROOT:root},stderr:'pipe'}))
   t.after(()=>client.close())
-  assert.equal((await client.listTools()).tools.length,10)
+  assert.equal((await client.listTools()).tools.length,11)
   const saved=(await client.callTool({name:'upload_video_note',arguments:{note_path:'note.md',tags:['教程']}})).structuredContent
   assert.equal(saved.uploaded_images,1);assert.equal(saved.rewritten_image_references,2)
   const row=f.db.prepare('SELECT * FROM articles WHERE id=?').get(saved.id)
@@ -121,6 +121,39 @@ test('stdio imports real local note and assets without rewriting code, then upda
   const current=(await client.callTool({name:'get_own_draft',arguments:{id:saved.id}})).structuredContent
   const update=await client.callTool({name:'upload_video_note',arguments:{note_path:'note.md',id:saved.id,expected_revision:current.revision}})
   assert.equal(update.structuredContent.id,saved.id)
+})
+
+test('AI mindmap drafts enforce authentication, revisions, owner isolation and normal moderation',async t=>{
+  const f=await fixture(t),token=await f.mint(),other=await f.mint('other')
+  const client=new Client({name:'mindmap-test',version:'1'})
+  await client.connect(new StreamableHTTPClientTransport(new URL(f.base+'/api/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token.token}}}))
+  t.after(()=>client.close())
+  const input={import_key:'map-1',title:'Game plan',tree:{text:'Game',children:[{text:'Gameplay',body:'$E=mc^2$\n\n```js\nconst x=1\n```'}]}}
+  assert.equal((await f.call('/api/mindmaps/drafts',{method:'POST',body:input})).status,401)
+  assert.equal((await f.call('/api/mindmaps/drafts',{method:'POST',user:'author',body:input,headers:{'X-RD-CSRF':''}})).status,403)
+  const result=await client.callTool({name:'save_mindmap_draft',arguments:input})
+  assert.equal(result.isError,undefined)
+  const saved=result.structuredContent
+  assert.equal(saved.node_count,2);assert.equal(saved.status,'draft');assert.match(saved.mindmap_url,/\/mindmap\/\?id=/)
+  const row=f.db.prepare('SELECT * FROM articles WHERE id=?').get(saved.id)
+  assert.equal(row.author_id,f.ids.author);assert.equal(row.status,'draft');assert.equal(row.visibility,'public')
+  assert.ok(row.content.includes('## Gameplay'));assert.deepEqual(JSON.parse(row.tags),['思维导图'])
+  assert.equal((await client.callTool({name:'save_mindmap_draft',arguments:input})).structuredContent.id,saved.id)
+  assert.equal((await f.call('/api/mindmaps/drafts/'+saved.id)).status,401)
+  assert.equal((await f.call('/api/mindmaps/drafts/'+saved.id,{user:'other'})).status,404)
+  assert.equal((await f.call('/api/mindmaps/drafts/'+saved.id,{user:'admin'})).status,404)
+  const own=(await f.call('/api/mindmaps/drafts/'+saved.id,{user:'author'})).body
+  assert.equal(own.revision,saved.revision)
+  const updated=await f.call('/api/mindmaps/drafts',{method:'POST',user:'author',body:{id:saved.id,expected_revision:saved.revision,title:'Updated',tree:{text:'New'}}})
+  assert.equal(updated.status,200)
+  assert.equal((await f.call('/api/mindmaps/drafts',{method:'POST',user:'author',body:{id:saved.id,expected_revision:saved.revision,title:'Stale',tree:{text:'No'}}})).status,409)
+  assert.equal((await f.call('/api/note-upload/save_mindmap_draft',{method:'POST',token:other.token,body:{id:saved.id,expected_revision:updated.body.revision,tree:{text:'Stolen'}}})).status,404)
+  for(const bad of [{...input,status:'published'},{...input,tree:{text:'x',children:[{text:'bad',richText:true}]}},{...input,tree:{text:'x',children:Array.from({length:300},()=>({text:'n'}))}}]) {
+    assert.equal((await f.call('/api/note-upload/save_mindmap_draft',{method:'POST',token:token.token,body:bad})).status,400)
+  }
+  f.db.prepare("UPDATE articles SET status='pending' WHERE id=?").run(saved.id)
+  assert.equal((await f.call('/api/mindmaps/drafts/'+saved.id,{user:'author'})).status,404)
+  assert.equal((await client.callTool({name:'save_mindmap_draft',arguments:{id:saved.id,expected_revision:updated.body.revision,tree:{text:'Overwrite'}}})).isError,true)
 })
 
 test('local importer rejects traversal and missing images before network writes',async t=>{
@@ -141,7 +174,7 @@ test('HTTP MCP creates admin nodes and linked Markdown drafts with creator metad
   const client=new Client({name:'node-writer-test',version:'1'})
   await client.connect(new StreamableHTTPClientTransport(new URL(f.base+'/api/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token.token}}}))
   t.after(()=>client.close())
-  assert.equal((await client.listTools()).tools.length,10)
+  assert.equal((await client.listTools()).tools.length,11)
   const input={request_key:'node-test',name:'Shader notes',description:'Explain shaders with Markdown notes.'}
   const created=(await client.callTool({name:'create_knowledge_node',arguments:input})).structuredContent
   assert.equal(created.status,'created');assert.equal(created.creator.id,f.ids.admin)
@@ -183,7 +216,7 @@ test('stdio exposes opted-in node writing and preserves the creator of reused ex
   const client=new Client({name:'stdio-node-test',version:'1'})
   await client.connect(new StdioClientTransport({command:process.execPath,args:[resolve(import.meta.dirname,'../../mcp/rd-studio-mcp/server.mjs')],env:{...process.env,RD_STUDIO_URL:f.base,RD_STUDIO_UPLOAD_TOKEN:token.token,RD_STUDIO_KNOWLEDGE_WRITE:'1'},stderr:'pipe'}))
   t.after(()=>client.close())
-  assert.equal((await client.listTools()).tools.length,11)
+  assert.equal((await client.listTools()).tools.length,12)
   const id=randomUUID()
   f.db.prepare("INSERT INTO knowledge_branches(id,name,slug,description,created_by) VALUES(?,'Existing','existing','Original',?)").run(id,f.ids.author)
   const result=(await client.callTool({name:'create_knowledge_node',arguments:{request_key:'reuse',name:'Existing',description:'New'}})).structuredContent

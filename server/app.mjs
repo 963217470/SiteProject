@@ -24,6 +24,7 @@ import { installNoteTokenRoutes } from './note-upload.mjs'
 import { installKnowledgeRoutes } from './knowledge.mjs'
 import { installAdminDashboard } from './admin-dashboard.mjs'
 import { installActivityRoutes } from './activity.mjs'
+import { installMindmapRoutes } from './mindmaps.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
 const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'catalog','notes'])
@@ -88,6 +89,7 @@ export function createApp(db, config) {
   app.use((req,res,next) => req.method === 'POST' && req.path.startsWith('/api/storage/') ? next() : parseJson(req,res,next))
   app.use('/api', (_req, _res, next) => { try { repository.transaction(() => {}); next() } catch (error) { next(error) } })
   installNoteTokenRoutes(app,repository,config)
+  installMindmapRoutes(app,repository,config)
   installKnowledgeRoutes(app,repository,config)
   installCommunityRoutes(app, db, repository, now)
   installCommentRoutes(app, db, repository, now)

@@ -7,6 +7,8 @@
       </div>
       <div class="editor-actions">
         <button class="btn secondary" type="button" @click="goBack"><ArrowLeft :size="16" aria-hidden="true" />返回列表</button>
+        <button class="btn secondary" type="button" @click="openMindmap"><Network :size="16" aria-hidden="true" />转为思维导图</button>
+        <a v-if="editingId && loadedStatus === 'draft' && selectedTags.includes('思维导图') && article.visibility === 'public'" class="btn secondary" :href="'/mindmap/?id='+editingId" target="_blank" rel="noopener" title="打开已保存的导图"><Network :size="16" />继续绘制</a>
         <button class="btn secondary" type="button" :disabled="submitting" @click="saveDraft"><Save :size="16" aria-hidden="true" />保存草稿</button>
         <button class="btn primary" type="button" :disabled="submitting" @click="submitArticle">
           <Send :size="16" aria-hidden="true" />{{ submitting ? '提交中...' : '提交审核' }}
@@ -183,7 +185,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { ArrowLeft, Save, Send, Heading2, Heading3, Bold, Italic, Quote, Code, List, ListOrdered, Link, Image, Minus } from 'lucide-vue-next'
+import { ArrowLeft, Save, Send, Heading2, Heading3, Bold, Italic, Quote, Code, List, ListOrdered, Link, Image, Minus, Network } from 'lucide-vue-next'
 import { renderArticleMarkdown } from '../lib/markdown.mjs'
 import { copyMarkdownSelection } from '../lib/markdown-copy.mjs'
 import '../markdown.css'
@@ -200,6 +202,7 @@ const selectedFolder = ref('')
 const selectedAttachment = ref('')
 const submitting = ref(false)
 const editingId = ref('')
+const loadedStatus = ref('')
 const loadingArticle = ref(false)
 const loadArticleError = ref(false)
 const statusMessage = ref('')
@@ -264,6 +267,7 @@ async function loadExistingArticle() {
     const { data, error } = await api.from('articles').select('*').eq('id', id).eq('author_id', user.id).single()
     if (error || !data) throw new Error(error?.message || '本人文章不存在')
     article.title = data.title
+    loadedStatus.value = data.status
     article.summary = data.summary || ''
     article.content = data.content
     article.visibility = data.visibility
@@ -750,6 +754,16 @@ async function saveDraft() {
   await saveArticle('draft')
 }
 
+function openMindmap() {
+  if (!article.content.trim()) { showStatus('请先输入正文', 'error'); return }
+  if (article.visibility === 'internal') { showStatus('内部文章暂不支持转入公开导图草稿；可导出后自行整理', 'error'); return }
+  try {
+    sessionStorage.setItem('rd-mindmap-import', JSON.stringify({ title: article.title, markdown: article.content }))
+    window.open('/mindmap/', '_blank')
+    sessionStorage.removeItem('rd-mindmap-import')
+  } catch { showStatus('浏览器存储不可用，请导出 Markdown 后在导图中导入', 'error') }
+}
+
 async function submitArticle() {
   await saveArticle('pending')
 }
@@ -834,6 +848,7 @@ async function saveArticle(status) {
       return
     }
     editingId.value = insertedArticle.id
+    loadedStatus.value = status
 
     if (article.visibility !== 'internal' && article.kbEnabled && requestedBranchPath) {
       const requestResult = await supabase

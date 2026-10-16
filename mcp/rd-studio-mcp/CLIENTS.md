@@ -44,7 +44,9 @@
 
 公开查询不需要令牌。Gemini CLI 和 Qwen Code 使用 `httpUrl`；CodeBuddy Code 使用 `type: "http"` 与 `url`；Harness 使用 `transport: streamable-http`。不要将网站接口配成 SSE。
 
-远程客户端上传已准备的 Markdown / Base64 图片，需要在客户端提供的 HTTP 请求头设置中加入 `Authorization: Bearer <本人上传令牌>`。默认提供 9 个工具，授权节点写入后 10 个，但没有读取本地文件的 `upload_video_note`。本地 stdio 默认上传 10 个工具，设置 `RD_STUDIO_KNOWLEDGE_WRITE=1` 后 11 个；调用节点工具前确认令牌已授权。
+远程客户端上传已准备的 Markdown / Base64 图片，需要在客户端提供的 HTTP 请求头设置中加入 `Authorization: Bearer <本人上传令牌>`。默认提供 10 个工具，授权节点写入后 11 个，但没有读取本地文件的 `upload_video_note`。本地 stdio 默认上传 11 个工具，设置 `RD_STUDIO_KNOWLEDGE_WRITE=1` 后 12 个；调用节点工具前确认令牌已授权。
+
+以上客户端的上传配置同时提供 `save_mindmap_draft`。让 AI 先确认身份，再生成 `{text,body?,children?}` 节点树保存为本人草稿，打开返回的 `mindmap_url` 继续绘制。网站不内置模型服务，不会直接发布；示例及限制见 `README.md` 的“AI 思维导图”。本地连接器请升级到 v1.3.0，HTTP 客户端刷新工具列表即可。
 
 ## 验证与常见问题
 

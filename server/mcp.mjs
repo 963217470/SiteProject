@@ -7,6 +7,7 @@ import { createRdServer } from '../mcp/rd-studio-mcp/core.mjs'
 import { uploadSchemas } from '../mcp/rd-studio-mcp/upload-tools.mjs'
 import { createNoteUpload } from './note-upload.mjs'
 import { createKnowledgeWriter } from './mcp-knowledge.mjs'
+import { mindmapDraft } from '../mcp/rd-studio-mcp/mindmap.mjs'
 
 export function installMcpRoutes(app,repository,config){
   const siteUrl=new URL(config.siteUrl).origin
@@ -17,6 +18,9 @@ export function installMcpRoutes(app,repository,config){
     if(name==='get_upload_identity')return notes.identity(user)
     if(name==='get_own_draft')return notes.getDraft(user,input.id)
     if(name==='save_article_draft')return notes.saveDraft(user,input)
+    if(name==='save_mindmap_draft') {
+      try{return mindmapDraft(notes,user,input,siteUrl)}catch(error){if(!error.status)error.status=400;throw error}
+    }
     if(name==='upload_note_image')return notes.uploadImage(user,input)
     if(name==='create_knowledge_node')return createNode(user,input)
     throw Object.assign(new Error('上传接口不存在'),{status:404})

@@ -32,7 +32,31 @@ import McpUploadTokens from '../.vitepress/theme/components/McpUploadTokens.vue'
 
 管理员可以直接创建分支；普通账号需先保存草稿，再提供本人文章的 `article_id` 提交申请，等待管理员审核。创建者绑定令牌账号，节点详情会显示公开昵称。已有同名节点会复用，不覆盖原作者和说明。
 
-AI 可用 `save_article_draft` 写 Markdown、标签，并通过 `knowledge_branch_id` 关联分支；本地 `upload_video_note` 也支持关联。内容只保存为草稿，图片仍按草稿权限保护，不能自动发布、删除节点或固定位置。默认上传为 HTTP 9 / 本地 10 个工具；节点授权后为 HTTP 10 / 本地 11 个工具。
+AI 可用 `save_article_draft` 写 Markdown、标签，并通过 `knowledge_branch_id` 关联分支；本地 `upload_video_note` 也支持关联。内容只保存为草稿，图片仍按草稿权限保护，不能自动发布、删除节点或固定位置。默认上传为 HTTP 10 / 本地 11 个工具；节点授权后为 HTTP 11 / 本地 12 个工具。
+
+## AI 生成思维导图
+
+[打开思维导图工作台](/mindmap/)。支持增删节点、拖拽调整层级、撤销重做、节点 Markdown 笔记、三种布局，以及 Markdown / JSON 导入导出和 SVG 图片导出。
+
+让已配置本人上传令牌的 AI 先调用 `get_upload_identity` 核对账号，再调用 `save_mindmap_draft`：
+
+```json
+{
+  "import_key": "godot-learning-map-v1",
+  "title": "Godot 学习路线",
+  "tree": {
+    "text": "Godot 学习路线",
+    "children": [
+      {"text": "基础", "body": "先掌握场景与节点。", "children": [{"text": "场景系统"}, {"text": "GDScript"}]},
+      {"text": "实践", "children": [{"text": "完成一个 2D 原型"}]}
+    ]
+  }
+}
+```
+
+生成过程由你连接的 AI 完成，网站不内置或代付模型服务。工具返回 `mindmap_url`、`editor_url`、`revision`；新建用稳定 `import_key`，更新先 `get_own_draft`，再传 `id` 和最新 `expected_revision`。最多 300 个节点、16 层，内容不超过 20 万字。草稿仍属本人，不能直接发布或越权修改。提交审核和关联知识库可在文章编辑页完成。
+
+未连接 MCP 时，工作台的“AI 生成”可复制请求，发送给你的 AI，再将其 Markdown 或节点 JSON 导入。Markdown 的标题、嵌套列表组成树，代码、公式、图片链接等原文保存在节点笔记中。导出会规范化结构，不保证源文件排版逐字相同；需要原始文档时请另存原文件。已有文章转图会打开独立副本，不覆盖原文；内部文章不转入公开导图草稿。
 
 ## 可用能力
 
@@ -79,7 +103,7 @@ DeepSeek Harness 使用官方 `@deepseek-ai/dsh-mcp-client` 插件。`.patch.yam
 
 Gemini CLI、Qwen Code 的 HTTP 配置使用 `httpUrl`，CodeBuddy Code 使用 `type: "http"` 和 `url`，Harness 使用 `streamable-http`。网站接口不是 SSE。读取本地 `_assets` 请选本地上传配置。
 
-保存后刷新 MCP 或重启客户端：公开模式有 5 个工具；本地上传默认 10 个，启用节点工具后 11 个。先调用 `get_upload_identity` 核对账号及权限，再调用 `upload_video_note` 或 `create_knowledge_node`。
+保存后刷新 MCP 或重启客户端：公开模式有 5 个工具；本地上传默认 11 个，启用节点工具后 12 个。先调用 `get_upload_identity` 核对账号及权限，再调用 `upload_video_note`、`save_mindmap_draft` 或 `create_knowledge_node`。
 
 ## 其他兼容客户端
 

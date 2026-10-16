@@ -1,6 +1,7 @@
 <template>
   <section class="rd-knowledge">
     <header class="rd-page-header"><div><p class="rd-eyebrow">CONNECTED KNOWLEDGE</p><h1>知识库</h1><p class="rd-page-subtitle">游戏创作，从一个知识点开始。</p></div><a class="rd-button rd-button-primary" href="/editor"><Plus :size="18" />分享笔记</a></header>
+    <a class="rd-button knowledge-map-entry" href="/mindmap/"><Network :size="17" />绘制思维导图</a>
     <PageState v-if="loading" kind="loading" title="正在加载知识库" />
     <PageState v-else-if="error" kind="error" title="暂时无法加载" :message="error"><button class="rd-button" @click="load">重试</button></PageState>
     <template v-else>

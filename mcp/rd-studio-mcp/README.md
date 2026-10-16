@@ -1,4 +1,4 @@
-# RD STUDIO MCP v1.2.0
+# RD STUDIO MCP v1.3.0
 
 让支持 MCP 的 AI 使用 RD STUDIO 的真实公开资料，不需要付费模型 API，也不需要网站登录令牌。
 
@@ -63,7 +63,7 @@ AI 先调用 `get_upload_identity` 确认权限，再用 `list_knowledge_branche
 
 管理员拿到分支 `id` 后，可调用 `save_article_draft` 写入标题、Markdown、标签，并传 `knowledge_branch_id` 关联该分支；`upload_video_note` 同样支持这个字段。普通账号先保存自己的草稿，再以 `article_id` 申请分支，审核通过后由网站关联。关联草稿仍不公开，需本人检查并提交审核。重试使用相同 `request_key`，修改参数则换新键；更新草稿必须提供最新 `expected_revision`。
 
-不勾选节点权限时：HTTP 9 个工具、本地上传 10 个；勾选后：HTTP 10 个，本地设置上述环境变量后 11 个。知识库节点详情和分支查询会显示创建者的公开昵称，不暴露邮箱。
+不勾选节点权限时：HTTP 10 个工具、本地上传 11 个；勾选后：HTTP 11 个，本地设置上述环境变量后 12 个。知识库节点详情和分支查询会显示创建者的公开昵称，不暴露邮箱。
 
 HTTP 客户端在请求头配置 `Authorization: Bearer <令牌>` 后可调用：
 
@@ -73,8 +73,17 @@ HTTP 客户端在请求头配置 `Authorization: Bearer <令牌>` 后可调用�
 | `upload_note_image` | 上传真实图片的标准 Base64，返回 URL |
 | `save_article_draft` | 新建（`import_key`）或更新（`id` + `expected_revision`）本人草稿 |
 | `get_own_draft` | 读取本人公开草稿及版本信息 |
+| `save_mindmap_draft` | 保存 AI 生成的树为本人 Markdown 草稿，返回导图绘制链接 |
 
 HTTP 服务无法访问电脑上的 `_assets`，本地一键上传需要 stdio。公开查询仍只返回已发布公开资料，即使带上传令牌也不会扩大公开搜索范围。上传令牌不会授权网站通用数据、存储或管理接口。
+
+### AI 思维导图
+
+在 Claude Code、Codex、CodeBuddy、WorkBuddy、TRAE、Qwen Code、Gemini CLI、DeepSeek Harness 等支持 MCP 的客户端中，使用现有上传配置即可调用 `save_mindmap_draft`，无需新增模型 API 密钥。AI 负责生成内容，网站负责校验和存为本人草稿，不会自动调用任何付费模型。
+
+先 `get_upload_identity`，再传 `{import_key:"stable-key",title:"学习路线",tree:{text:"主题",body:"可选 Markdown 笔记",children:[{text:"分支"}]}}`。子节点同结构；最多 300 节点、16 层，20 万字。返回 `mindmap_url` 可继续绘制，`editor_url` 可检查并提交审核。相同请求重试去重；更新必须先 `get_own_draft`，再提供 `id` + 最新 `expected_revision`，不能覆盖他人或已提交的文章。
+
+工作台 https://rd-studio.club/mindmap/ 支持 Markdown、JSON 导入导出，SVG 导出，以及未连接 MCP 时复制 AI 请求和粘贴生成结果。转换规范化标题与列表；公式、代码、图片链接保存在节点笔记中。不会上传本地图片文件，含 `_assets` 的笔记先使用 `upload_video_note`。
 
 ## 方式一：远程 HTTP（推荐）
 

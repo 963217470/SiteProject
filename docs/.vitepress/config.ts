@@ -29,7 +29,7 @@ export default defineConfig({
     nav: [
       { text: '首页', link: '/', activeMatch: '^/$' },
       { text: '文章', link: '/articles', activeMatch: '^/(?:articles|article|editor)(?:/|$)' },
-      { text: '知识库', link: '/kb', activeMatch: '^/(?:kb|admin/kb)(?:/|$)' },
+      { text: '知识库', link: '/kb', activeMatch: '^/(?:kb|mindmap|admin/kb)(?:/|$)' },
       { text: '任务', link: '/tasks', activeMatch: '^/(?:tasks|admin/tasks)(?:/|$)' },
       { text: '游戏/工具', link: '/games-tools/', activeMatch: '^/games-tools(?:/|$)' },
       { text: '内部', link: '/internal', activeMatch: '^/internal(?:/|$)' },

@@ -4,7 +4,7 @@ const annotations = { readOnlyHint:true, destructiveHint:false, idempotentHint:t
 const result = value => ({ content:[{type:'text',text:JSON.stringify(value,null,2)}], structuredContent:value })
 
 export function createRdServer({ McpServer, z, readRows, siteUrl, upload, knowledgeWrite=false }) {
-  const server = new McpServer({ name:'rd-studio', version:'1.2.0' }, { instructions:instructions+' Node creation requires a separately opted-in token: admins create branches directly, other users submit their own article-linked requests for review. Markdown notes stay drafts until website moderation.' })
+  const server = new McpServer({ name:'rd-studio', version:'1.3.0' }, { instructions:instructions+' Node creation requires a separately opted-in token: admins create branches directly, other users submit their own article-linked requests for review. Markdown notes and AI mindmaps stay drafts until website moderation.' })
   if(upload) registerUploadTools(server,z,upload,knowledgeWrite)
   const pagination = { offset:z.number().int().min(0).max(100000).default(0), limit:z.number().int().min(1).max(50).default(20) }
   const url = id => siteUrl+'/article?id='+encodeURIComponent(id)
@@ -37,7 +37,7 @@ export function createRdServer({ McpServer, z, readRows, siteUrl, upload, knowle
     }
     return result(page(rows,offset,limit,b=>({id:b.id,parent_id:b.parent_id||null,name:b.name,description:b.description||'',creator:creators.get(b.created_by)||null,url:siteUrl+'/kb/?branch='+encodeURIComponent(b.id)})))
   })
-  server.registerTool('get_site_info', { description:'获取 RD STUDIO MCP 的访问范围和公开入口。',annotations,inputSchema:{} },async()=>result({name:'RD STUDIO',site_url:siteUrl,mode:upload?'public-read-and-own-drafts':'public-read-only',tools:['search_articles','get_article','list_knowledge_branches','list_knowledge_articles','get_site_info',...(upload?['get_upload_identity','get_own_draft','save_article_draft','upload_note_image']:[]),...(upload&&knowledgeWrite?['create_knowledge_node']:[])],limitations:['无内部资料','无待审核文章','文章不能直接发布','节点创建按账号权限审批；无删除或固定节点工具','不自动下载或执行文章中的文件'],knowledge_url:siteUrl+'/kb/',articles_url:siteUrl+'/articles/'}))
+  server.registerTool('get_site_info', { description:'获取 RD STUDIO MCP 的访问范围和公开入口。',annotations,inputSchema:{} },async()=>result({name:'RD STUDIO',site_url:siteUrl,mode:upload?'public-read-and-own-drafts':'public-read-only',tools:['search_articles','get_article','list_knowledge_branches','list_knowledge_articles','get_site_info',...(upload?['get_upload_identity','get_own_draft','save_article_draft','save_mindmap_draft','upload_note_image']:[]),...(upload&&knowledgeWrite?['create_knowledge_node']:[])],limitations:['无内部资料','无待审核文章','文章不能直接发布','节点创建按账号权限审批；无删除或固定节点工具','不自动下载或执行文章中的文件','AI 生成由所连接客户端完成，网站不内置模型'],knowledge_url:siteUrl+'/kb/',articles_url:siteUrl+'/articles/',mindmap_url:siteUrl+'/mindmap/'}))
   server.registerResource('rd-studio-guide','rd-studio://guide',{mimeType:'text/plain',description:'RD STUDIO MCP 使用范围'},async()=>({contents:[{uri:'rd-studio://guide',mimeType:'text/plain',text:instructions+'\nStart with list_knowledge_branches or search_articles, then get_article. Use next_offset to continue long documents.'}]}))
   return server
 }
