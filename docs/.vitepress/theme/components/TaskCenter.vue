@@ -61,7 +61,7 @@ const findPeople=()=>action(async()=>{people.value=await taskRequest('/people?q=
 const setOffice=(person,office)=>action(async()=>{await taskRequest('/people/'+person.id,{method:'PUT',body:{office:office||null}});await findPeopleRaw()},'职位已更新')
 async function findPeopleRaw(){people.value=await taskRequest('/people?q='+encodeURIComponent(peopleSearch.value))}
 const saveLevels=()=>action(()=>taskRequest('/levels',{method:'PUT',body:{levels:levels.value}}),'等级门槛已保存')
-watch(view,async value=>{if(value==='reviews')await action(loadReviews,'');if(value==='people')await action(findPeopleRaw,'')})
+watch(view,async value=>{if(props.adminView){const url=new URL(location.href);url.searchParams.set('view',value);history.replaceState(history.state,'',url);window.dispatchEvent(new CustomEvent('rd:admin-navigation'))}if(value==='reviews')await action(loadReviews,'');if(value==='people')await action(findPeopleRaw,'')})
 watch(filter,async()=>{offset.value=0;await action(refresh,'')})
 watch(proofTask,(task,previous)=>{if(!task && previous)Promise.all(proof.files.filter(f=>f.unsubmitted).map(f=>removeTaskEvidence(f.path))).catch(e=>{error.value=e.message})})
 watch(()=>form.type,type=>{if(type==='gamejam')form.requirements.url=true})

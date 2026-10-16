@@ -16,12 +16,6 @@ sidebar: false
     </div>
   </div>
 
-  <nav class="admin-section-nav" aria-label="审核类型">
-    <a href="/admin/tasks">任务管理</a>
-    <a href="/admin/articles">文章审核</a>
-    <a class="active" href="/admin/profile-review">个人信息审核</a>
-    <a href="/admin/kb">知识库管理</a>
-  </nav>
 
   <section class="review-summary" aria-label="个人信息审核统计">
     <div class="summary-card urgent">
@@ -463,30 +457,6 @@ if (typeof document !== 'undefined') {
   flex-wrap: wrap;
 }
 
-.admin-section-nav {
-  display: flex;
-  gap: 0.5rem;
-  margin: -0.75rem 0 1.25rem;
-  padding: 0.35rem;
-  width: fit-content;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
-  background: var(--vp-c-bg-soft);
-}
-
-.admin-section-nav a {
-  padding: 0.45rem 0.8rem;
-  border-radius: 6px;
-  color: var(--vp-c-text-2);
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
-.admin-section-nav a.active {
-  background: var(--vp-c-bg);
-  color: var(--vp-c-brand-1);
-  font-weight: 700;
-}
 
 .review-summary {
   display: grid;

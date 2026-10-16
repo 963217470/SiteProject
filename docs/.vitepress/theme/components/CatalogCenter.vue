@@ -78,7 +78,7 @@ async function load() {
   catch(e){if(current===revision)fatal.value=e.message}
   finally{if(current===revision)loading.value=false}
 }
-function setFilter(key,value){if(key==='scope')scope.value=value;else kind.value=value;offset.value=0;load()}
+function setFilter(key,value){if(key==='scope'){scope.value=value;const url=new URL(location.href);if(value==='review')url.searchParams.set('scope','review');else url.searchParams.delete('scope');history.replaceState(history.state,'',url);window.dispatchEvent(new CustomEvent('rd:admin-navigation'))}else kind.value=value;offset.value=0;load()}
 function search(){offset.value=0;load()}
 function page(amount){offset.value+=amount;load()}
 function create(){form.value=empty();editing.value=true;detail.value=null;error.value='';message.value='';editorTab.value='source'}

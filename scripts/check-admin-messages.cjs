@@ -16,7 +16,7 @@ async function main(){
   await admin.goto(base+'/api/__preview/admin');await admin.goto(base+'/admin/')
   await admin.getByRole('heading',{name:'管理后台',exact:true}).waitFor()
   await admin.getByText(title,{exact:true}).waitFor()
-  assert.equal(await admin.locator('.admin-sidebar a').count(),8)
+  assert.equal(await admin.locator('.admin-nav-links a').count(),9)
   await admin.screenshot({path:'artifacts/admin-hub-desktop.png',fullPage:true})
   await admin.setViewportSize({width:390,height:844});assert.ok(await admin.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1))
   await admin.screenshot({path:'artifacts/admin-hub-mobile.png',fullPage:true})
