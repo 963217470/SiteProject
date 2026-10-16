@@ -7,6 +7,56 @@ import { join } from 'node:path'
 import { openDatabase } from '../database.mjs'
 import { createApp } from '../app.mjs'
 import { communityDay,nextReset,creditDailyReading,experience,flushCommunity } from '../community.mjs'
+import {activityWeek} from '../activity.mjs'
+
+test('weekly activity uses Beijing Monday boundaries, excludes old/future EXP and retains last week',async t=>{
+  const f=await fixture(t),monday=Date.parse('2026-10-11T16:00:00Z')
+  assert.equal(activityWeek(monday),monday)
+  assert.equal(activityWeek(monday-1),monday-7*86400000)
+  const add=(id,user,amount,at)=>f.db.prepare('INSERT INTO community_experience VALUES(?,?,?,?,?,?)').run(id,user,id,amount,'Activity',at)
+  add('sun','admin',10,monday-1);add('mon','member',5,monday);add('future','other',999,monday+7*86400000)
+  f.set(monday)
+  const current=await f.call('/activity/weekly',null)
+  assert.equal(current.status,200);assert.equal(current.data.week_start,'2026-10-12');assert.equal(current.data.week_end,'2026-10-18')
+  assert.deepEqual(current.data.items.map(p=>[p.id,p.weekly_exp]),[['member',5]])
+  assert.equal(current.data.next_week,null);assert.equal(current.data.own,null)
+  const previous=(await f.call('/activity/weekly?week=2026-10-05',null)).data
+  assert.deepEqual(previous.items.map(p=>[p.id,p.weekly_exp]),[['admin',10]])
+  assert.equal(previous.next_week,'2026-10-12')
+})
+
+test('weekly ranking counts task rewards plus daily EXP, gives tied ranks and exposes no private account data',async t=>{
+  const f=await fixture(t),at=f.time()
+  f.db.prepare("INSERT INTO community_experience VALUES('one','member','one',20,'Daily',?),('two','other','two',20,'Daily',?),('old','admin','old',50000,'Old',?)").run(at,at,at-14*86400000)
+  const task=(await f.call('/tasks','admin','POST',{title:'Proof',description:'Proof',type:'proof',target:1,reward:100,requirements:{}})).data.id
+  f.db.prepare("INSERT INTO task_enrollments(task_id,user_id,joined_at,activity_baseline) VALUES(?,'member',?,0)").run(task,at)
+  f.db.prepare("INSERT INTO experience_ledger(id,task_id,user_id,amount,created_at,created_by,reason) VALUES('reward',?,'member',100,?,'admin','Task')").run(task,at)
+  const ranked=(await f.call('/activity/weekly')).data
+  assert.equal(ranked.total,2);assert.equal(ranked.own.weekly_exp,120);assert.equal(ranked.own.rank,1)
+  assert.deepEqual(ranked.items.map(p=>p.id),['member','other'])
+  f.db.prepare("INSERT INTO community_experience VALUES('tie','other','tie',100,'Task equivalent',?)").run(at)
+  assert.deepEqual((await f.call('/activity/weekly',null)).data.items.map(p=>p.rank),[1,1])
+  const profile=(await f.call('/activity/weekly',null)).data.items[0]
+  assert.deepEqual(Object.keys(profile).sort(),['avatar_url','id','rank','username','weekly_exp'])
+  assert.equal((await f.call('/activity/weekly','admin')).data.own.weekly_exp,0)
+})
+
+test('weekly pagination and date validation reject invalid or future weeks',async t=>{
+  const f=await fixture(t)
+  for(const query of ['week=2026-10-06','week=2026-02-30','week=2099-01-05','week=bad','limit=0','limit=51','offset=-1'])assert.equal((await f.call('/activity/weekly?'+query,null)).status,400,query)
+  f.db.prepare("INSERT INTO community_experience VALUES('a','member','a',5,'Daily',?),('b','other','b',5,'Daily',?)").run(f.time(),f.time())
+  const first=(await f.call('/activity/weekly?limit=1',null)).data
+  const second=(await f.call('/activity/weekly?limit=1&offset=1',null)).data
+  assert.equal(first.has_more,true);assert.equal(second.has_more,false);assert.notEqual(first.items[0].id,second.items[0].id)
+})
+
+test('concurrent first visits and repeated checkins award only once with authoritative day metadata',async t=>{
+  const f=await fixture(t)
+  const attempts=await Promise.all(Array.from({length:4},()=>f.call('/community/checkin','member','POST',{xp:999,user_id:'other'})))
+  assert.equal(attempts.filter(r=>r.data.already===false).length,1)
+  assert.equal(experience(f.db,'member'),5);assert.equal(experience(f.db,'other'),0)
+  for(const result of attempts){assert.equal(result.data.day,communityDay(f.time()));assert.equal(result.data.reset_at,nextReset(f.time()));assert.equal(result.data.server_time,f.time())}
+})
 
 async function fixture(t){
   const db=openDatabase(':memory:'),dataDir=mkdtempSync(join(tmpdir(),'rd-community-')),cookies={},secret=randomUUID()+randomUUID()

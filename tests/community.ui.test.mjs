@@ -17,7 +17,7 @@ beforeEach(()=>{
 afterEach(()=>{wrapper?.unmount();delete window.__api;vi.restoreAllMocks();history.replaceState({},'','/');document.body.innerHTML=''})
 it('opens a red-number checkin popup and disables repeated in-flight requests',async()=>{
   let resolve;communityRequest.mockReturnValue(new Promise(r=>{resolve=r}))
-  wrapper=mount(CheckinDialog,{attachTo:document.body})
+  wrapper=mount(CheckinDialog,{attachTo:document.body,props:{automatic:false}})
   window.dispatchEvent(new CustomEvent('rd:checkin'));window.dispatchEvent(new CustomEvent('rd:checkin'))
   expect(communityRequest).toHaveBeenCalledTimes(1)
   resolve({streak:7,reward:10,already:false});await flushPromises()

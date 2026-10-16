@@ -85,13 +85,14 @@ export function installCommunityRoutes(app, db, repository, now = Date.now) {
     const checkin = db.prepare('SELECT * FROM checkins WHERE user_id=? AND day=?').get(user, day)
     const yesterday = db.prepare('SELECT streak FROM checkins WHERE user_id=? AND day=?').get(user, communityDay(time - DAY))
     const earned = db.prepare('SELECT source_key,amount FROM community_experience WHERE user_id=? AND source_key LIKE ?').all(user, day + ':%')
-    res.json({ day, reset_at: nextReset(time), checked_in: !!checkin, streak: checkin?.streak || yesterday?.streak || 0, xp: experience(db, user), advanced_unlocked: experience(db, user) >= 50, tasks: [
+    res.json({ day, server_time:time, reset_at: nextReset(time), checked_in: !!checkin, streak: checkin?.streak || yesterday?.streak || 0, xp: experience(db, user), advanced_unlocked: experience(db, user) >= 50, tasks: [
       ['checkin', '签到', 5], ['streak', '连续签到 7 天额外奖励', 5], ['read', '浏览一篇文章 150 秒', 5], ['comment', '评论审核通过', 5], ['article', '发表一篇文章', 10]
     ].map(([kind, title, reward]) => ({ kind, title, reward, done: earned.some(row => row.source_key === day + ':' + kind) })), reading_seconds: db.prepare('SELECT coalesce(max(seconds),0) seconds FROM daily_reads WHERE user_id=? AND day=?').get(user, day).seconds })
   })
   app.post('/api/community/checkin', (req, res) => {
+    const time=now()
     const result = repository.transaction(() => {
-      const time = now(), day = communityDay(time), user = req.user.id
+      const day = communityDay(time), user = req.user.id
       const existing = db.prepare('SELECT streak FROM checkins WHERE user_id=? AND day=?').get(user, day)
       if (existing) return { streak: existing.streak, reward: 0, already: true }
       const previous = db.prepare('SELECT streak FROM checkins WHERE user_id=? AND day=?').get(user, communityDay(time - DAY))
@@ -101,7 +102,7 @@ export function installCommunityRoutes(app, db, repository, now = Date.now) {
       if (streak % 7 === 0) dailyAward(db, user, 'streak', 5, '连续签到 7 天', time)
       return { streak, reward: streak % 7 === 0 ? 10 : 5, already: false }
     })
-    res.json(result)
+    res.json({...result,day:communityDay(time),server_time:time,reset_at:nextReset(time)})
   })
   app.get('/api/messages', (req, res) => {
     const offset = Number(req.query.offset || 0)

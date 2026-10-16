@@ -1,6 +1,6 @@
 <template>
   <section class="rd-tasks">
-    <header class="rd-page-header"><div><p class="rd-eyebrow">RD STUDIO</p><h1>{{ adminView ? '任务管理' : '任务中心' }}</h1></div><a v-if="me?.role === 'admin'" class="rd-button" :href="adminView ? '/tasks' : '/admin/tasks'"><ShieldCheck :size="16" />{{ adminView ? '任务中心' : '管理任务' }}</a></header>
+    <header class="rd-page-header"><div><p class="rd-eyebrow">RD STUDIO</p><h1>{{ adminView ? '任务管理' : '任务中心' }}</h1></div><a v-if="!adminView" class="rd-button" href="/activity/"><Trophy :size="16" />每周活跃榜</a><a v-if="me?.role === 'admin'" class="rd-button" :href="adminView ? '/tasks' : '/admin/tasks'"><ShieldCheck :size="16" />{{ adminView ? '任务中心' : '管理任务' }}</a></header>
     <PageState v-if="loading" kind="loading" title="正在加载任务" />
     <PageState v-else-if="unauthorized" title="登录后查看任务"><a class="rd-button rd-button-primary" href="/login">登录</a></PageState>
     <PageState v-else-if="fatal" kind="error" title="暂时无法加载" :message="fatal"><button class="rd-button" @click="load"><RotateCw :size="16" />重试</button></PageState>
@@ -30,7 +30,7 @@
 </template>
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { Check, Plus, RotateCw, Save, Search, Send, ShieldCheck, Upload, X } from 'lucide-vue-next'
+import { Check, Plus, RotateCw, Save, Search, Send, ShieldCheck, Trophy, Upload, X } from 'lucide-vue-next'
 import PageState from './PageState.vue'
 import DailyTasks from './DailyTasks.vue'
 import { rankClass } from '../lib/community-api.mjs'

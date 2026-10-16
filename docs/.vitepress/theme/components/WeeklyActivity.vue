@@ -1,0 +1,33 @@
+<template>
+  <section class="weekly-activity" :class="{compact}" aria-label="每周活跃榜">
+    <header><div><p v-if="!compact" class="rd-eyebrow">RD STUDIO</p><h1 v-if="!compact">每周活跃榜</h1><h2 v-else>本周活跃</h2><p class="weekly-dates" v-if="data">{{data.week_start}} - {{data.week_end}}</p></div><a v-if="compact" href="/activity/" aria-label="查看完整活跃榜" title="完整活跃榜"><ArrowUpRight :size="19" /></a><button v-else class="rd-icon-button" :disabled="loading" title="刷新排行榜" aria-label="刷新排行榜" @click="load"><RefreshCw :size="19" /></button></header>
+    <div v-if="!compact&&data" class="weekly-controls"><button class="rd-icon-button" :disabled="loading||!data.previous_week" title="上一周" aria-label="上一周" @click="changeWeek(data.previous_week)"><ChevronLeft :size="20" /></button><span>{{data.is_current?'本周':'往周'}} · 周一至周日</span><button class="rd-icon-button" :disabled="loading||!data.next_week" title="下一周" aria-label="下一周" @click="changeWeek(data.next_week)"><ChevronRight :size="20" /></button><button class="rd-button" :disabled="loading||data.is_current" @click="changeWeek('')">回到本周</button></div>
+    <p v-if="error" role="alert">{{error}} <button class="rd-button" @click="load">重试</button></p><p v-if="loading&&!data" role="status">正在加载活跃榜…</p>
+    <template v-if="data">
+      <div v-if="!compact" class="weekly-summary"><span>{{data.total}} 位活跃成员</span><span>{{data.is_current?'本周新增经验':'该周新增经验'}}</span></div>
+      <p v-if="data.own&&!compact" class="weekly-own">我的周经验：+{{data.own.weekly_exp}} EXP<span v-if="data.own.rank"> · 第 {{data.own.rank}} 名</span></p>
+      <p v-if="!data.items.length" class="weekly-empty">这一周还没有经验记录</p>
+      <ol v-else class="weekly-list"><li v-for="person in data.items" :key="person.id"><span class="weekly-rank" :class="{'weekly-leading':person.rank<=3}">{{person.rank}}</span><a :href="'/user/profile?id='+encodeURIComponent(person.id)"><img :src="person.avatar_url||'/images/default-avatar.svg'" alt="" width="36" height="36" loading="lazy" @error="fallback"><span>{{person.username}}</span></a><strong>+{{person.weekly_exp}} <small>EXP</small></strong></li></ol>
+      <nav v-if="!compact&&(offset||data.has_more)" class="rd-pagination" aria-label="活跃榜分页"><button class="rd-button" :disabled="loading||!offset" @click="page(-20)">上一页</button><span>{{offset/20+1}}</span><button class="rd-button" :disabled="loading||!data.has_more" @click="page(20)">下一页</button></nav>
+    </template>
+  </section>
+</template>
+<script setup>
+import {onMounted,onUnmounted,ref} from 'vue'
+import {ArrowUpRight,ChevronLeft,ChevronRight,RefreshCw} from 'lucide-vue-next'
+import {communityRequest} from '../lib/community-api.mjs'
+const props=defineProps({compact:Boolean})
+const data=ref(null),loading=ref(true),error=ref(''),week=ref(''),offset=ref(0)
+let disposed=false,revision=0,subscription
+async function load(){const run=++revision;loading.value=true;error.value='';try{const query=new URLSearchParams({limit:props.compact?5:20,offset:offset.value});if(week.value)query.set('week',week.value);const result=await communityRequest('/activity/weekly?'+query);if(disposed||run!==revision)return;data.value=result;if(!props.compact){week.value=result.is_current?'':result.week_start;const url=new URL(location.href);if(result.is_current)url.searchParams.delete('week');else url.searchParams.set('week',result.week_start);history.replaceState(history.state,'',url)}}catch(e){if(run===revision&&!disposed)error.value=e.message}finally{if(run===revision)loading.value=false}}
+function changeWeek(value){if(!value&&value!=='')return;week.value=value;offset.value=0;data.value=null;load()}
+function page(delta){offset.value+=delta;load()}
+function fallback(event){event.target.onerror=null;event.target.src='/images/default-avatar.svg'}
+function refresh(){if(!document.hidden)load()}
+onMounted(()=>{if(!props.compact)week.value=new URLSearchParams(location.search).get('week')||'';load();window.addEventListener('rd:community-updated',refresh);subscription=window.__api?.auth?.onAuthStateChange?.(event=>{if(event!=='INITIAL_SESSION'){data.value=null;load()}})?.data?.subscription;window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh)})
+onUnmounted(()=>{disposed=true;++revision;window.removeEventListener('rd:community-updated',refresh);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);subscription?.unsubscribe()})
+</script>
+<style scoped>
+:global(body:has(.weekly-activity:not(.compact)) .studio-backdrop){opacity:.15}
+.weekly-activity{max-width:960px;margin:40px auto 80px;padding:0 24px;color:var(--vp-c-text-1)}.weekly-activity header{display:flex;justify-content:space-between;align-items:center;gap:16px}.weekly-activity h1{font-size:30px;margin:8px 0}.weekly-activity h2{font-size:20px;margin:0}.weekly-dates{font-size:13px;color:var(--vp-c-text-2);margin:8px 0}.weekly-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:24px 0}.weekly-controls span{font-size:14px;color:var(--vp-c-text-2)}.weekly-controls>.rd-button{margin-left:auto}.weekly-summary{display:flex;justify-content:space-between;gap:16px;padding:16px 0;border-block:1px solid var(--vp-c-divider);font-size:13px;color:var(--vp-c-text-2)}.weekly-own{padding:14px 0;font-size:14px;color:var(--vp-c-brand-1)}.weekly-list{list-style:none;margin:0;padding:0}.weekly-list li{display:flex;align-items:center;gap:14px;min-height:76px;border-bottom:1px solid var(--vp-c-divider)}.weekly-rank{width:26px;flex:none;text-align:center;font-size:16px;font-weight:650;color:var(--vp-c-text-2)}.weekly-leading{color:var(--vp-c-brand-1)}.weekly-list a{display:flex;align-items:center;gap:12px;flex:1;min-width:0;color:var(--vp-c-text-1);text-decoration:none}.weekly-list a:hover{color:var(--vp-c-brand-1)}.weekly-list a span{overflow-wrap:anywhere}.weekly-list img{width:36px;height:36px;object-fit:cover;border-radius:50%;flex:none}.weekly-list strong{flex:none;color:var(--vp-c-brand-1);font-size:17px}.weekly-list small{font-size:11px;color:var(--vp-c-text-2);font-weight:500}.weekly-empty{padding:24px 0;color:var(--vp-c-text-2);font-size:14px}.weekly-activity.compact{margin:0;padding:0;max-width:none}.compact .weekly-list li{min-height:64px;gap:8px}.compact .weekly-list a{gap:8px;font-size:14px}.compact .weekly-list img{width:28px;height:28px}.compact .weekly-rank{width:20px;font-size:14px}.compact .weekly-list strong{font-size:14px}.compact header>a{display:flex;padding:8px;color:var(--vp-c-brand-1)}@media(max-width:600px){.weekly-activity{padding:0 16px}.weekly-list li{gap:8px}.weekly-list a{gap:8px}.weekly-list strong{font-size:15px}.weekly-controls{gap:8px}.weekly-controls>.rd-button{margin-left:0}}
+</style>
