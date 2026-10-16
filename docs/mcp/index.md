@@ -15,6 +15,24 @@ description: RD STUDIO 知识库 MCP 与视频笔记草稿上传
 import McpUploadTokens from '../.vitepress/theme/components/McpUploadTokens.vue'
 </script>
 
+## 文本直接导入草稿
+
+已配置本人上传令牌的 AI 可以调用 `import_text_draft`，无需先创建本地文件。先用 `get_upload_identity` 核对账号，再传入：
+
+```json
+{
+  "import_key": "my-note-20261016-v1",
+  "title": "我的笔记",
+  "text": "这里放完整的正文内容。",
+  "format": "text",
+  "tags": ["笔记"]
+}
+```
+
+`format` 默认是 `text`：保留换行，将 Markdown / HTML / 公式符号作为普通文字处理。需要标题、公式、代码、图片等排版时使用 `format: "markdown"`，正文不经过纯文本转义。标题可省略，默认使用首个非空行（最多 300 字）。支持摘要、标签和 `knowledge_branch_id`，返回 `article_url`、`editor_url`、`revision`。
+
+新建使用稳定 `import_key` 避免重复导入；更新先 `get_own_draft`，再提供 `id` 和最新 `expected_revision`。只能保存本人草稿，不能直接发布、覆盖他人或已提交文章。本地图片需先用 `upload_note_image` 上传并在 Markdown 中替换地址；此工具不读取电脑文件。
+
 ## V2md 笔记上传为草稿
 
 1. 登录后在上方创建上传令牌。
@@ -32,7 +50,7 @@ import McpUploadTokens from '../.vitepress/theme/components/McpUploadTokens.vue'
 
 管理员可以直接创建分支；普通账号需先保存草稿，再提供本人文章的 `article_id` 提交申请，等待管理员审核。创建者绑定令牌账号，节点详情会显示公开昵称。已有同名节点会复用，不覆盖原作者和说明。
 
-AI 可用 `save_article_draft` 写 Markdown、标签，并通过 `knowledge_branch_id` 关联分支；本地 `upload_video_note` 也支持关联。内容只保存为草稿，图片仍按草稿权限保护，不能自动发布、删除节点或固定位置。默认上传为 HTTP 10 / 本地 11 个工具；节点授权后为 HTTP 11 / 本地 12 个工具。
+AI 可用 `save_article_draft` 写 Markdown、标签，或用 `import_text_draft` 导入纯文本 / Markdown，并通过 `knowledge_branch_id` 关联分支；本地 `upload_video_note` 也支持关联。内容只保存为草稿，图片仍按草稿权限保护，不能自动发布、删除节点或固定位置。默认上传为 HTTP 11 / 本地 12 个工具；节点授权后为 HTTP 12 / 本地 13 个工具。
 
 ## AI 生成思维导图
 
@@ -103,7 +121,7 @@ DeepSeek Harness 使用官方 `@deepseek-ai/dsh-mcp-client` 插件。`.patch.yam
 
 Gemini CLI、Qwen Code 的 HTTP 配置使用 `httpUrl`，CodeBuddy Code 使用 `type: "http"` 和 `url`，Harness 使用 `streamable-http`。网站接口不是 SSE。读取本地 `_assets` 请选本地上传配置。
 
-保存后刷新 MCP 或重启客户端：公开模式有 5 个工具；本地上传默认 11 个，启用节点工具后 12 个。先调用 `get_upload_identity` 核对账号及权限，再调用 `upload_video_note`、`save_mindmap_draft` 或 `create_knowledge_node`。
+保存后刷新 MCP 或重启客户端：公开模式有 5 个工具；本地上传默认 12 个，启用节点工具后 13 个。先调用 `get_upload_identity` 核对账号及权限，再调用 `import_text_draft`、`upload_video_note`、`save_mindmap_draft` 或 `create_knowledge_node`。
 
 ## 其他兼容客户端
 

@@ -61,7 +61,7 @@ test('authenticated HTTP MCP saves owner drafts, deduplicates retries, checks re
   const client=new Client({name:'upload-test',version:'1'})
   await client.connect(new StreamableHTTPClientTransport(new URL(f.base+'/api/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token.token}}}))
   t.after(()=>client.close())
-  assert.equal((await client.listTools()).tools.length,10)
+  assert.equal((await client.listTools()).tools.length,11)
   const payload={import_key:'unique-note',title:'V2md',markdown:'# Note\n$E=mc^2$\n```js\nlet n=1\n```',tags:['视频转文']}
   const created=(await client.callTool({name:'save_article_draft',arguments:payload})).structuredContent
   assert.equal(created.status,'draft')
@@ -108,7 +108,9 @@ test('stdio imports real local note and assets without rewriting code, then upda
   const client=new Client({name:'local-upload',version:'1'})
   await client.connect(new StdioClientTransport({command:process.execPath,args:[resolve(import.meta.dirname,'../../mcp/rd-studio-mcp/server.mjs')],env:{...process.env,RD_STUDIO_URL:f.base,RD_STUDIO_UPLOAD_TOKEN:token.token,RD_STUDIO_NOTES_ROOT:root},stderr:'pipe'}))
   t.after(()=>client.close())
-  assert.equal((await client.listTools()).tools.length,11)
+  assert.equal((await client.listTools()).tools.length,12)
+  const imported=(await client.callTool({name:'import_text_draft',arguments:{import_key:'stdio-text',text:'Stdio text note'}})).structuredContent
+  assert.equal(imported.status,'draft');assert.equal(imported.title,'Stdio text note')
   const saved=(await client.callTool({name:'upload_video_note',arguments:{note_path:'note.md',tags:['教程']}})).structuredContent
   assert.equal(saved.uploaded_images,1);assert.equal(saved.rewritten_image_references,2)
   const row=f.db.prepare('SELECT * FROM articles WHERE id=?').get(saved.id)
@@ -156,6 +158,31 @@ test('AI mindmap drafts enforce authentication, revisions, owner isolation and n
   assert.equal((await client.callTool({name:'save_mindmap_draft',arguments:{id:saved.id,expected_revision:updated.body.revision,tree:{text:'Overwrite'}}})).isError,true)
 })
 
+test('MCP imports plain text and Markdown as isolated revision-protected drafts',async t=>{
+  const f=await fixture(t),token=await f.mint(),other=await f.mint('other')
+  const client=new Client({name:'text-import-test',version:'1'})
+  await client.connect(new StreamableHTTPClientTransport(new URL(f.base+'/api/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token.token}}}))
+  t.after(()=>client.close())
+  const input={import_key:'plain-1',text:'Plain title\r\n<script>alert(1)</script>\r\n\r\n**literal** $x^2$\n![x](https://example.com/x.png)',tags:['笔记']}
+  assert.equal((await f.call('/api/note-upload/import_text_draft',{method:'POST',user:'author',body:input})).status,401)
+  const saved=(await client.callTool({name:'import_text_draft',arguments:input})).structuredContent
+  assert.equal(saved.status,'draft');assert.equal(saved.title,'Plain title');assert.equal(saved.imported_format,'text');assert.match(saved.editor_url,/\/editor\?id=/)
+  const row=f.db.prepare('SELECT * FROM articles WHERE id=?').get(saved.id)
+  assert.equal(row.author_id,f.ids.author);assert.equal(row.visibility,'public');assert.ok(row.content.includes('&#60;script&#62;'));assert.ok(row.content.includes('&#42;&#42;literal&#42;&#42;'));assert.ok(!row.content.includes('\r'))
+  assert.equal((await client.callTool({name:'import_text_draft',arguments:input})).structuredContent.id,saved.id)
+  assert.equal((await client.callTool({name:'import_text_draft',arguments:{...input,text:'Changed'}})).isError,true)
+  assert.equal((await f.call('/api/note-upload/import_text_draft',{method:'POST',token:token.token,body:{...input,status:'published'}})).status,400)
+  const md='# Heading\n\n$$E=mc^2$$\n\n```js\nconst x=1\n```\n\n![image](https://example.com/x.png)'
+  const updated=(await client.callTool({name:'import_text_draft',arguments:{id:saved.id,expected_revision:saved.revision,title:'Markdown',format:'markdown',text:md,tags:['测试']}})).structuredContent
+  assert.notEqual(updated.revision,saved.revision)
+  assert.equal(f.db.prepare('SELECT content FROM articles WHERE id=?').get(saved.id).content,md)
+  assert.equal((await f.call('/api/note-upload/import_text_draft',{method:'POST',token:other.token,body:{id:saved.id,expected_revision:updated.revision,text:'Stolen'}})).status,404)
+  assert.equal((await client.callTool({name:'import_text_draft',arguments:{id:saved.id,expected_revision:saved.revision,text:'Stale'}})).isError,true)
+  assert.equal((await client.callTool({name:'import_text_draft',arguments:{import_key:'empty',text:' \n '}})).isError,true)
+  f.db.prepare("UPDATE articles SET status='pending' WHERE id=?").run(saved.id)
+  assert.equal((await client.callTool({name:'import_text_draft',arguments:{id:saved.id,expected_revision:updated.revision,text:'Pending'}})).isError,true)
+})
+
 test('local importer rejects traversal and missing images before network writes',async t=>{
   const dir=mkdtempSync(join(tmpdir(),'rd-path-test-'));t.after(()=>rmSync(dir,{recursive:true,force:true}))
   const root=join(dir,'notes');mkdirSync(root)
@@ -174,7 +201,7 @@ test('HTTP MCP creates admin nodes and linked Markdown drafts with creator metad
   const client=new Client({name:'node-writer-test',version:'1'})
   await client.connect(new StreamableHTTPClientTransport(new URL(f.base+'/api/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token.token}}}))
   t.after(()=>client.close())
-  assert.equal((await client.listTools()).tools.length,11)
+  assert.equal((await client.listTools()).tools.length,12)
   const input={request_key:'node-test',name:'Shader notes',description:'Explain shaders with Markdown notes.'}
   const created=(await client.callTool({name:'create_knowledge_node',arguments:input})).structuredContent
   assert.equal(created.status,'created');assert.equal(created.creator.id,f.ids.admin)
@@ -216,7 +243,7 @@ test('stdio exposes opted-in node writing and preserves the creator of reused ex
   const client=new Client({name:'stdio-node-test',version:'1'})
   await client.connect(new StdioClientTransport({command:process.execPath,args:[resolve(import.meta.dirname,'../../mcp/rd-studio-mcp/server.mjs')],env:{...process.env,RD_STUDIO_URL:f.base,RD_STUDIO_UPLOAD_TOKEN:token.token,RD_STUDIO_KNOWLEDGE_WRITE:'1'},stderr:'pipe'}))
   t.after(()=>client.close())
-  assert.equal((await client.listTools()).tools.length,12)
+  assert.equal((await client.listTools()).tools.length,13)
   const id=randomUUID()
   f.db.prepare("INSERT INTO knowledge_branches(id,name,slug,description,created_by) VALUES(?,'Existing','existing','Original',?)").run(id,f.ids.author)
   const result=(await client.callTool({name:'create_knowledge_node',arguments:{request_key:'reuse',name:'Existing',description:'New'}})).structuredContent

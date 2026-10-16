@@ -1,4 +1,4 @@
-# RD STUDIO MCP v1.3.0
+# RD STUDIO MCP v1.4.0
 
 让支持 MCP 的 AI 使用 RD STUDIO 的真实公开资料，不需要付费模型 API，也不需要网站登录令牌。
 
@@ -63,7 +63,7 @@ AI 先调用 `get_upload_identity` 确认权限，再用 `list_knowledge_branche
 
 管理员拿到分支 `id` 后，可调用 `save_article_draft` 写入标题、Markdown、标签，并传 `knowledge_branch_id` 关联该分支；`upload_video_note` 同样支持这个字段。普通账号先保存自己的草稿，再以 `article_id` 申请分支，审核通过后由网站关联。关联草稿仍不公开，需本人检查并提交审核。重试使用相同 `request_key`，修改参数则换新键；更新草稿必须提供最新 `expected_revision`。
 
-不勾选节点权限时：HTTP 10 个工具、本地上传 11 个；勾选后：HTTP 11 个，本地设置上述环境变量后 12 个。知识库节点详情和分支查询会显示创建者的公开昵称，不暴露邮箱。
+不勾选节点权限时：HTTP 11 个工具、本地上传 12 个；勾选后：HTTP 12 个，本地设置上述环境变量后 13 个。知识库节点详情和分支查询会显示创建者的公开昵称，不暴露邮箱。
 
 HTTP 客户端在请求头配置 `Authorization: Bearer <令牌>` 后可调用：
 
@@ -73,9 +73,20 @@ HTTP 客户端在请求头配置 `Authorization: Bearer <令牌>` 后可调用�
 | `upload_note_image` | 上传真实图片的标准 Base64，返回 URL |
 | `save_article_draft` | 新建（`import_key`）或更新（`id` + `expected_revision`）本人草稿 |
 | `get_own_draft` | 读取本人公开草稿及版本信息 |
+| `import_text_draft` | 将完整纯文本 / Markdown 直接导入本人草稿，无需本地文件 |
 | `save_mindmap_draft` | 保存 AI 生成的树为本人 Markdown 草稿，返回导图绘制链接 |
 
 HTTP 服务无法访问电脑上的 `_assets`，本地一键上传需要 stdio。公开查询仍只返回已发布公开资料，即使带上传令牌也不会扩大公开搜索范围。上传令牌不会授权网站通用数据、存储或管理接口。
+
+### 文本导入草稿
+
+在任一已配置上传令牌的客户端中，先 `get_upload_identity` 核对账号，再调用：
+
+```json
+{"import_key":"my-note-v1","title":"我的笔记","text":"完整正文","format":"text","tags":["笔记"]}
+```
+
+`import_text_draft` 默认纯文本模式，保留换行并转义 Markdown、HTML 和公式符号；要保留格式请用 `format:"markdown"`。可省略标题（取首个非空行，最多 300 字），可传摘要、标签及 `knowledge_branch_id`。正文和转换后 Markdown 都不能超过 200 万字符。返回草稿地址、编辑地址和 revision，不会直接发布。新建需稳定 import_key，修改需先 get_own_draft 再提供 id + 最新 expected_revision；不允许覆盖他人或已提交的文章。本地图片先 upload_note_image，然后导入包含站内图片链接的 Markdown。
 
 ### AI 思维导图
 
