@@ -21,6 +21,21 @@ function renderShell() {
   root.innerHTML = '<div id="not-logged-in" class="state-panel" style="display:none"><p>请先 <a href="/login">登录</a></p></div><div id="loading" class="state-panel"><p>加载中...</p></div><div id="profile-app" class="profile-layout" style="display:none"><section class="profile-hero"><div id="avatar-frame" class="avatar-frame member-frame"><img id="profile-avatar" class="user-avatar" src="/images/default-avatar.svg" alt="头像"></div><div class="profile-identity"><h1 id="profile-name"></h1><div id="role-block" class="role-block member-role"><strong id="role-label"></strong><span id="role-desc"></span></div><p id="profile-email" class="email"></p><p id="profile-bio" class="bio"></p></div><section class="stats-card" aria-label="个人统计"><div><strong id="stat-likes">0</strong><span>收到的赞</span></div><div><strong id="stat-articles">0</strong><span>发布文章数</span></div><div><strong id="stat-favorites">0</strong><span>收藏的文章</span></div></section></section><section class="profile-body"><aside class="profile-sidebar"><nav class="profile-tabs" aria-label="个人中心功能"><button id="tab-articles" type="button" onclick="setProfileTab(\'articles\')">我的文章</button><button id="tab-favorites" type="button" onclick="setProfileTab(\'favorites\')">我的收藏</button><button id="tab-recent" type="button" onclick="setProfileTab(\'recent\')">历史记录</button><button id="tab-settings" type="button" onclick="setProfileTab(\'settings\')">个人信息</button></nav></aside><main class="profile-main"><div id="profile-error" class="error-message" style="display:none"></div><section id="panel-articles" class="panel"></section><section id="panel-favorites" class="panel" style="display:none"></section><section id="panel-recent" class="panel" style="display:none"></section><section id="panel-settings" class="panel" style="display:none"></section></main></section></div>'
 }
 
+function addAccountPanels() {
+  var nav = document.querySelector('#profile-page .profile-tabs')
+  var main = document.querySelector('#profile-page .profile-main')
+  if (!nav || $('panel-mcp')) return
+  ;[['mcp', 'AI / MCP 接入'], ['security', '账号安全']].forEach(function(item) {
+    var button = document.createElement('button')
+    button.id = 'tab-' + item[0]; button.type = 'button'; button.textContent = item[1]
+    button.onclick = function() { setTab(item[0]) }
+    nav.appendChild(button)
+    var panel = document.createElement('section')
+    panel.id = 'panel-' + item[0]; panel.className = 'panel'; panel.style.display = 'none'
+    main.appendChild(panel)
+  })
+}
+
 async function waitSupabase() {
   for (var i = 0; i < 30; i++) {
     if (window.__supabase) return window.__supabase
@@ -31,7 +46,7 @@ async function waitSupabase() {
 
 function setTab(tab) {
   if (state.publicView) return
-  if (!['articles', 'favorites', 'recent', 'settings'].includes(tab)) tab = 'articles'
+  if (!['articles', 'favorites', 'recent', 'settings', 'mcp', 'security'].includes(tab)) tab = 'articles'
   state.tab = tab
   Array.prototype.forEach.call(document.querySelectorAll('.profile-tabs button'), function(button) { button.classList.remove('active') })
   Array.prototype.forEach.call(document.querySelectorAll('.panel'), function(panel) { panel.style.display = 'none' })
@@ -41,6 +56,58 @@ function setTab(tab) {
   var url = new URL(window.location.href)
   url.searchParams.set('tab', tab)
   window.history.replaceState({}, '', url.toString())
+  window.dispatchEvent(new CustomEvent('rd:profile-tab', { detail: { tab: tab } }))
+  if (tab === 'security') renderSecurity()
+}
+
+async function accountRequest(path, method, body) {
+  var response = await fetch('/api/account/github' + path, { method: method || 'GET', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-RD-CSRF': '1' }, body: body ? JSON.stringify(body) : undefined })
+  var data = await response.json()
+  if (!response.ok) throw new Error(data.message || '账号请求失败')
+  return data
+}
+
+async function renderSecurity() {
+  var panel = $('panel-security')
+  panel.innerHTML = '<h2>账号安全</h2><p role="status">加载绑定信息…</p>'
+  try {
+    var data = await accountRequest('')
+    if (!panel.isConnected) return
+    var failure = new URLSearchParams(location.search).get('binding') === 'failed'
+    panel.innerHTML = '<h2>账号安全</h2><p>当前 GitHub：<strong>' + esc(data.username) + '</strong></p><p>改绑保留文章、收藏、经验与角色。完成后其他设备登录和全部 MCP 上传令牌会失效。</p>' + (failure ? '<p class="error-message" role="alert">验证未完成、账号不匹配或新账号已被占用。请重新开始。</p>' : '') + '<div id="binding-error" role="alert"></div>'
+    if (data.managed || !data.available) {
+      panel.insertAdjacentHTML('beforeend', '<p>' + (data.managed ? '此账号由服务器配置指定为管理员，需要由运维同步修改绑定和服务器配置。' : 'GitHub 授权暂不可用，请稍后重试。') + '</p>')
+      return
+    }
+    var stage = data.stage
+    if (stage === 'choose-new') panel.insertAdjacentHTML('beforeend', '<p>原账号已验证，请选择新的 GitHub 账号。</p>')
+    if (stage === 'confirm') panel.insertAdjacentHTML('beforeend', '<p>新账号已验证：<strong>' + esc(data.target) + '</strong>。确认后才会替换原绑定。</p>')
+    var button = document.createElement('button')
+    button.type = 'button'; button.className = 'submit-button'
+    button.textContent = stage === 'confirm' ? '确认改绑' : stage === 'choose-new' ? '验证新 GitHub 账号' : '验证原 GitHub 账号'
+    button.onclick = async function() {
+      if (stage === 'confirm' && !window.confirm('确认改绑为 ' + data.target + '？其他设备登录和所有 MCP 上传令牌将失效。')) return
+      button.disabled = true
+      try {
+        if (stage === 'confirm') {
+          await accountRequest('/confirm', 'POST', {})
+          window.history.replaceState({}, '', '/user/profile?tab=security')
+          await renderSecurity()
+          $('panel-security').insertAdjacentHTML('afterbegin', '<p class="success-message" role="status">GitHub 改绑成功，请重新配置 MCP 上传令牌。</p>')
+        } else {
+          var result = await accountRequest('/start', 'POST', { step: stage === 'choose-new' ? 'new' : 'original' })
+          location.assign(result.authorization_url)
+        }
+      } catch (error) { if ($('binding-error')) $('binding-error').textContent = error.message; button.disabled = false }
+    }
+    panel.appendChild(button)
+    if (stage !== 'idle') {
+      var cancel = document.createElement('button')
+      cancel.type = 'button'; cancel.className = 'binding-cancel'; cancel.textContent = '取消改绑'
+      cancel.onclick = async function() { cancel.disabled = true; try { await accountRequest('', 'DELETE'); await renderSecurity() } catch (error) { $('binding-error').textContent = error.message; cancel.disabled = false } }
+      panel.appendChild(cancel)
+    }
+  } catch (error) { panel.innerHTML = '<h2>账号安全</h2><p class="error-message" role="alert">' + esc(error.message) + '</p><button type="button" id="binding-retry">重试</button>'; $('binding-retry').onclick = renderSecurity }
 }
 
 function roleText(role) { return role === 'admin' ? '管理员' : '社员' }
@@ -191,6 +258,29 @@ function renderArticles() {
   $('panel-articles').innerHTML = '<div class="panel-head"><div><h2>我的文章</h2><p>查看文章状态、浏览量、点赞量和评论量</p></div><a class="primary-link" href="/editor">新建文章</a></div><div class="status-grid"><div><strong>' + count('published') + '</strong><span>已发布</span></div><div><strong>' + count('pending') + '</strong><span>待审核</span></div><div><strong>' + count('draft') + '</strong><span>草稿</span></div><div><strong>' + count('rejected') + '</strong><span>已拒绝</span></div></div>' + (state.articles.length ? '<div class="article-table">' + rows + '</div>' : '<div class="empty-state">暂无文章</div>')
 }
 
+function bindArticleActions() {
+  $('panel-articles').querySelectorAll('.article-row').forEach(function(row, index) {
+    var article = state.articles[index]
+    var button = document.createElement('button')
+    button.type = 'button'; button.className = 'article-delete'; button.textContent = '删除'
+    button.setAttribute('aria-label', '删除文章：' + article.title)
+    button.onclick = async function() {
+      if (!window.confirm('永久删除《' + article.title + '》？文章及关联评论、收藏将被移除，不能恢复。')) return
+      button.disabled = true; button.textContent = '删除中…'
+      try {
+        var result = await state.sb.from('articles').delete().eq('id', article.id).eq('author_id', state.uid).select('id')
+        if (result.error) throw result.error
+        if (!result.data || !result.data.length) throw new Error('文章不存在或没有删除权限，请刷新后重试')
+        await Promise.all([loadArticles(), loadFavorites()])
+        renderStats(); renderArticles(); bindArticleActions()
+        renderCards('panel-favorites', '我的收藏', '保存在账号下的收藏文章', state.favorites, '暂无收藏文章', '收藏于', 'favorited_at')
+        $('profile-error').textContent = ''; show('profile-error', false)
+      } catch (error) { $('profile-error').textContent = '删除失败：' + error.message; show('profile-error', true); button.disabled = false; button.textContent = '删除' }
+    }
+    row.querySelector('.row-actions').appendChild(button)
+  })
+}
+
 function renderCards(id, title, subtitle, items, emptyText, label, key) {
   var html = items.map(function(a) {
     return '<a class="article-card" href="' + articleUrl(a.id) + '"><img src="' + esc(a.cover_url || '/images/default-cover.svg') + '" alt="' + esc(a.title) + '"><div><h3>' + esc(a.title) + '</h3><p>' + esc(a.summary || '暂无摘要') + '</p><span>' + label + ' ' + time(a[key]) + '</span></div></a>'
@@ -218,6 +308,7 @@ function renderSettings() {
 function renderAll() {
   renderStats()
   renderArticles()
+  bindArticleActions()
   renderCards('panel-favorites', '我的收藏', state.favoriteTableReady ? '保存在账号下的收藏文章' : '当前显示本机浏览器收藏', state.favorites, '暂无收藏文章', '收藏于', 'favorited_at')
   renderRecent()
   renderSettings()
@@ -318,6 +409,7 @@ async function init() {
   if (!root || root.dataset.loaded) return
   root.dataset.loaded = '1'
   renderShell()
+  addAccountPanels()
   try {
     state.publicView = false
     var publicId = new URLSearchParams(window.location.search).get('id')

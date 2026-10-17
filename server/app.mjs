@@ -25,6 +25,7 @@ import { installKnowledgeRoutes } from './knowledge.mjs'
 import { installAdminDashboard } from './admin-dashboard.mjs'
 import { installActivityRoutes } from './activity.mjs'
 import { installMindmapRoutes } from './mindmaps.mjs'
+import { acceptBindingIdentity, installBindingRoutes } from './account-binding.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
 const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'catalog','notes'])
@@ -55,11 +56,15 @@ export function createApp(db, config) {
     catch (error) { done(error) }
   })
   if (config.githubClientId && config.githubClientSecret) {
-    passport.use(new GitHubStrategy({
+    const githubStrategy = new GitHubStrategy({
       clientID: config.githubClientId, clientSecret: config.githubClientSecret,
-      callbackURL: config.siteUrl + '/api/auth/github/callback', state: true
-    }, (_token, _refresh, profile, done) => {
+      callbackURL: config.siteUrl + '/api/auth/github/callback', state: true, passReqToCallback: true
+    }, (req, _token, _refresh, profile, done) => {
       try {
+        if (req.session.githubBindingOAuth) {
+          acceptBindingIdentity(db, req.session, req.user, profile, now(), config.adminGithubIds)
+          return done(null, { id: req.user.id }, { binding: true })
+        }
         const user = repository.transaction(() => {
           const existing = db.prepare('SELECT id FROM users WHERE github_id=?').get(profile.id)
           const id = existing?.id || randomUUID()
@@ -72,7 +77,10 @@ export function createApp(db, config) {
         })
         done(null, user)
       } catch (error) { done(error) }
-    }))
+    })
+    const authorizationParams = githubStrategy.authorizationParams.bind(githubStrategy)
+    githubStrategy.authorizationParams = options => ({ ...authorizationParams(options), ...(options.prompt ? { prompt: options.prompt } : {}) })
+    passport.use(githubStrategy)
   }
   app.use(passport.initialize())
   app.use(passport.session())
@@ -107,15 +115,32 @@ export function createApp(db, config) {
     } } : null })
   })
   const oauthLimit = rateLimit({ windowMs: 60000, limit: 15, standardHeaders: 'draft-8', legacyHeaders: false })
+  installBindingRoutes(app, db, repository, passport, config, oauthLimit, now)
   app.get('/api/auth/github', oauthLimit, (req, res, next) => {
     if (!config.githubClientId || !config.githubClientSecret) return res.status(503).json({ message: 'GitHub 登录暂不可用' })
+    delete req.session.githubBinding
+    delete req.session.githubBindingOAuth
     passport.authenticate('github', { scope: ['user:email'] })(req, res, next)
   })
   app.get('/api/auth/github/callback', oauthLimit, (req, res, next) => {
     if (!config.githubClientId || !config.githubClientSecret) return res.redirect('/login?error=github_unavailable')
-    passport.authenticate('github', { failureRedirect: '/login?error=github_auth_failed' })(req, res, next)
-  }, (req, res, next) => {
-    req.session.save(error => error ? next(error) : res.redirect('/auth/callback'))
+    const binding = Boolean(req.session.githubBindingOAuth)
+    passport.authenticate('github', (error, user, info) => {
+      if (binding) {
+        delete req.session.githubBindingOAuth
+        if (error || !user || !info?.binding) {
+          delete req.session.githubBinding
+          return req.session.save(saveError => saveError ? next(saveError) : res.redirect('/user/profile?tab=security&binding=failed'))
+        }
+        return req.session.save(saveError => saveError ? next(saveError) : res.redirect('/user/profile?tab=security'))
+      }
+      if (error) return next(error)
+      if (!user) return res.redirect('/login?error=github_auth_failed')
+      req.logIn(user, loginError => {
+        if (loginError) return next(loginError)
+        req.session.save(saveError => saveError ? next(saveError) : res.redirect('/auth/callback'))
+      })
+    })(req, res, next)
   })
   app.post('/api/auth/logout', (req, res, next) => {
     req.logout(error => {

@@ -1,12 +1,22 @@
 ---
-title: Profile
+title: 个人中心
 layout: page
 sidebar: false
 ---
 
 <div id="profile-page"></div>
 
+<ProfileMcpPanel />
+
+<script setup>
+import ProfileMcpPanel from '../.vitepress/theme/components/ProfileMcpPanel.vue'
+</script>
+
 <style>
+.article-delete { color: #b42e28; font: inherit; cursor: pointer; }
+.article-delete:disabled { opacity: .5; cursor: wait; }
+.binding-cancel { margin: 12px; padding: 10px 16px; border: 1px solid var(--vp-c-divider); border-radius: 6px; }
+#binding-error { color: #b42e28; overflow-wrap: anywhere; }
 .history-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--vp-c-divider); }
 .history-row a { min-width: 0; overflow-wrap: anywhere; }
 .history-row h3 { margin: 0 0 6px; font-size: 16px; }
@@ -265,7 +275,7 @@ sidebar: false
 
 .article-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 74px 92px 78px 78px 78px auto;
+  grid-template-columns: minmax(0, 1fr) repeat(3, max-content);
   gap: 0.75rem;
   align-items: center;
   min-height: 92px;
@@ -276,6 +286,7 @@ sidebar: false
 }
 
 .article-title {
+  grid-column: span 2;
   overflow: hidden;
   color: var(--vp-c-text-1);
   font-weight: 650;
@@ -314,7 +325,9 @@ sidebar: false
   justify-content: flex-end;
 }
 
-.row-actions a {
+.row-actions { grid-column: 1 / -1; justify-content: flex-end; }
+.row-actions a,
+.row-actions button {
   padding: 0.35rem 0.55rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
@@ -322,6 +335,7 @@ sidebar: false
   font-size: 0.78rem;
   text-decoration: none;
 }
+.row-actions button.article-delete { color: #b42e28; }
 
 .card-grid {
   display: grid;
@@ -525,7 +539,7 @@ sidebar: false
 
   .profile-tabs {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     position: static;
   }
 
@@ -556,6 +570,8 @@ sidebar: false
   .row-actions {
     grid-column: span 2;
   }
+
+  .article-title { grid-column: 1 / -1; }
 }
 
 @media (max-width: 640px) {

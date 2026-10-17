@@ -29,7 +29,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vitepress'
-import { Bell, CalendarCheck, Bookmark, ChevronDown, FileText, History, LogIn, LogOut, Settings, ShieldCheck, UserRound, ListChecks } from 'lucide-vue-next'
+import { Bell, CalendarCheck, Bookmark, ChevronDown, FileText, History, LogIn, LogOut, Settings, ShieldCheck, UserRound, ListChecks, KeyRound, Shield } from 'lucide-vue-next'
 
 import { communityRequest } from '../lib/community-api.mjs'
 const unread=ref(0)
@@ -55,7 +55,9 @@ const items = [
   { label: '我的收藏', href: '/user/profile?tab=favorites', icon: Bookmark },
   { label: '浏览记录', href: '/user/profile?tab=recent', icon: History },
   { label: '我的任务', href: '/tasks', icon: ListChecks },
-  { label: '个人设置', href: '/user/profile?tab=settings', icon: Settings }
+  { label: '个人设置', href: '/user/profile?tab=settings', icon: Settings },
+  { label: 'AI / MCP 接入', href: '/user/profile?tab=mcp', icon: KeyRound },
+  { label: '账号安全', href: '/user/profile?tab=security', icon: Shield }
 ]
 let client
 let unreadTimer
