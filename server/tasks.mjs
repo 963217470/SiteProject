@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import {adminAudit} from './admin-audit.mjs'
 import { fail } from './repository.mjs'
 import { experience, levelFor } from './community.mjs'
+import { normalizeAudience, resolveAudience, assignTask, taskReminder } from './task-assignments.mjs'
 
 const types = new Set(['publish', 'read', 'branch', 'gamejam', 'proof'])
 const offices = new Set(['president', 'vice-president', null])
@@ -22,6 +23,7 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
   const getTask = (id, user) => {
     const task = db.prepare('SELECT * FROM tasks WHERE id=?').get(id)
     if (!task || (task.status === 'draft' && user.role !== 'admin')) fail(404, '任务不存在')
+    if (task.audience && user.role !== 'admin' && !db.prepare('SELECT 1 FROM task_recipients WHERE task_id=? AND user_id=?').get(id, user.id)) fail(404, '任务不存在')
     return task
   }
   const enrollment = (id, userId) => db.prepare('SELECT * FROM task_enrollments WHERE task_id=? AND user_id=?').get(id, userId)
@@ -63,6 +65,13 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
     }) }
   }
   app.use('/api/tasks', (req, _res, next) => req.user ? next() : next(Object.assign(new Error('请先登录'), { status: 401 })))
+  app.get('/api/tasks/reminder', (req, res) => res.json(taskReminder(db, req.user.id, now())))
+  app.post('/api/tasks/audience/preview', (req, res) => {
+    admin(req.user)
+    const audience = normalizeAudience(db, req.body?.audience)
+    if (!audience) fail(400, '请选择派发范围')
+    res.json({ count: resolveAudience(db, audience).length })
+  })
   app.get('/api/tasks/me', (req, res) => {
     const xp = experience(db, req.user.id)
     const levels = db.prepare('SELECT * FROM experience_levels ORDER BY threshold').all()
@@ -81,12 +90,14 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
     if (!['all','mine','completed'].includes(scope)) fail(400, '任务筛选无效')
     const clauses = req.user.role === 'admin' ? ['1=1'] : ["status<>'draft'"]
     const args = []
+    if (req.user.role !== 'admin') { clauses.push('(audience IS NULL OR EXISTS(SELECT 1 FROM task_recipients r WHERE r.task_id=tasks.id AND r.user_id=?))'); args.push(req.user.id) }
     if (scope !== 'all') { clauses.push(`EXISTS(SELECT 1 FROM task_enrollments e WHERE e.task_id=tasks.id AND e.user_id=?${scope === 'completed' ? " AND e.state='completed'" : ''})`); args.push(req.user.id) }
     const rows = db.prepare(`SELECT * FROM tasks WHERE ${clauses.join(' AND ')} ORDER BY created_at DESC,id LIMIT 31 OFFSET ?`).all(...args,offset)
     res.json({ has_more: rows.length > 30, items: rows.slice(0, 30).map(task => {
       const entry = enrollment(task.id, req.user.id)
       const last = db.prepare('SELECT * FROM task_submissions WHERE task_id=? AND user_id=? ORDER BY submitted_at DESC,rowid DESC LIMIT 1').get(task.id, req.user.id)
-      return { ...task, requirements: JSON.parse(task.requirements), enrollment: entry || null, progress: Math.min(task.target, progress(task, req.user, entry)), submission: last ? presentSubmission(last) : null }
+      const { audience, ...safeTask } = task
+      return { ...safeTask, assigned: Boolean(audience), ...(req.user.role === 'admin' ? { audience: audience ? JSON.parse(audience) : null, recipient_count: db.prepare('SELECT count(*) n FROM task_recipients WHERE task_id=?').get(task.id).n } : {}), requirements: JSON.parse(task.requirements), enrollment: entry || null, progress: Math.min(task.target, progress(task, req.user, entry)), submission: last ? presentSubmission(last) : null }
     }) })
   })
   app.post('/api/tasks', (req, res) => {
@@ -95,6 +106,8 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
     if (!types.has(body.type)) fail(400, '任务模板无效')
     const target = ['gamejam', 'proof'].includes(body.type) ? 1 : integer(body.target, 1000), reward = integer(body.reward, 10000)
     const deadline = body.deadline ?? null
+    const audience = normalizeAudience(db, body.audience)
+    if (audience && deadline === null) fail(400, '派发任务必须设置截止时间')
     if (deadline !== null && (!Number.isSafeInteger(deadline) || deadline <= now() || !Number.isFinite(new Date(deadline).getTime()))) fail(400, '截止时间无效')
     const requirements = {}
     for (const key of ['url', 'image', 'build']) { if (body.requirements?.[key] !== undefined && typeof body.requirements[key] !== 'boolean') fail(400, '证明要求无效'); requirements[key] = Boolean(body.requirements?.[key]) }
@@ -105,6 +118,7 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
     repository.transaction(()=>{
     db.prepare("INSERT INTO tasks(id,title,description,type,target,reward,status,deadline,requirements,created_by,created_at) VALUES(?,?,?,?,?,?,'draft',?,?,?,?)").run(id, title, description, body.type, target, reward, deadline, JSON.stringify(requirements), req.user.id, now())
     db.prepare('UPDATE tasks SET is_advanced=? WHERE id=?').run(body.is_advanced ? 1 : 0, id)
+    db.prepare('UPDATE tasks SET audience=? WHERE id=?').run(audience ? JSON.stringify(audience) : null, id)
     adminAudit(db,req.user,'创建任务','task',id,title,now())
     })
     res.status(201).json({ id })
@@ -112,7 +126,7 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
   app.patch('/api/tasks/:id/status', (req, res) => {
     admin(req.user); const task = getTask(req.params.id, req.user), status = req.body?.status
     if (!['active', 'closed'].includes(status) || (status === 'active' && task.deadline !== null && task.deadline < now())) fail(400, '任务状态无效或已过期')
-    repository.transaction(()=>{db.prepare('UPDATE tasks SET status=? WHERE id=?').run(status, task.id);adminAudit(db,req.user,'调整任务状态','task',task.id,status,now())}); res.json({ ok: true })
+    repository.transaction(()=>{if (status === 'active') assignTask(db,task,now());db.prepare('UPDATE tasks SET status=? WHERE id=?').run(status, task.id);adminAudit(db,req.user,'调整任务状态','task',task.id,status,now())}); res.json({ ok: true })
   })
   app.post('/api/tasks/:id/join', (req, res) => {
     repository.transaction(() => {

@@ -2,9 +2,11 @@
   <div ref="root" class="user-nav" @keydown.esc.stop="close(true)">
     <span v-if="loading" class="user-nav-loading" role="status" aria-label="正在加载账户"></span>
     <template v-else-if="user">
+      <TaskDeadlineReminder :key="user.id" :user-id="user.id" @pending="taskPending=$event" />
       <button ref="trigger" class="user-menu" type="button" :aria-expanded="showMenu" aria-controls="rd-account-menu"
         aria-label="账户菜单" @click="showMenu = !showMenu" @keydown.down.prevent="openWithKeyboard">
         <img :src="avatar" alt="" class="user-avatar-sm" @error="avatar = '/images/default-avatar.svg'">
+        <span v-if="taskPending" class="account-task-dot" aria-label="有未完成的派发任务" title="有未完成的派发任务"></span>
         <span class="user-name">{{ displayName }}</span>
         <span v-if="unread" class="account-unread-dot" :title="unread+' 条未读消息'" :aria-label="unread+' 条未读消息'"></span>
         <ChevronDown :size="16" aria-hidden="true" :class="{ expanded: showMenu }" />
@@ -32,6 +34,8 @@ import { useRoute } from 'vitepress'
 import { Bell, CalendarCheck, Bookmark, ChevronDown, FileText, History, LogIn, LogOut, Settings, ShieldCheck, UserRound, ListChecks, KeyRound, Shield } from 'lucide-vue-next'
 
 import { communityRequest } from '../lib/community-api.mjs'
+import TaskDeadlineReminder from './TaskDeadlineReminder.vue'
+const taskPending=ref(false)
 const unread=ref(0)
 function checkin(){close();window.dispatchEvent(new CustomEvent('rd:checkin'))}
 async function refreshUnread(){if(!user.value || document.hidden)return;const id=user.value.id;try{const result=await communityRequest('/messages/unread');if(user.value?.id===id)unread.value=result.unread}catch{}}
@@ -84,7 +88,9 @@ function navigateItems(event) {
 }
 async function applySession(_event, session) {
   const id = ++requestId
+  const previousUserId = user.value?.id
   user.value = session?.user || null
+  if (previousUserId !== user.value?.id) taskPending.value=false
   refreshInternalAccess()
   unread.value=0
   if(user.value)refreshUnread()
@@ -143,6 +149,8 @@ onUnmounted(() => {
 .user-nav-loading { width: 32px; height: 32px; border-radius: 50%; background: var(--vp-c-bg-soft); }
 .user-menu { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px; border-radius: 6px; color: var(--vp-c-text-1); transition: background 160ms; }
 .user-menu:hover { background: var(--vp-c-bg-soft); }
+.user-menu { position: relative; }
+.account-task-dot { position: absolute; top: 3px; left: 30px; width: 10px; height: 10px; border-radius: 50%; background: #d6322f; border: 2px solid var(--vp-c-bg); pointer-events: none; }
 .user-avatar-sm { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: none; }
 .user-name { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .expanded { transform: rotate(180deg); }

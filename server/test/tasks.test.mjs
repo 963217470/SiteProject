@@ -47,6 +47,65 @@ test('tasks enforce authentication, admin-only creation and hidden drafts',async
   assert.equal((await f.call('/data/experience_ledger')).status,404)
   assert.equal((await f.call('/tasks','admin','POST',{title:'bad',type:'publish',target:0,reward:10})).status,400)
 })
+test('administrator assignments auto-enroll only recipients, hide private tasks and notify once',async t=>{
+  const f=await fixture(t)
+  const body={title:'Private custom brief',description:'提交设计方案和演示',type:'proof',target:1,reward:10,deadline:f.time()+86400000,audience:{kind:'users',ids:['member','member']}}
+  assert.equal((await f.call('/tasks','member','POST',body)).status,403)
+  assert.equal((await f.call('/tasks/audience/preview','member','POST',{audience:body.audience})).status,403)
+  assert.equal((await f.call('/tasks/audience/preview','admin','POST',{audience:body.audience})).data.count,1)
+  const id=(await f.call('/tasks','admin','POST',body)).data.id
+  assert.equal((await f.call('/tasks/reminder')).data.count,0)
+  assert.equal((await f.call('/tasks/'+id+'/status','admin','PATCH',{status:'active'})).status,200)
+  const mine=(await f.call('/tasks')).data.items[0]
+  assert.equal(mine.enrollment.state,'joined');assert.equal(mine.assigned,true);assert.equal('audience' in mine,false)
+  assert.equal((await f.call('/tasks','other')).data.items.length,0)
+  for(const action of ['join','claim','submit'])assert.equal((await f.call('/tasks/'+id+'/'+action,'other','POST',{note:'unauthorized'})).status,404)
+  await f.call('/tasks/'+id+'/status','admin','PATCH',{status:'active'})
+  assert.equal(f.db.prepare("SELECT count(*) n FROM notifications WHERE event_key=?").get('assigned-task:'+id).n,1)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM task_enrollments WHERE task_id=?').get(id).n,1)
+  assert.equal((await f.call('/tasks/reminder',null)).status,401)
+})
+
+test('identity audiences snapshot at dispatch and reject invalid or empty recipients atomically',async t=>{
+  const f=await fixture(t)
+  f.db.prepare("INSERT INTO member_identity(user_id,discipline_id) VALUES('member','art')").run()
+  const deadline=f.time()+86400000
+  const id=await f.task('proof',{deadline,audience:{kind:'discipline',value:'art'}})
+  f.db.prepare("UPDATE member_identity SET discipline_id='programming' WHERE user_id='member'").run()
+  f.db.prepare("INSERT INTO member_identity(user_id,discipline_id) VALUES('other','art')").run()
+  assert.equal((await f.call('/tasks')).data.items[0].id,id)
+  assert.equal((await f.call('/tasks','other')).data.items.length,0)
+  for(const audience of [{kind:'level',value:'0'},{kind:'role',value:'member'},{kind:'all'}])assert.ok((await f.call('/tasks/audience/preview','admin','POST',{audience})).data.count>=1)
+  for(const audience of [{kind:'users',ids:['missing']},{kind:'role',value:'superadmin'},{kind:'toString'},{kind:'users',ids:[]}])assert.equal((await f.call('/tasks','admin','POST',{title:'Bad',type:'proof',reward:5,deadline,audience})).status,400)
+  assert.equal((await f.call('/tasks','admin','POST',{title:'No date',type:'proof',reward:5,audience:{kind:'all'}})).status,400)
+  const empty=(await f.call('/tasks','admin','POST',{title:'Empty',type:'proof',reward:5,deadline,audience:{kind:'office',value:'vice-president'}})).data.id
+  assert.equal((await f.call('/tasks/'+empty+'/status','admin','PATCH',{status:'active'})).status,409)
+  assert.equal(f.db.prepare('SELECT status FROM tasks WHERE id=?').get(empty).status,'draft')
+})
+
+test('persistent nearest deadline survives reading messages, expiry and rejection, clears on completion or close',async t=>{
+  const f=await fixture(t),deadline=f.time()+10000
+  const id=await f.task('proof',{deadline,audience:{kind:'users',ids:['member']}})
+  const later=await f.task('proof',{deadline:deadline+100000,audience:{kind:'users',ids:['member']}})
+  let reminder=(await f.call('/tasks/reminder')).data
+  assert.equal(reminder.nearest.id,id);assert.equal(reminder.count,2);assert.equal(reminder.server_now,f.time())
+  f.db.prepare('UPDATE notifications SET read_at=? WHERE user_id=?').run(f.time(),'member')
+  assert.equal((await f.call('/tasks/reminder')).data.count,2)
+  await f.call('/tasks/'+id+'/submit','member','POST',{note:'Done',url:'',files:[]})
+  assert.equal((await f.call('/tasks/reminder')).data.nearest.state,'submitted')
+  const review=f.db.prepare('SELECT id FROM task_submissions WHERE task_id=?').get(id)
+  await f.call('/tasks/reviews/'+review.id,'admin','POST',{approved:false,note:'补充细节'})
+  assert.equal((await f.call('/tasks/reminder')).data.nearest.state,'rejected')
+  await f.call('/tasks/'+id+'/submit','member','POST',{note:'Updated',url:'',files:[]})
+  const second=f.db.prepare("SELECT id FROM task_submissions WHERE task_id=? AND status='pending'").get(id)
+  await f.call('/tasks/reviews/'+second.id,'admin','POST',{approved:true})
+  assert.equal((await f.call('/tasks/reminder')).data.nearest.id,later)
+  f.advance(200)
+  assert.equal((await f.call('/tasks/reminder')).data.count,1)
+  await f.call('/tasks/'+later+'/status','admin','PATCH',{status:'closed'})
+  assert.equal((await f.call('/tasks/reminder')).data.count,0)
+})
+
 test('publish tasks exclude old activity and reward concurrent claims once',async t=>{
   const f=await fixture(t),old=f.article('published'),id=await f.task()
   await f.call('/tasks/'+id+'/join','member','POST',{})

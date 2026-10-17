@@ -7,6 +7,22 @@ import { DatabaseSync } from 'node:sqlite'
 import { openDatabase } from '../database.mjs'
 import { experience, flushCommunity } from '../community.mjs'
 
+test('version 9 preserves old tasks as opt-in and does not fabricate assignments or reminders',t=>{
+  const dir=mkdtempSync(join(tmpdir(),'rd-assignment-migration-'));t.after(()=>rmSync(dir,{recursive:true,force:true}))
+  const file=join(dir,'site.sqlite'),old=new DatabaseSync(file)
+  old.function('rd_now',Date.now)
+  for(const path of ['../schema.sql','../migrations/002-reading.sql','../migrations/003-tasks.sql','../migrations/004-catalog.sql','../migrations/005-community.sql','../migrations/006-note-upload.sql','../migrations/007-knowledge-positions.sql','../migrations/008-mcp-knowledge.sql','../migrations/009-admin-messages.sql'])old.exec(readFileSync(new URL(path,import.meta.url),'utf8'))
+  old.exec("INSERT INTO users(id,github_id,github_username) VALUES('one','1','one'); INSERT INTO profiles(id,username,role) VALUES('one','one','admin'); INSERT INTO tasks(id,title,type,target,reward,status,created_by,created_at) VALUES('legacy','Task','proof',1,5,'active','one',1); INSERT INTO task_enrollments(task_id,user_id,joined_at,activity_baseline) VALUES('legacy','one',1,0); PRAGMA user_version=9")
+  old.close();let db=openDatabase(file)
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,10)
+  assert.equal(db.prepare('SELECT audience FROM tasks').get().audience,null)
+  assert.equal(db.prepare('SELECT count(*) n FROM task_recipients').get().n,0)
+  assert.equal(db.prepare('SELECT count(*) n FROM task_enrollments').get().n,1)
+  db.close();db=openDatabase(file)
+  assert.equal(db.prepare('SELECT count(*) n FROM task_enrollments').get().n,1)
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);db.close()
+})
+
 test('version 8 upgrades notifications without losing read state or duplicating historical events',t=>{
   const dir=mkdtempSync(join(tmpdir(),'rd-admin-migration-'));t.after(()=>rmSync(dir,{recursive:true,force:true}))
   const file=join(dir,'site.sqlite'),old=new DatabaseSync(file)
@@ -28,7 +44,7 @@ test('version 7 preserves existing notes and leaves old MCP tokens without node-
   for(const path of ['../schema.sql','../migrations/002-reading.sql','../migrations/003-tasks.sql','../migrations/004-catalog.sql','../migrations/005-community.sql','../migrations/006-note-upload.sql','../migrations/007-knowledge-positions.sql'])old.exec(readFileSync(new URL(path,import.meta.url),'utf8'))
   old.exec("INSERT INTO users(id,github_id,github_username) VALUES('one','1','one'); INSERT INTO articles(id,title,content,status,author_id) VALUES('a','Original','# Original','draft','one'); INSERT INTO mcp_tokens(id,user_id,name,token_hash,created_at,expires_at) VALUES('old','one','Existing','hash',1,9999999999999); PRAGMA user_version=7")
   old.close();const db=openDatabase(file)
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,9)
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,10)
   assert.equal(db.prepare('SELECT allow_knowledge_write FROM mcp_tokens').get().allow_knowledge_write,0)
   assert.equal(db.prepare('SELECT content FROM articles').get().content,'# Original')
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);db.close()
@@ -53,7 +69,7 @@ test('schema 4 retains approved legacy comments and earned EXP without retroacti
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);db.close()
 })
 
-test('version 1 migrates without data loss and reopening version 9 is idempotent', t => {
+test('version 1 migrates without data loss and reopening version 10 is idempotent', t => {
   const dir = mkdtempSync(join(tmpdir(), 'rd-migration-'))
   t.after(() => rmSync(dir, { recursive: true, force: true }))
   const file = join(dir, 'site.sqlite')
@@ -62,7 +78,7 @@ test('version 1 migrates without data loss and reopening version 9 is idempotent
   old.exec("INSERT INTO users(id,github_id,github_username) VALUES('one','1','one'); PRAGMA user_version=1")
   old.close()
   let db = openDatabase(file)
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 9)
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 10)
   assert.equal(db.prepare('SELECT count(*) AS n FROM users').get().n, 1)
   assert(db.prepare("SELECT name FROM sqlite_master WHERE name='reading_history'").get())
   db.close()
@@ -97,7 +113,7 @@ test('schema 3 catalog migration preserves member roles, tasks and experience',t
   for(const path of ['../schema.sql','../migrations/002-reading.sql','../migrations/003-tasks.sql'])old.exec(readFileSync(new URL(path,import.meta.url),'utf8'))
   old.exec("INSERT INTO users(id,github_id,github_username) VALUES('one','1','one'); INSERT INTO profiles(id,username,role) VALUES('one','one','admin'); INSERT INTO tasks(id,title,description,type,target,reward,status,created_by,created_at) VALUES('task','Task','','publish',1,100,'active','one',1); PRAGMA user_version=3")
   old.close();const db=openDatabase(file)
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,9)
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version,10)
   assert.equal(db.prepare('SELECT role FROM profiles').get().role,'admin')
   assert.equal(db.prepare('SELECT count(*) n FROM tasks').get().n,1)
   assert.equal(db.prepare('SELECT count(*) n FROM experience_levels').get().n,4)

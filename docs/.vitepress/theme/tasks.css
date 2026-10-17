@@ -1,4 +1,6 @@
 .rd-tasks { width: min(1180px,calc(100% - 48px)); margin: 0 auto; padding: 40px 0 64px; }
+.rd-tasks .task-create { display:flex; flex-direction:column; align-items:stretch; }
+.rd-tasks .task-create>button { order:1; align-self:flex-start; }
 .profile-experience { display: inline-block; color: var(--vp-c-brand-1); font-size: 13px; margin: 8px 0; overflow-wrap: anywhere; }
 .rd-tasks h2 { font-size: 20px; line-height: 1.5; margin: 0 0 16px; }
 .rd-tasks h3 { font-size: 17px; margin: 0; }
