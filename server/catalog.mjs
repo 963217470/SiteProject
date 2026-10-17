@@ -5,7 +5,7 @@ import { fail } from './repository.mjs'
 export const catalogFileUrl = file => '/api/files/catalog/' + file.path.split('/').map(encodeURIComponent).join('/')
 export function catalogFileVisible(db, file, user) {
   if (user?.id === file.owner_id || user?.role === 'admin') return true
-  return Boolean(db.prepare("SELECT 1 FROM catalog_items i,json_each(i.assets) a WHERE a.value=? AND i.status='published' LIMIT 1").get(file.id))
+  return Boolean(db.prepare("SELECT 1 FROM catalog_items i,json_each(i.assets) a WHERE a.value=? AND (i.status='published' OR i.author_id=?) LIMIT 1").get(file.id,user?.id||''))
 }
 export function installCatalogRoutes(app, db, repository, config) {
   const now = config.now || Date.now
@@ -24,7 +24,7 @@ export function installCatalogRoutes(app, db, repository, config) {
     if (typeof value !== 'string' || value.length > limit || (required && !value.trim())) fail(400, '内容为空或超过长度限制')
     return value.trim()
   }
-  function payload(body, user) {
+  function payload(body, user, existing=null) {
     if (!body || !['game','tool'].includes(body.kind)) fail(400, '请选择游戏或工具')
     const external_url = text(body.external_url || '', 2000)
     if (external_url) {
@@ -33,8 +33,8 @@ export function installCatalogRoutes(app, db, repository, config) {
     }
     if (!Array.isArray(body.assets) || body.assets.length > 20 || new Set(body.assets).size !== body.assets.length) fail(400, '最多关联 20 个文件')
     const assets = body.assets.map(id => {
-      const file = typeof id === 'string' && db.prepare("SELECT * FROM files WHERE id=? AND bucket='catalog' AND owner_id=?").get(id,user.id)
-      if (!file) fail(403, '只能关联自己的专区文件')
+      const file = typeof id === 'string' && db.prepare("SELECT * FROM files WHERE id=? AND bucket='catalog'").get(id)
+      if (!file || !(file.owner_id===user.id || existing && JSON.parse(existing.assets).includes(id))) fail(403, '只能关联自己的专区文件或该作品原有附件')
       return file
     })
     if (body.cover_id && !assets.some(f => f.id === body.cover_id && f.mime.startsWith('image/'))) fail(400, '封面必须是已上传的图片')
@@ -60,17 +60,33 @@ export function installCatalogRoutes(app, db, repository, config) {
     const rows = db.prepare('SELECT i.*,p.username FROM catalog_items i JOIN profiles p ON p.id=i.author_id WHERE '+conditions.join(' AND ')+' ORDER BY i.updated_at DESC,i.id LIMIT 25 OFFSET ?').all(...args,offset)
     res.json({items:rows.slice(0,24).map(row=>project(row)),has_more:rows.length>24})
   })
+  app.get('/api/catalog/publishers', (req,res) => {
+    admin(req)
+    const q=req.query.q||'',offset=Number(req.query.offset||0)
+    if(typeof q!=='string'||q.length>100||!Number.isSafeInteger(offset)||offset<0)fail(400,'无效的用户筛选条件')
+    const pattern='%'+q.replace(/[\\%_]/g,'\\$&')+'%'
+    const rows=db.prepare("SELECT p.id,p.username,p.full_name FROM profiles p JOIN users u ON u.id=p.id WHERE p.username LIKE ? ESCAPE '\\' OR coalesce(p.full_name,'') LIKE ? ESCAPE '\\' ORDER BY p.username,p.id LIMIT 51 OFFSET ?").all(pattern,pattern,offset)
+    res.json({items:rows.slice(0,50),has_more:rows.length>50})
+  })
   app.get('/api/catalog/:id', (req,res) => res.json(project(item(req.params.id,req.user),true)))
   app.post('/api/catalog', (req,res) => {
     const user=logged(req), data=payload(req.body,user), id=randomUUID(), time=new Date(now()).toISOString(), fields=Object.keys(data)
-    repository.transaction(() => db.prepare(`INSERT INTO catalog_items(id,author_id,created_at,updated_at,${fields.join(',')}) VALUES(?,?,?,?,${fields.map(()=>'?').join(',')})`).run(id,user.id,time,time,...Object.values(data)))
+    const author=req.body.author_id===undefined?user.id:req.body.author_id
+    if(typeof author!=='string'||!author||author.length>100)fail(400,'请选择有效的发布用户')
+    if(author!==user.id&&user.role!=='admin')fail(403,'只有管理员可以为其他用户发布作品')
+    repository.transaction(() => {
+      if(!db.prepare('SELECT p.id FROM profiles p JOIN users u ON u.id=p.id WHERE p.id=?').get(author))fail(404,'发布用户不存在，请重新选择')
+      db.prepare(`INSERT INTO catalog_items(id,author_id,created_at,updated_at,${fields.join(',')}) VALUES(?,?,?,?,${fields.map(()=>'?').join(',')})`).run(id,author,time,time,...Object.values(data))
+      if(author!==user.id)adminAudit(db,user,'代用户创建作品','catalog',id,JSON.stringify({author_id:author,status:data.status,kind:data.kind}),now())
+    })
     res.status(201).json({id,status:data.status})
   })
   app.put('/api/catalog/:id', (req,res) => {
     const user=logged(req), row=item(req.params.id,user)
     if (row.author_id !== user.id) fail(403,'只能编辑自己的作品')
+    if(req.body?.author_id!==undefined&&req.body.author_id!==row.author_id)fail(403,'不能更改已有作品的发布用户')
     if (!Number.isInteger(req.body?.revision) || req.body.revision<1) fail(400,'无效的作品版本')
-    const data=payload(req.body,user), fields=Object.keys(data)
+    const data=payload(req.body,user,row), fields=Object.keys(data)
     const result=repository.transaction(() => db.prepare(`UPDATE catalog_items SET ${fields.map(f=>f+'=?').join(',')},review_note='',revision=revision+1,updated_at=? WHERE id=? AND revision=?`).run(...Object.values(data),new Date(now()).toISOString(),row.id,req.body.revision))
     if (!result.changes) fail(409,'作品已更新，请重新加载后编辑')
     res.json({id:row.id,status:data.status})

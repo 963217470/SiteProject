@@ -10,6 +10,11 @@
     <template v-if="editing">
       <form class="catalog-editor" @submit.prevent="save('pending')">
         <div class="catalog-editor-heading"><h2>{{ form.id ? '编辑作品' : '新作品' }}</h2><button type="button" class="rd-button" :disabled="busy" @click="cancelEdit"><ArrowLeft :size="16" />返回</button></div>
+        <section v-if="isAdmin && !form.id" class="catalog-publisher">
+          <label>发布用户<select v-model="form.author_id" aria-label="发布用户" :disabled="busy" @change="rememberPublisher"><option v-for="person in publisherOptions" :key="person.id" :value="person.id">{{ publisherLabel(person) }}</option></select></label>
+          <div class="catalog-publisher-search"><input v-model="publisherQuery" type="search" aria-label="搜索发布用户" placeholder="搜索用户名或昵称" maxlength="100" :disabled="busy" @keydown.enter.prevent="loadPublishers(true)"><button type="button" class="rd-icon-button" title="搜索发布用户" aria-label="搜索发布用户" :disabled="busy || publishersLoading" @click="loadPublishers(true)"><Search :size="18" /></button><button v-if="publishersMore" type="button" class="rd-button" :disabled="busy || publishersLoading" @click="loadPublishers(false)">更多用户</button></div>
+          <p v-if="publishersLoading" role="status" class="catalog-meta">正在加载用户…</p><p v-if="publisherError" role="alert" class="catalog-notice">{{ publisherError }} <button type="button" :disabled="publishersLoading" @click="loadPublishers(true)">重试</button></p>
+        </section>
         <div class="catalog-fields">
           <label>名称<input v-model="form.title" maxlength="120" required :disabled="busy"></label>
           <label>分类<select v-model="form.kind" :disabled="busy"><option value="game">游戏</option><option value="tool">工具</option></select></label>
@@ -68,6 +73,23 @@ const states={draft:'草稿',pending:'待审核',published:'已发布',rejected:
 const user=ref(null), items=ref([]), detail=ref(null), editing=ref(false), busy=ref(false), loading=ref(true), fatal=ref(''), error=ref(''), message=ref(''), kind=ref(''), scope=ref('public'), query=ref(''), offset=ref(0), hasMore=ref(false), editorTab=ref('source'), source=ref(null), reviewNote=ref('')
 const empty=()=>({kind:'game',title:'',summary:'',content:'',version:'',platform:'',license:'',external_url:'',extraction_code:'',cover_id:null,assets:[]})
 const form=ref(empty()), preview=computed(()=>renderCatalogMarkdown(form.value.content)), downloads=computed(()=>detail.value?.assets.filter(f=>!f.mime.startsWith('image/')) || [])
+const isAdmin=computed(()=>user.value?.app_metadata?.role==='admin'),publishers=ref([]),publisherQuery=ref(''),publisherError=ref(''),publishersLoading=ref(false),publishersMore=ref(false),publisherOffset=ref(0),selectedPublisher=ref(null)
+const publisherOptions=computed(()=>{const rows=new Map([[user.value?.id,{id:user.value?.id,username:'当前账号'}]]);if(selectedPublisher.value)rows.set(selectedPublisher.value.id,selectedPublisher.value);for(const row of publishers.value)rows.set(row.id,row);return [...rows.values()]})
+const publisherLabel=person=>(person.full_name?person.full_name+' (@'+person.username+')':person.username)+(person.id===user.value?.id?'（自己）':'')
+function rememberPublisher(){selectedPublisher.value=publisherOptions.value.find(p=>p.id===form.value.author_id)||null}
+let publisherRequest=0,publisherSearch=''
+async function loadPublishers(reset=true){
+  if(!isAdmin.value||!editing.value||form.value.id||busy.value)return
+  const run=++publisherRequest,current=revision,next=reset?0:publisherOffset.value,q=reset?publisherQuery.value:publisherSearch
+  publishersLoading.value=true;publisherError.value=''
+  try{
+    const result=await catalogRequest('/publishers?'+new URLSearchParams({q,offset:String(next)}))
+    if(disposed||run!==publisherRequest||current!==revision)return
+    publishers.value=reset?result.items:[...publishers.value,...result.items]
+    publishersMore.value=result.has_more;publisherOffset.value=next+result.items.length;publisherSearch=q
+  }catch(cause){if(run===publisherRequest&&current===revision&&!disposed)publisherError.value=cause.message}
+  finally{if(run===publisherRequest)publishersLoading.value=false}
+}
 let revision=0, subscription, disposed=false
 const bytes=n=>n>=1048576 ? (n/1048576).toFixed(1)+' MB' : Math.ceil(n/1024)+' KB'
 const host=url=>{try{return new URL(url).hostname}catch{return ''}}
@@ -81,7 +103,7 @@ async function load() {
 function setFilter(key,value){if(key==='scope'){scope.value=value;const url=new URL(location.href);if(value==='review')url.searchParams.set('scope','review');else url.searchParams.delete('scope');history.replaceState(history.state,'',url);window.dispatchEvent(new CustomEvent('rd:admin-navigation'))}else kind.value=value;offset.value=0;load()}
 function search(){offset.value=0;load()}
 function page(amount){offset.value+=amount;load()}
-function create(){form.value=empty();editing.value=true;detail.value=null;error.value='';message.value='';editorTab.value='source'}
+function create(){form.value={...empty(),...(isAdmin.value?{author_id:user.value.id}:{})};editing.value=true;detail.value=null;error.value='';message.value='';editorTab.value='source';publishers.value=[];publisherQuery.value='';selectedPublisher.value=null;publishersMore.value=false;publisherError.value='';if(isAdmin.value)loadPublishers()}
 function edit(){form.value={...detail.value,assets:detail.value.assets.map(f=>({...f}))};editing.value=true;editorTab.value='source'}
 async function cancelEdit(){if(!window.confirm('放弃本次未保存的修改？'))return;await action(async()=>{await removeUnusedCatalogFiles(form.value.assets.filter(f=>f.newUpload).map(f=>f.path));editing.value=false;form.value=empty()})}
 function back(){detail.value=null;error.value='';if(typeof window!=='undefined')history.replaceState(null,'',location.pathname);load()}

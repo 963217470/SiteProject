@@ -35,6 +35,11 @@
 .catalog-editor-heading { justify-content: space-between; }
 .catalog-editor-heading h2 { font-size: 22px; font-weight: 600; }
 .catalog-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.catalog-publisher { display:grid; gap:10px; padding:16px 0; border-bottom:1px solid var(--vp-c-divider); }
+.catalog-publisher select { appearance:auto; }
+.catalog-publisher-search { display:flex; gap:8px; align-items:center; }
+.catalog-publisher-search input { flex:1; min-width:0; }
+.catalog-publisher-search button { flex-shrink:0; }
 .catalog-source { font-family: monospace !important; line-height: 1.7; }
 .rd-catalog .catalog-file-button { display: inline-flex; position: relative; overflow: hidden; cursor: pointer; }
 .catalog-file-button input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
