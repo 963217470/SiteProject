@@ -1,4 +1,4 @@
-# RD STUDIO MCP v1.4.0
+# RD STUDIO MCP v1.5.0
 
 让支持 MCP 的 AI 使用 RD STUDIO 的真实公开资料，不需要付费模型 API，也不需要网站登录令牌。
 
@@ -62,6 +62,16 @@ AI 先调用 `get_upload_identity` 确认权限，再用 `list_knowledge_branche
 ```json
 {"request_key":"ue-materials-v1","name":"UE 材质笔记","description":"材质学习路线和实践笔记","parent_id":null}
 ```
+
+### 目录层级与图谱连线分离
+
+`parent_id` 只决定目录归属。同级的美术、策划、程序使用相同 `parent_id`，不会因为彼此连接而嵌套。管理员可通过 `connect_to` 单独选择连线对象：`root`、`b:分支ID` 或 `a:已归档文章ID`；传 `null` 暂不连接，省略则初始连接目录上级。以后移动目录不会自动改动连线，现有节点与连线已保留。普通成员仍通过原有审核流程提交申请，不支持自定义连线。
+
+```json
+{"request_key":"peer-design-v1","name":"策划","description":"策划方向的学习内容","parent_id":"认知层的真实ID","connect_to":"b:美术的真实ID"}
+```
+
+该示例创建认知层下的策划节点，同时连接美术。实际使用时必须替换查询得到的真实 ID。本地连接器升级至 v1.5.0，远程 HTTP 客户端刷新工具列表即可。
 
 管理员拿到分支 `id` 后，可调用 `save_article_draft` 写入标题、Markdown、标签，并传 `knowledge_branch_id` 关联该分支；`upload_video_note` 同样支持这个字段。普通账号先保存自己的草稿，再以 `article_id` 申请分支，审核通过后由网站关联。关联草稿仍不公开，需本人检查并提交审核。重试使用相同 `request_key`，修改参数则换新键；更新草稿必须提供最新 `expected_revision`。
 

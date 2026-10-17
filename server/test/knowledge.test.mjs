@@ -7,6 +7,7 @@ import { randomUUID, createHmac } from 'node:crypto'
 import { openDatabase } from '../database.mjs'
 import { createApp } from '../app.mjs'
 import { Repository } from '../repository.mjs'
+import { createKnowledgeWriter } from '../mcp-knowledge.mjs'
 
 async function fixture(t) {
   const dataDir=mkdtempSync(join(tmpdir(),'rd-knowledge-'))
@@ -113,4 +114,62 @@ test('approved requested branches belong to requester without counting creation 
   f.db.prepare("UPDATE knowledge_branch_requests SET status='approved' WHERE id=?").run(request)
   assert.equal(f.db.prepare('SELECT count(*) n FROM task_activity WHERE user_id=?').get(f.ids.author).n,2)
   assert.equal((await f.call('/knowledge/nodes/b:'+row.id,{method:'DELETE',role:'author'})).status,200)
+})
+
+test('directory placement and connections are independent, atomic and administrator-only',async t=>{
+  const f=await fixture(t),cognition=f.branch('admin'),art=f.branch('admin',cognition)
+  const body={name:'Planning',parent_id:cognition,connect_to:'b:'+art}
+  assert.equal((await f.call('/knowledge/branches',{method:'POST',body})).status,401)
+  assert.equal((await f.call('/knowledge/branches',{method:'POST',role:'author',body})).status,403)
+  const created=await f.call('/knowledge/branches',{method:'POST',role:'admin',body})
+  assert.equal(created.status,201)
+  const key=created.body.node_id
+  assert.equal(f.db.prepare('SELECT parent_id FROM knowledge_branches WHERE id=?').get(created.body.id).parent_id,cognition)
+  let links=(await f.call('/knowledge/connections')).body.items.filter(e=>e.source===key||e.target===key)
+  assert.deepEqual(links.map(e=>[e.source,e.target]),[[key,'b:'+art].sort()])
+  assert.equal((await f.call('/knowledge/nodes/'+key+'/hierarchy',{method:'PATCH',role:'admin',body:{parent_id:null}})).status,200)
+  assert.deepEqual((await f.call('/knowledge/connections')).body.items.filter(e=>e.source===key||e.target===key),links)
+  for(const method of ['PUT','DELETE'])assert.equal((await f.call('/knowledge/connections',{method,role:'author',body:{source:key,target:'root'}})).status,403)
+  assert.equal((await f.call('/knowledge/connections',{method:'PUT',role:'admin',body:{source:key,target:key}})).status,400)
+  const before=f.db.prepare('SELECT count(*) n FROM knowledge_branches').get().n
+  assert.equal((await f.call('/knowledge/branches',{method:'POST',role:'admin',body:{name:'Bad',parent_id:cognition,connect_to:'b:missing'}})).status,404)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM knowledge_branches').get().n,before)
+  assert.equal((await f.call('/knowledge/branches',{method:'POST',role:'admin',body})).status,201) // Original moved out; name can now be reused.
+})
+
+test('graph cycles are allowed, tree cycles rejected, edge removal does not delete or reparent nodes',async t=>{
+  const f=await fixture(t),p=f.branch('admin'),child=f.branch('author',p)
+  assert.equal((await f.call('/knowledge/nodes/b:'+p+'/hierarchy',{method:'PATCH',role:'admin',body:{parent_id:child}})).status,400)
+  const edge={source:'root',target:'b:'+child}
+  for(const body of [edge,{source:edge.target,target:edge.source}])assert.equal((await f.call('/knowledge/connections',{method:'PUT',role:'admin',body})).status,200)
+  assert.equal((await f.call('/knowledge/connections')).body.items.length,3)
+  assert.equal((await f.call('/knowledge/connections',{method:'DELETE',role:'admin',body:edge})).status,200)
+  assert.equal(f.db.prepare('SELECT parent_id FROM knowledge_branches WHERE id=?').get(child).parent_id,p)
+  await f.call('/knowledge/nodes/b:'+p,{method:'DELETE',role:'admin'})
+  assert.equal((await f.call('/knowledge/connections')).body.items.length,0)
+  assert.ok(f.db.prepare('SELECT id FROM knowledge_branches WHERE id=?').get(child))
+})
+
+test('connections never expose private or unpublished note IDs and detach cleans edges',async t=>{
+  const f=await fixture(t),p=f.branch(),internal=f.article('admin',p,'internal'),draft=f.article('author',p,'public','draft')
+  const publicLinks=(await f.call('/knowledge/connections')).body.items
+  assert.equal(publicLinks.some(e=>[e.source,e.target].some(id=>id==='a:'+internal||id==='a:'+draft)),false)
+  assert.equal((await f.call('/knowledge/connections',{role:'admin'})).body.items.length,2)
+  assert.equal((await f.call('/knowledge/connections',{method:'PUT',role:'admin',body:{source:'root',target:'a:'+draft}})).status,404)
+  await f.call('/knowledge/nodes/a:'+internal,{method:'DELETE',role:'admin'})
+  assert.equal(f.db.prepare('SELECT count(*) n FROM knowledge_connections WHERE source=? OR target=?').get('a:'+internal,'a:'+internal).n,0)
+})
+
+test('MCP can create a peer connected elsewhere without changing the old parent-only contract',async t=>{
+  const f=await fixture(t),p=f.branch('admin'),other=f.branch('admin'),write=createKnowledgeWriter(new Repository(f.db),{siteUrl:'https://rd-studio.club'})
+  const user={id:f.ids.admin,role:'admin',allow_knowledge_write:true},input={request_key:'peer',name:'Peer',parent_id:null,connect_to:'b:'+p}
+  const result=write(user,input),key=result.node_id
+  assert.equal(result.parent_id,null)
+  assert.deepEqual(f.db.prepare('SELECT source,target FROM knowledge_connections WHERE source=? OR target=?').all(key,key).map(e=>[e.source,e.target]),[[key,'b:'+p].sort()])
+  assert.equal(write(user,input).reused,true)
+  assert.throws(()=>write(user,{...input,connect_to:'root'}),e=>e.status===409)
+  const legacy=write(user,{request_key:'legacy',name:'Legacy',parent_id:other})
+  assert.ok(f.db.prepare('SELECT 1 FROM knowledge_connections WHERE source=? AND target=?').get(...[legacy.node_id,'b:'+other].sort()))
+  const isolated=write(user,{request_key:'isolated',name:'Isolated',connect_to:null})
+  assert.equal(f.db.prepare('SELECT count(*) n FROM knowledge_connections WHERE source=? OR target=?').get(isolated.node_id,isolated.node_id).n,0)
 })

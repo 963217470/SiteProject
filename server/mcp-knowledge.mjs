@@ -15,7 +15,10 @@ export function createKnowledgeWriter(repository,config) {
     if(!user.allow_knowledge_write)fail(403,'此令牌没有知识库节点写入权限，请在 MCP 页面创建勾选该权限的新令牌')
     const name=input.name.trim(),description=(input.description||'').trim(),parentId=input.parent_id||null
     if(!name || /[\\/\u0000-\u001f]/.test(name))fail(400,'节点名称不能为空，不能包含斜杠或控制字符；上级请用 parent_id 指定')
-    const payloadHash=createHash('sha256').update(JSON.stringify([name,description,parentId,input.article_id||null])).digest('hex')
+    if(input.connect_to!==undefined&&user.role!=='admin')fail(403,'自定义连线需要管理员权限，普通成员仍可提交目录分支申请')
+    const payload=[name,description,parentId,input.article_id||null]
+    if(input.connect_to!==undefined)payload.push(input.connect_to)
+    const payloadHash=createHash('sha256').update(JSON.stringify(payload)).digest('hex')
     return repository.transaction(()=>{
       const previous=db.prepare('SELECT * FROM mcp_node_creations WHERE user_id=? AND request_key=?').get(user.id,input.request_key)
       if(previous) {
@@ -24,8 +27,20 @@ export function createKnowledgeWriter(repository,config) {
       }
       if(parentId && !db.prepare('SELECT id FROM knowledge_branches WHERE id=?').get(parentId))fail(404,'上级分支不存在，请先调用 list_knowledge_branches 查询真实 ID')
       if(user.role==='admin') {
+        const target=input.connect_to
+        if(target!==undefined&&target!==null&&target!=='root') {
+          if(typeof target!=='string'||!/^([ba]):[A-Za-z0-9_-]{1,100}$/.test(target))fail(400,'无效的连接对象')
+          const valid=target.startsWith('b:')?db.prepare('SELECT id FROM knowledge_branches WHERE id=?').get(target.slice(2)):db.prepare("SELECT id FROM articles WHERE id=? AND kb_enabled=1 AND status='published'").get(target.slice(2))
+          if(!valid)fail(404,'连接对象不存在')
+        }
         const existing=db.prepare('SELECT * FROM knowledge_branches WHERE parent_id IS ? AND name=? ORDER BY created_at,id LIMIT 1').get(parentId,name)
         const branch=existing||repository.insert('knowledge_branches',{name,description,parent_id:parentId,slug:'mcp-'+createHash('sha256').update(name).digest('hex').slice(0,24),sort_order:0},user)
+        const key='b:'+branch.id
+        if(target===key)fail(400,'不能连接节点自身')
+        if(target!==undefined) {
+          if(!existing)db.prepare('DELETE FROM knowledge_connections WHERE source=? OR target=?').run(key,key)
+          if(target!==null)db.prepare('INSERT OR IGNORE INTO knowledge_connections(source,target,created_by) VALUES(?,?,?)').run(...[key,target].sort(),user.id)
+        }
         db.prepare('INSERT INTO mcp_node_creations(user_id,request_key,payload_hash,branch_id) VALUES(?,?,?,?)').run(user.id,input.request_key,payloadHash,branch.id)
         return {...branchResult(branch),reused:!!existing,...(existing?{message:'同级已有同名节点，已复用；创建者和说明保持原样。'}:{})}
       }

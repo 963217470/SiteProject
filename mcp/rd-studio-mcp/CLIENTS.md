@@ -50,7 +50,7 @@ Codex 只上传文本、Markdown 或导图草稿时，无需安装本地连接�
 
 远程客户端上传已准备的 Markdown / Base64 图片，需要在客户端提供的 HTTP 请求头设置中加入 `Authorization: Bearer <本人上传令牌>`。默认提供 11 个工具，授权节点写入后 12 个，但没有读取本地文件的 `upload_video_note`。本地 stdio 默认上传 12 个工具，设置 `RD_STUDIO_KNOWLEDGE_WRITE=1` 后 13 个；调用节点工具前确认令牌已授权。
 
-以上客户端的上传配置同时提供 `save_mindmap_draft` 和 `import_text_draft`。前者将节点树保存为导图草稿，后者将完整纯文本或 Markdown 导入文章草稿。都需先确认身份，不会直接发布。示例及限制见 `README.md`。本地连接器请升级到 v1.4.0，HTTP 客户端刷新工具列表即可。
+以上客户端的上传配置同时提供 `save_mindmap_draft` 和 `import_text_draft`。前者将节点树保存为导图草稿，后者将完整纯文本或 Markdown 导入文章草稿。都需先确认身份，不会直接发布。示例及限制见 `README.md`。本地连接器请升级到 v1.5.0，HTTP 客户端刷新工具列表即可。v1.5.0 支持管理员在 `create_knowledge_node` 中通过 `connect_to` 指定独立连线，目录层级仍由 `parent_id` 决定。
 
 ## 验证与常见问题
 

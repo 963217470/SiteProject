@@ -4,7 +4,7 @@ const annotations = { readOnlyHint:true, destructiveHint:false, idempotentHint:t
 const result = value => ({ content:[{type:'text',text:JSON.stringify(value,null,2)}], structuredContent:value })
 
 export function createRdServer({ McpServer, z, readRows, siteUrl, upload, knowledgeWrite=false }) {
-  const server = new McpServer({ name:'rd-studio', version:'1.4.0' }, { instructions:instructions+' Node creation requires a separately opted-in token: admins create branches directly, other users submit their own article-linked requests for review. Imported text, Markdown notes and AI mindmaps stay drafts until website moderation.' })
+  const server = new McpServer({ name:'rd-studio', version:'1.5.0' }, { instructions:instructions+' Node creation requires a separately opted-in token: admins create branches directly, other users submit their own article-linked requests for review. Directory placement (parent_id) is independent from graph connections (connect_to). Imported text, Markdown notes and AI mindmaps stay drafts until website moderation.' })
   if(upload) registerUploadTools(server,z,upload,knowledgeWrite)
   const pagination = { offset:z.number().int().min(0).max(100000).default(0), limit:z.number().int().min(1).max(50).default(20) }
   const url = id => siteUrl+'/article?id='+encodeURIComponent(id)
