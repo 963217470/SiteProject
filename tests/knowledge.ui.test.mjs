@@ -26,6 +26,25 @@ describe('knowledge model',()=>{
   it('keeps directory nesting rather than flattening folders',()=>{const outline=knowledgeOutline(knowledgeModel(branches,articles));expect(outline.map(n=>[n.id,n.depth])).toEqual([['root',0],['b:p',1],['b:g',2],['a:note',3]])})
 })
 describe('knowledge explorer',()=>{
+  it('shrinks by hierarchy depth exactly four times, ignoring graph shortcuts and keeping peers equal',async()=>{
+    const {api,state}=client();state.rows=Array.from({length:7},(_,i)=>({id:'level'+i,name:'Level '+i,parent_id:i?'level'+(i-1):null}));state.rows.push({id:'peer',name:'Peer',parent_id:'level2'});window.__api=api
+    knowledgeApi.request.mockImplementation(async path=>({items:path==='/connections'?[{source:'root',target:'b:level6'}]:[]}))
+    const view=mount(KnowledgeExplorer);await flushPromises()
+    const options=cytoscape.mock.calls.at(-1)[0],data=new Map(options.elements.filter(e=>!e.data.source).map(e=>[e.data.id,e.data]))
+    expect(['root',...state.rows.slice(0,7).map(n=>'b:'+n.id)].map(id=>data.get(id).diameter)).toEqual([32,28,24,20,16,16,16,16])
+    expect(data.get('b:peer').diameter).toBe(data.get('b:level3').diameter)
+    expect(options.style.find(s=>s.selector==='node').style).toMatchObject({width:'data(diameter)',height:'data(diameter)'})
+    expect(options.style.filter(s=>s.selector!=='node').every(s=>s.style.width===undefined||s.selector==='edge')).toBe(true)
+    view.unmount()
+  })
+  it('keeps article sizes and restored graph sizes consistent with their directory depth',async()=>{
+    const {api}=client();window.__api=api;const view=mount(KnowledgeExplorer);await flushPromises()
+    const sizes=()=>cytoscape.mock.calls.at(-1)[0].elements.filter(e=>!e.data.source).map(e=>[e.data.id,e.data.diameter])
+    expect(sizes()).toEqual([['root',32],['b:p',28],['b:g',24],['a:note',20]])
+    await view.findAll('button').find(b=>b.text().startsWith('折叠下级')).trigger('click');await flushPromises();expect(sizes()).toEqual([['root',32]])
+    await view.findAll('button').find(b=>b.text().startsWith('展开下级')).trigger('click');await flushPromises();expect(sizes()).toEqual([['root',32],['b:p',28],['b:g',24],['a:note',20]])
+    view.unmount()
+  })
   it('displays the creator avatar and linked name without a prefix, keeping root attribution',async()=>{const {api}=client();window.__api=api;knowledgeApi.request.mockImplementation(async path=>({items:path==='/creators'?[{node_id:'b:p',creator:{id:'u',username:'wind',display_name:'Wind-Celeste',avatar_url:'/api/files/avatars/u/photo.png'}}]:[]}));const view=mount(KnowledgeExplorer);await flushPromises();expect(view.get('.knowledge-creator').text()).toContain('系统节点');await view.findAll('.knowledge-relations button')[0].trigger('click');expect(view.get('.knowledge-creator').text()).toBe('Wind-Celeste');expect(view.get('a.knowledge-creator').attributes('href')).toBe('/user/profile?id=u');expect(view.get('.knowledge-creator img').attributes('src')).toBe('/api/files/avatars/u/photo.png');view.unmount()})
   it('preserves article covers, dates, visibility and interaction counts',async()=>{const {api}=client();window.__api=api;const view=mount(KnowledgeExplorer);await flushPromises();expect(view.get('.knowledge-reading img').attributes('src')).toBe('/images/hero-bg.jpg');expect(view.get('.knowledge-reading [aria-label="7 个赞"]').text()).toBe('7');expect(view.get('.knowledge-reading [aria-label="3 条评论"]').text()).toBe('3');expect(view.get('.knowledge-reading .rd-article-meta').text()).toContain('内部');expect(view.get('.knowledge-reading .rd-article-meta').text()).toContain('12');expect(view.get('.knowledge-reading h2 a').attributes('href')).toBe('/article?id=note');view.unmount()})
   it('loads real data, searches and keeps article links',async()=>{const {api}=client();window.__api=api;const view=mount(KnowledgeExplorer);await flushPromises();expect(view.text()).toContain('2 个分支 · 1 篇笔记');await view.get('input[type=search]').setValue('角色');expect(view.findAll('.knowledge-directory-row')).toHaveLength(1);await view.get('.knowledge-directory-row').trigger('click');expect(view.get('.knowledge-actions a').attributes('href')).toBe('/article?id=note');expect(location.search).toBe('?branch=note');view.unmount();expect(graph.destroy).toHaveBeenCalled()})
