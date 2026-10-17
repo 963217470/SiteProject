@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import {adminAudit} from './admin-audit.mjs'
 import { formalMember } from './experience.mjs'
+import { firstArticleImage } from './article-cover.mjs'
 
 const tables = new Set(['profiles', 'articles', 'article_likes', 'article_favorites', 'comments',
   'knowledge_branches', 'knowledge_branch_requests', 'profile_changes', 'internal_resources'])
@@ -125,9 +126,10 @@ export class Repository {
     const joinAuthor = table === 'articles' && embedded.test(select)
     const flat = select.replace(embedded, '').trim()
     const fields = flat === '*' ? [...columns] : flat.split(',').map(field => field.trim()).filter(Boolean)
-    if (!fields.length || fields.some(field => !columns.has(field))) fail(400, '无效的返回字段')
+    if (!fields.length || fields.some(field => !columns.has(field) && !(table === 'articles' && field === 'first_image_url'))) fail(400, '无效的返回字段')
     return rows.map(row => {
       const result = Object.fromEntries(fields.map(field => [field, row[field]]))
+      if (fields.includes('first_image_url')) result.first_image_url = firstArticleImage(row.content)
       if ('tags' in result) result.tags = JSON.parse(result.tags)
       if ('kb_enabled' in result) result.kb_enabled = Boolean(result.kb_enabled)
       if (joinAuthor) result.profiles = this.db.prepare('SELECT username FROM profiles WHERE id=?').get(row.author_id) || null

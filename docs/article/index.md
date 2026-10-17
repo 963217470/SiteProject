@@ -28,6 +28,7 @@ import { articleBadges, articleTopicTags } from '../.vitepress/theme/lib/article
 import { renderArticleMarkdown as renderMarkdown } from '../.vitepress/theme/lib/markdown.mjs'
 import { copyMarkdownSelection } from '../.vitepress/theme/lib/markdown-copy.mjs'
 import '../.vitepress/theme/markdown.css'
+import { articleCover, DEFAULT_ARTICLE_COVER } from '../.vitepress/theme/lib/article-cover.mjs'
 
 var articleState = {
   id: '',
@@ -247,11 +248,6 @@ function renderActionButton(type, label, count, active) {
   ].join('')
 }
 
-function getFirstArticleImage(content) {
-  var match = String(content || '').match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/i)
-  return match ? match[1] : ''
-}
-
 function safePackageName(value) {
   return String(value || 'article')
     .trim()
@@ -412,7 +408,7 @@ function renderArticle() {
   var commentCount = article.comments_count || articleState.comments.length || 0
   var favoriteLabel = articleState.favoriteTableReady ? '收藏' : '本地收藏'
   var backgroundUrl = '/images/hero-bg.jpg'
-  var coverUrl = article.cover_url || getFirstArticleImage(article.content) || backgroundUrl
+  var coverUrl = articleCover(article)
   var packageFileName = safePackageName(article.title) + '.zip'
   shell.style.setProperty('--article-bg-image', "url('" + String(backgroundUrl).replace(/'/g, '%27') + "')")
 
@@ -420,11 +416,9 @@ function renderArticle() {
     '<a href="/articles" class="back-link" aria-label="返回文章列表" title="返回文章列表">',
     '  <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M137.195012 473.012753l343.015525-236.983218-0.308863 468.654345z"></path><path d="M480.667511 706.240841l-1.146949-0.774868L135.66695 473.021784 480.978181 234.452705v1.578636l-0.31067 470.2095zM138.723073 473.003722L479.135837 703.125112l0.308863-465.518748L138.723073 473.003722z"></path><path d="M807.983377 647.341831s-7.347701-39.173288-31.538398-63.073184c-18.555293-18.331321-30.10426-28.670122-57.340243-34.404868-70.879664-14.921179-394.378989 0.050574-394.378989 0.050574V413.73263s214.893154-3.375824 285.431443 11.417113c20.932277 4.389113 57.967001 10.044386 83.143895 22.935375 27.143866 13.900665 53.628462 34.040012 67.375598 50.173164 46.838883 54.974096 47.306694 149.083548 47.306694 149.083549z"></path></svg>',
     '</a>',
+    '<figure class="article-top-cover"><img src="' + escapeHtml(coverUrl) + '" class="article-first-image" alt="' + escapeHtml(article.title) + '的文章首图"></figure>',
     '<div class="article-stage">',
     '  <main class="reader-card">',
-    '    <div class="cover-frame">',
-    '      <img src="' + escapeHtml(coverUrl) + '" class="detail-cover" alt="' + escapeHtml(article.title) + '">',
-    '    </div>',
     '    <header class="article-header">',
     '      <div class="article-title-block">',
     '        <h1 class="article-title-main">' + escapeHtml(article.title) + '</h1>',
@@ -471,6 +465,8 @@ function renderArticle() {
     '  </aside>',
     '</div>'
   ].join('')
+  var coverImage = shell.querySelector('.article-first-image')
+  coverImage.onerror = function() { if (this.getAttribute('src') !== DEFAULT_ARTICLE_COVER) this.src = DEFAULT_ARTICLE_COVER }
   shell.querySelector('.article-body').addEventListener('copy', copyMarkdownSelection)
   hydrateWikiLinks().catch(function(error) { console.warn('Wiki links unavailable:', error) })
 }
@@ -695,6 +691,9 @@ if (typeof document !== 'undefined') {
 </script>
 
 <style>
+.article-top-cover { width:min(1160px,calc(100% - 80px)); margin:24px auto 0; background:var(--vp-c-bg-soft); }
+.article-top-cover .article-first-image { display:block; width:100%; height:auto; max-height:560px; object-fit:contain; }
+@media(max-width:700px) { .article-top-cover { width:calc(100% - 32px); margin-top:16px; } .article-top-cover .article-first-image { max-height:440px; } }
 #article-page {
   max-width: none;
   margin: 0 calc(50% - 50vw);

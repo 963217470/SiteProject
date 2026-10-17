@@ -49,7 +49,7 @@ async function load() {
     if (!window.__api) throw new Error('无法连接服务，请稍后重试')
     const collected = [], batchSize = props.compact ? 3 : 500
     do {
-      let query = window.__api.from('articles').select('id,title,summary,cover_url,tags,visibility,status,kb_enabled,created_at,likes_count,comments_count,profiles!articles_author_id_fkey(username)').eq('status', 'published').order('created_at', { ascending: false }).limit(batchSize).offset(collected.length)
+      let query = window.__api.from('articles').select('id,title,summary,cover_url,first_image_url,tags,visibility,status,kb_enabled,created_at,likes_count,comments_count,profiles!articles_author_id_fkey(username)').eq('status', 'published').order('created_at', { ascending: false }).limit(batchSize).offset(collected.length)
       if (props.compact) query = query.eq('visibility', 'public')
       const result = await query
       if (id !== requestId) return

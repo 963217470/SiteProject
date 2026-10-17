@@ -11,6 +11,18 @@ import { Repository } from '../repository.mjs'
 
 const secret = 'test-secret-at-least-thirty-two-characters'
 
+test('first image projection returns cover metadata without content or private article leakage and cannot be written',async t=>{
+  const f=await fixture(t),id=f.article(),hidden=f.article('public','draft')
+  f.db.prepare('UPDATE articles SET content=? WHERE id=?').run('```md\n![example](/wrong.png)\n```\n\n![first][shot]\n\n[shot]: /api/files/notes/author/first.png',id)
+  f.db.prepare('UPDATE articles SET content=? WHERE id=?').run('![secret](/private-secret.png)',hidden)
+  const result=await f.call('/data/articles?select=id,title,first_image_url')
+  assert.equal(result.status,200)
+  assert.equal(result.body.find(row=>row.id===id).first_image_url,'/api/files/notes/author/first.png')
+  assert.equal(result.body.some(row=>row.id===hidden),false)
+  assert.equal(result.body.some(row=>'content' in row),false)
+  assert.equal((await f.call('/data/articles?id=eq.'+id,{role:'admin',method:'PATCH',body:{first_image_url:'/spoof.png'}})).status,400)
+})
+
 test('public member pages expose only public publications and safe profile fields',async t=>{
   const f=await fixture(t),publicId=f.article(),draft=f.article('public','draft'),internal=f.article('internal')
   f.db.prepare('UPDATE articles SET author_id=? WHERE id=?').run(f.ids.user,internal)
