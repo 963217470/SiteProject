@@ -187,9 +187,11 @@ test('persistent nearest deadline survives reading messages, expiry and rejectio
 test('publish tasks exclude old activity and reward concurrent claims once',async t=>{
   const f=await fixture(t),old=f.article('published'),id=await f.task()
   await f.call('/tasks/'+id+'/join','member','POST',{})
+  assert.equal(f.db.prepare('SELECT count(*) n FROM experience_ledger').get().n,0)
   f.db.prepare("UPDATE articles SET status='pending' WHERE id=?").run(old)
   f.db.prepare("UPDATE articles SET status='published' WHERE id=?").run(old)
   assert.equal((await f.call('/tasks/'+id+'/claim','member','POST',{})).status,409)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM experience_ledger').get().n,0)
   const fresh=f.article();f.db.prepare("UPDATE articles SET status='published' WHERE id=?").run(fresh)
   const claims=await Promise.all([f.call('/tasks/'+id+'/claim','member','POST',{}),f.call('/tasks/'+id+'/claim','member','POST',{})])
   assert(claims.every(r=>r.status===200))
@@ -235,6 +237,8 @@ test('proof rejection requires reason and allows resubmission, approval rewards 
   assert.equal((await f.call('/tasks/'+id+'/submit','member','POST',{note:'done',url:'https://itch.io'})).status,400)
   const image=f.file(),build=f.file('member','application/octet-stream'),body={note:'Game jam entry',url:'https://itch.io/jam/test',files:[image,build]}
   assert.equal((await f.call('/tasks/'+id+'/submit','member','POST',body)).status,201)
+  assert.equal((await f.call('/tasks/me')).data.xp,0)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM experience_ledger').get().n,0)
   assert.equal((await f.call('/tasks/'+id+'/submit','member','POST',body)).status,409)
   let row=(await f.call('/tasks/reviews','admin')).data.items[0]
   assert.equal((await f.call('/tasks/reviews/'+row.id,'member','POST',{approved:true})).status,403)

@@ -24,6 +24,15 @@ beforeEach(()=>{
 afterEach(()=>{wrapper?.unmount();delete window.__api})
 async function render(props={}){wrapper=mount(TaskCenter,{props});await flushPromises()}
 describe('Task center',()=>{
+  it('distinguishes prospective rewards, review-pending rewards and credited experience', async()=>{
+    await render();expect(wrapper.get('.task-reward').text()).toBe('完成后可得 100 EXP')
+    items[0].type='proof';items[0].enrollment={state:'submitted'}
+    await wrapper.get('[aria-label="刷新进度"]').trigger('click');await flushPromises()
+    expect(wrapper.get('.task-reward').text()).toBe('审核通过后可得 100 EXP')
+    items[0].enrollment.state='completed'
+    await wrapper.get('[aria-label="刷新进度"]').trigger('click');await flushPromises()
+    expect(wrapper.get('.task-reward').text()).toBe('已到账 +100 EXP')
+  })
   it('isolates anonymous access with a login state',async()=>{fail=Object.assign(new Error('请先登录'),{status:401});await render();expect(wrapper.text()).toContain('登录后查看任务');expect(wrapper.find('.task-list').exists()).toBe(false)})
   it('retries an unavailable service without rendering false progress',async()=>{fail=new Error('Offline');await render();expect(wrapper.get('[role="alert"]').text()).toContain('Offline');fail=null;await wrapper.get('.rd-state button').trigger('click');await flushPromises();expect(wrapper.text()).toContain('读两篇帖子')})
   it('joins, gates rewards on progress and completes a task',async()=>{await render();await wrapper.findAll('button').find(b=>b.text()==='领取任务').trigger('click');await flushPromises();let claim=wrapper.findAll('button').find(b=>b.text()==='领取奖励');expect(claim.attributes('disabled')).toBeDefined();items[0].progress=2;await wrapper.get('[aria-label="刷新进度"]').trigger('click');await flushPromises();claim=wrapper.findAll('button').find(b=>b.text()==='领取奖励');await claim.trigger('click');await flushPromises();expect(wrapper.text()).toContain('已完成');expect(wrapper.text()).toContain('100 EXP')})
