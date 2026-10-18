@@ -8,6 +8,17 @@ function show(id, ok) { var el = $(id); if (el) el.style.display = ok ? 'block' 
 function esc(v) { return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;') }
 function date(v) { return v ? new Date(v).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '未知时间' }
 function time(v) { return v ? new Date(v).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '未知时间' }
+function historyTime(v) {
+  var value = new Date(v)
+  if (!v || !Number.isFinite(value.getTime())) return '未知时间'
+  var parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(value)
+  var fields = {}; parts.forEach(function(part) { fields[part.type] = part.value })
+  return fields.year + '/' + fields.month + '/' + fields.day + '/' + fields.hour + ':' + fields.minute
+}
+function cardImage(a) { return '<img class="profile-article-image" src="' + esc(a.first_image_url || '/images/hero-bg.jpg') + '" alt="' + esc(a.title) + '" loading="lazy">' }
+function bindCardImages(id) {
+  $(id).querySelectorAll('.profile-article-image').forEach(function(image) { image.onerror = function() { this.onerror = null; this.src = '/images/hero-bg.jpg' } })
+}
 function statusText(v) { return ({ draft: '草稿', pending: '待审核', published: '已发布', rejected: '已拒绝' })[v] || v || '未知' }
 function views(a) { return Number(a.views_count || a.view_count || a.read_count || 0) }
 function articleUrl(id) { return '/article?id=' + encodeURIComponent(id) }
@@ -153,8 +164,8 @@ async function loadArticles() {
 async function fetchByIds(ids, rows, idKey) {
   ids = Array.from(new Set((ids || []).filter(Boolean)))
   if (!ids.length) return []
-  var r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count, views_count').in('id', ids)
-  if (r.error) r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count').in('id', ids)
+  var r = await state.sb.from('articles').select('id, title, summary, first_image_url, status, visibility, created_at, likes_count, comments_count, views_count').in('id', ids)
+  if (r.error) r = await state.sb.from('articles').select('id, title, summary, first_image_url, status, visibility, created_at, likes_count, comments_count').in('id', ids)
   if (r.error) return []
   var map = {}
   ;(r.data || []).forEach(function(a) { map[a.id] = a })
@@ -183,6 +194,9 @@ async function loadRecent() {
   var result = await state.sb.reading.history(state.recentOffset || 0)
   if (result.error) { state.recent = []; state.historyError = result.error.message; return }
   state.recent = result.data.items
+  var articles = await fetchByIds(state.recent.map(function(a) { return a.id }))
+  var details = {}; articles.forEach(function(a) { details[a.id] = a })
+  state.recent = state.recent.map(function(a) { return Object.assign({}, a, details[a.id] || {}, { viewed_at: a.viewed_at, reading_seconds: a.reading_seconds }) })
   state.hasMoreRecent = result.data.has_more
 }
 
@@ -219,9 +233,10 @@ function renderRecent() {
     return
   }
   var rows = state.recent.map(function(a) {
-    return '<article class="history-row"><a href="' + articleUrl(a.id) + '"><h3>' + esc(a.title) + '</h3><span>' + time(a.viewed_at) + ' · 阅读 ' + readingDuration(a.reading_seconds) + '</span></a><button type="button" data-remove-history="' + esc(a.id) + '" aria-label="移除这条浏览记录">移除</button></article>'
+    return '<article class="profile-history-card"><a class="article-card" href="' + articleUrl(a.id) + '">' + cardImage(a) + '<div class="profile-card-content"><h3>' + esc(a.title) + '</h3><p>' + esc(a.summary || '暂无摘要') + '</p><span>阅读 ' + readingDuration(a.reading_seconds) + '</span><time class="profile-last-viewed" datetime="' + esc(a.viewed_at) + '">最近浏览 ' + historyTime(a.viewed_at) + '</time></div></a><button type="button" data-remove-history="' + esc(a.id) + '" aria-label="移除这条浏览记录">移除</button></article>'
   }).join('')
-  $('panel-recent').innerHTML = '<div class="panel-head"><h2>浏览记录</h2><button type="button" id="clear-reading-history">清空记录</button></div>' + (rows || '<div class="empty-state">暂无浏览记录</div>') + '<div class="history-pagination"><button type="button" id="history-prev" ' + (!state.recentOffset ? 'disabled' : '') + '>上一页</button><button type="button" id="history-next" ' + (!state.hasMoreRecent ? 'disabled' : '') + '>下一页</button></div>'
+  $('panel-recent').innerHTML = '<div class="panel-head"><h2>浏览记录</h2><button type="button" id="clear-reading-history">清空记录</button></div>' + (rows ? '<div class="card-grid">' + rows + '</div>' : '<div class="empty-state">暂无浏览记录</div>') + '<div class="history-pagination"><button type="button" id="history-prev" ' + (!state.recentOffset ? 'disabled' : '') + '>上一页</button><button type="button" id="history-next" ' + (!state.hasMoreRecent ? 'disabled' : '') + '>下一页</button></div>'
+  bindCardImages('panel-recent')
   $('history-prev').onclick = function() { reloadRecent(Math.max(0, (state.recentOffset || 0) - 50)) }
   $('history-next').onclick = function() { reloadRecent((state.recentOffset || 0) + 50) }
   $('clear-reading-history').onclick = function() { if (window.confirm('清空当前账号的全部浏览记录？')) removeRecent() }
@@ -283,9 +298,10 @@ function bindArticleActions() {
 
 function renderCards(id, title, subtitle, items, emptyText, label, key) {
   var html = items.map(function(a) {
-    return '<a class="article-card" href="' + articleUrl(a.id) + '"><img src="' + esc(a.cover_url || '/images/default-cover.svg') + '" alt="' + esc(a.title) + '"><div><h3>' + esc(a.title) + '</h3><p>' + esc(a.summary || '暂无摘要') + '</p><span>' + label + ' ' + time(a[key]) + '</span></div></a>'
+    return '<a class="article-card" href="' + articleUrl(a.id) + '">' + cardImage(a) + '<div><h3>' + esc(a.title) + '</h3><p>' + esc(a.summary || '暂无摘要') + '</p><span>' + label + ' ' + time(a[key]) + '</span></div></a>'
   }).join('')
   $(id).innerHTML = '<div class="panel-head"><div><h2>' + title + '</h2><p>' + subtitle + '</p></div></div>' + (items.length ? '<div class="card-grid">' + html + '</div>' : '<div class="empty-state">' + emptyText + '</div>')
+  bindCardImages(id)
 }
 
 function renderSettings() {

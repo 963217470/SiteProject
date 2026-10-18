@@ -360,8 +360,15 @@ import ProfileMcpPanel from '../.vitepress/theme/components/ProfileMcpPanel.vue'
   width: 116px;
   height: 82px;
   border-radius: 6px;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--vp-c-bg-soft);
 }
+
+#profile-page .profile-history-card { position: relative; min-width: 0; }
+#profile-page .profile-history-card .article-card { height: 100%; padding-bottom: 44px; }
+#profile-page .profile-card-content { display: flex; flex-direction: column; min-width: 0; }
+#profile-page .profile-last-viewed { position: absolute; right: 16px; bottom: 16px; max-width: calc(100% - 90px); text-align: right; font-size: 12px; color: var(--vp-c-text-2); overflow-wrap: anywhere; }
+#profile-page [data-remove-history] { position: absolute; left: 16px; bottom: 8px; padding: 4px 8px; min-height: 32px; font-size: 12px; color: var(--vp-c-text-2); }
 
 .article-card h3 {
   margin: 0;
