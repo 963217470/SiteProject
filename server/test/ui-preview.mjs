@@ -10,6 +10,7 @@ import { startTaskScheduler } from '../task-scheduler.mjs'
 const dataDir=mkdtempSync(join(tmpdir(),'rd-tasks-ui-')),db=openDatabase(join(dataDir,'site.sqlite')),secret=randomUUID()+randomUUID(),time=Date.now()
 const ids={member:'00000000-0000-4000-8000-000000001001',admin:'00000000-0000-4000-8000-000000001002'}
 for(const role of ['member','admin']){db.prepare('INSERT INTO users(id,github_id,github_username) VALUES(?,?,?)').run(ids[role],'ui-'+role,role);db.prepare('INSERT INTO profiles(id,username,role) VALUES(?,?,?)').run(ids[role],role==='admin'?'预览管理员':'预览社员',role)}
+db.prepare('UPDATE profiles SET avatar_url=? WHERE id=?').run('/images/default-avatar.svg',ids.admin)
 const backend=createApp(db,{dataDir,sessionSecret:secret,siteUrl:process.env.RD_UI_PREVIEW_ORIGIN||'http://127.0.0.1:5175',production:false,maxUploadMb:100,adminGithubIds:[]})
 const branchRows=[['program',null,'程序'],['art',null,'美术'],['design',null,'策划'],['production',null,'项目实践'],['godot','program','Godot'],['unreal','program','Unreal Engine'],['shader','art','技术美术'],['pixel','art','像素美术'],['level','design','关卡设计'],['jam','production','Game Jam']]
 for(const [id,parent,name] of branchRows) db.prepare('INSERT INTO knowledge_branches(id,parent_id,name,slug,description) VALUES(?,?,?,?,?)').run(id,parent,name,id,name+'方向的学习笔记与项目实践。')

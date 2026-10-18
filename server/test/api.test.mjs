@@ -11,6 +11,20 @@ import { Repository } from '../repository.mjs'
 
 const secret = 'test-secret-at-least-thirty-two-characters'
 
+test('article author embeds include requested avatars without exposing private fields or changing legacy embeds', async t => {
+  const f = await fixture(t), id = f.article(), hidden = f.article('public', 'draft')
+  f.db.prepare("UPDATE profiles SET avatar_url=?,bio='private bio' WHERE id=?").run('/api/files/avatars/author/pic.png', f.ids.user)
+  const result = await f.call('/data/articles?select=id,profiles!articles_author_id_fkey(username,avatar_url)')
+  assert.equal(result.status, 200)
+  const author = result.body.find(row => row.id === id).profiles
+  assert.equal(author.avatar_url, '/api/files/avatars/author/pic.png')
+  assert.deepEqual(Object.keys(author).sort(), ['avatar_url', 'username'])
+  assert.equal(result.body.some(row => row.id === hidden), false)
+  const legacy = await f.call('/data/articles?select=id,profiles!articles_author_id_fkey(username)')
+  assert.deepEqual(Object.keys(legacy.body.find(row => row.id === id).profiles), ['username'])
+  assert.equal((await f.call('/data/articles?select=id,profiles!articles_author_id_fkey(username,role)')).status, 400)
+})
+
 test('first image projection returns cover metadata without content or private article leakage and cannot be written',async t=>{
   const f=await fixture(t),id=f.article(),hidden=f.article('public','draft')
   f.db.prepare('UPDATE articles SET content=? WHERE id=?').run('```md\n![example](/wrong.png)\n```\n\n![first][shot]\n\n[shot]: /api/files/notes/author/first.png',id)

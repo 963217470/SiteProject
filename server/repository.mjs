@@ -121,9 +121,10 @@ export class Repository {
   }
   project(table, rows, select = '*') {
     const columns = this.columns(table)
-    // The existing internal article list embeds only the author's public username.
-    const embedded = /(?:,\s*)?profiles!articles_author_id_fkey\(username\)/
+    // Author embeds expose only explicitly supported public profile fields.
+    const embedded = /(?:,\s*)?profiles!articles_author_id_fkey\(username(,\s*avatar_url)?\)/
     const joinAuthor = table === 'articles' && embedded.test(select)
+    const authorAvatar = joinAuthor && Boolean(select.match(embedded)[1])
     const flat = select.replace(embedded, '').trim()
     const fields = flat === '*' ? [...columns] : flat.split(',').map(field => field.trim()).filter(Boolean)
     if (!fields.length || fields.some(field => !columns.has(field) && !(table === 'articles' && field === 'first_image_url'))) fail(400, '无效的返回字段')
@@ -132,7 +133,7 @@ export class Repository {
       if (fields.includes('first_image_url')) result.first_image_url = firstArticleImage(row.content)
       if ('tags' in result) result.tags = JSON.parse(result.tags)
       if ('kb_enabled' in result) result.kb_enabled = Boolean(result.kb_enabled)
-      if (joinAuthor) result.profiles = this.db.prepare('SELECT username FROM profiles WHERE id=?').get(row.author_id) || null
+      if (joinAuthor) result.profiles = this.db.prepare(authorAvatar ? 'SELECT username,avatar_url FROM profiles WHERE id=?' : 'SELECT username FROM profiles WHERE id=?').get(row.author_id) || null
       return result
     })
   }

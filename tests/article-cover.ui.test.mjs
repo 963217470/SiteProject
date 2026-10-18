@@ -8,6 +8,15 @@ import { compileStyle } from '@vue/compiler-sfc'
 
 afterEach(()=>{vi.clearAllTimers();vi.useRealTimers();document.body.innerHTML='';for(const name of ['toggleLike','toggleFavorite','scrollToTop','generateArticlePackage'])delete window[name]})
 
+it('requests and displays author avatars, falling back to initials if the image fails', async () => {
+  expect(readFileSync('docs/.vitepress/theme/components/ArticleLibrary.vue', 'utf8')).toContain('profiles!articles_author_id_fkey(username,avatar_url)')
+  const view = mount(ArticleCard, { props: { discussion: true, article: { id: 'avatar', title: 'Note', profiles: { username: 'Wind', avatar_url: '/avatar.png' } } } })
+  expect(view.get('img.discussion-avatar').attributes('src')).toBe('/avatar.png')
+  await view.get('img.discussion-avatar').trigger('error')
+  expect(view.get('span.discussion-avatar').text()).toBe('W')
+  view.unmount()
+})
+
 it('keeps image layout rules scoped to article elements instead of changing the app root',()=>{
   const source=readFileSync('docs/.vitepress/theme/components/ArticleCard.vue','utf8').match(/<style scoped>([\s\S]*?)<\/style>/)[1]
   const css=compileStyle({source,filename:'ArticleCard.vue',id:'data-v-test',scoped:true}).code
