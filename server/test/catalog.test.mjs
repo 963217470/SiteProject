@@ -118,6 +118,38 @@ test('every download path validates size, unique identity, safe HTTPS and duplic
   assert.equal((await f.call('/catalog','user','POST',{...f.body,download_links:[{label:'网盘',url:'https://example.com/valid'}]})).data.status,'pending')
 })
 
+test('authors withdraw published work to draft without losing files, links, counters or ownership',async t=>{
+  const f=await fixture(t),file=f.file('user'),id=await f.create('user',{assets:[file.id],download_links:[{label:'Mirror',url:'https://example.com/game'}]})
+  await f.call('/catalog/'+id+'/review','admin','POST',{status:'published',revision:1})
+  const before=(await f.call('/catalog/'+id)).data
+  assert.equal((await f.call('/catalog/'+id+'/withdraw',null,'POST',{revision:2})).status,401)
+  assert.equal((await f.call('/catalog/'+id+'/withdraw','other','POST',{revision:2})).status,403)
+  assert.equal((await f.call('/catalog/'+id+'/withdraw','admin','POST',{revision:2})).status,403)
+  assert.equal((await f.call('/catalog/'+id+'/withdraw','user','POST',{revision:1})).status,409)
+  assert.equal((await f.call('/catalog/'+id+'/withdraw','user','POST',{revision:2},{'X-RD-CSRF':'0'})).status,403)
+  assert.equal((await f.call('/catalog/'+id+'/withdraw','user','POST',{revision:2})).data.status,'draft')
+  assert.equal((await f.call('/catalog/'+id)).status,404)
+  assert.equal((await f.call(file.url.replace('/api',''))).status,401)
+  assert.equal((await f.call(file.url.replace('/api',''),'user')).status,200)
+  assert.equal((await f.call('/catalog/'+id+'/download',null,'POST',{target:'external'})).status,404)
+  const after=(await f.call('/catalog/'+id,'user')).data
+  for(const field of ['content','author_id','downloads','created_at','external_url'])assert.deepEqual(after[field],before[field])
+  assert.deepEqual(after.download_links,before.download_links);assert.deepEqual(after.assets,before.assets)
+  assert.equal(after.revision,3);assert.equal((await f.call('/catalog?scope=mine','user')).data.items[0].status,'draft')
+  assert.equal((await f.call('/catalog/'+id+'/withdraw','user','POST',{revision:3})).status,409)
+  assert.equal((await f.call('/catalog/'+id,'user','PUT',{...f.body,revision:3,assets:[file.id],download_links:after.download_links})).data.status,'pending')
+})
+
+test('withdrawing pending work removes it from the review queue and prevents stale approval',async t=>{
+  const f=await fixture(t),id=await f.create()
+  assert.equal((await f.call('/catalog/'+id+'/withdraw','other','POST',{revision:1})).status,404)
+  assert.equal((await f.call('/catalog/'+id+'/withdraw','user','POST',{})).status,400)
+  assert.equal((await f.call('/catalog/'+id+'/withdraw','user','POST',{revision:1})).status,200)
+  assert.equal((await f.call('/catalog?scope=review','admin')).data.items.length,0)
+  assert.equal((await f.call('/catalog/'+id+'/review','admin','POST',{status:'published',revision:1})).status,409)
+  assert.equal((await f.call('/catalog/'+id,'user')).data.status,'draft')
+})
+
 test('filters, pagination, and search escaping remain scoped',async t=>{
   const f=await fixture(t)
   for(let n=0;n<26;n++)await f.create('admin',{kind:'tool',title:'Tool '+n})

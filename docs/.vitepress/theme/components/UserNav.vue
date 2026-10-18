@@ -31,7 +31,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vitepress'
-import { Bell, CalendarCheck, Bookmark, ChevronDown, FileText, History, LogIn, LogOut, Settings, ShieldCheck, UserRound, ListChecks, KeyRound, Shield } from 'lucide-vue-next'
+import { Bell, CalendarCheck, Bookmark, ChevronDown, FileText, Gamepad2, History, LogIn, LogOut, Settings, ShieldCheck, UserRound, ListChecks, KeyRound, Shield } from 'lucide-vue-next'
 
 import { communityRequest } from '../lib/community-api.mjs'
 import TaskDeadlineReminder from './TaskDeadlineReminder.vue'
@@ -56,6 +56,7 @@ const displayName = computed(() => profile.value?.username || user.value?.user_m
 const items = [
   { label: '个人主页', href: '/user/profile', icon: UserRound },
   { label: '我的发布', href: '/user/profile?tab=articles', icon: FileText },
+  { label: '我的游戏/工具', href: '/user/profile?tab=catalog', icon: Gamepad2 },
   { label: '我的收藏', href: '/user/profile?tab=favorites', icon: Bookmark },
   { label: '浏览记录', href: '/user/profile?tab=recent', icon: History },
   { label: '我的任务', href: '/tasks', icon: ListChecks },

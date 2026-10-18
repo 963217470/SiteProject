@@ -7,9 +7,11 @@ sidebar: false
 <div id="profile-page"></div>
 
 <ProfileMcpPanel />
+<ProfileCatalogPanel />
 
 <script setup>
 import ProfileMcpPanel from '../.vitepress/theme/components/ProfileMcpPanel.vue'
+import ProfileCatalogPanel from '../.vitepress/theme/components/ProfileCatalogPanel.vue'
 </script>
 
 <style>

@@ -36,6 +36,19 @@ it('safe markdown supports images formulas and blocks raw html and script urls',
   expect(html).toMatch(/<h1[^>]*>Title/);expect(html).toContain('<img');expect(html).toContain('katex');expect(html).toContain('language-js');expect(html).not.toContain('<script>');expect(html).not.toContain('href="javascript:')
 })
 
+it('profile editor links open editing only for the author and new-work links open the form',async()=>{
+  history.replaceState(null,'','/games-tools/?id=mine&edit=1')
+  catalogRequest.mockImplementation(async path=>path==='/mine'?{id:'mine',author_id:'author',title:'Owned game',content:'# Owned',assets:[],download_links:[],status:'draft'}:{items:[],has_more:false})
+  wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',{user:{id:'author',app_metadata:{role:'user'}}});await flushPromises()
+  expect(wrapper.get('.catalog-editor input[maxlength="120"]').element.value).toBe('Owned game')
+  wrapper.unmount();history.replaceState(null,'','/games-tools/?id=mine&edit=1')
+  wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',{user:{id:'other',app_metadata:{role:'user'}}});await flushPromises()
+  expect(wrapper.find('.catalog-editor').exists()).toBe(false)
+  wrapper.unmount();history.replaceState(null,'','/games-tools/?create=1')
+  wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',{user:{id:'author',app_metadata:{role:'user'}}});await flushPromises()
+  expect(wrapper.get('.catalog-editor-heading').text()).toContain('新作品')
+})
+
 it('authors add multiple paths with separate names and codes and remove rows before saving',async()=>{
   wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',{user:{id:'author',app_metadata:{role:'user'}}});await flushPromises()
   await wrapper.findAll('button').find(b=>b.text()==='发布作品').trigger('click')

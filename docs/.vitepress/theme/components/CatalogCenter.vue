@@ -53,7 +53,7 @@
         <div class="catalog-prose vp-doc rd-markdown" @copy="copyMarkdownSelection" v-html="renderCatalogMarkdown(detail.content)"></div>
         <section class="catalog-downloads"><h3>下载</h3><p class="catalog-meta">下载访问 {{ detail.downloads }}</p><div v-for="link in externalDownloads" :key="link.id" class="catalog-download-row catalog-external-download"><div class="catalog-download-info"><strong>{{ link.label }}</strong><span class="catalog-download-url">{{ link.url }}</span><span v-if="link.extraction_code">提取码：{{ link.extraction_code }}</span></div><button class="rd-button rd-button-primary" :disabled="busy || detail.status!=='published'" @click="download(link.id==='legacy'?'external':'external:'+link.id)"><ExternalLink :size="16" />{{ link.label || host(link.url) }}</button></div><div v-for="file in downloads" :key="file.id" class="catalog-download-row"><span>{{ file.name }} <small>{{ bytes(file.size) }}</small></span><button class="rd-button" :disabled="busy || detail.status!=='published'" @click="download(file.id)"><Download :size="16" />下载</button></div></section>
         <p v-if="detail.review_note" class="catalog-notice">审核意见：{{ detail.review_note }}</p>
-        <div class="catalog-detail-actions"><button v-if="detail.author_id===user?.id" class="rd-button" :disabled="busy" @click="edit"><Pencil :size="16" />编辑</button><template v-if="user?.app_metadata?.role==='admin'"><label>审核意见<input v-model="reviewNote" maxlength="1000" :disabled="busy"></label><button v-if="detail.status==='pending'" class="rd-button rd-button-primary" :disabled="busy" @click="review('published')"><Check :size="16" />通过</button><button v-if="detail.status==='pending'" class="rd-button" :disabled="busy" @click="review('rejected')">拒绝</button><button v-if="detail.status==='published'" class="rd-button" :disabled="busy" @click="review('archived')">下架</button></template></div>
+        <div class="catalog-detail-actions"><button v-if="detail.author_id===user?.id" class="rd-button" :disabled="busy" @click="edit"><Pencil :size="16" />编辑</button><button v-if="detail.author_id===user?.id && ['published','pending'].includes(detail.status)" class="rd-button" :disabled="busy" @click="withdraw"><Undo2 :size="16" />撤回</button><template v-if="user?.app_metadata?.role==='admin'"><label>审核意见<input v-model="reviewNote" maxlength="1000" :disabled="busy"></label><button v-if="detail.status==='pending'" class="rd-button rd-button-primary" :disabled="busy" @click="review('published')"><Check :size="16" />通过</button><button v-if="detail.status==='pending'" class="rd-button" :disabled="busy" @click="review('rejected')">拒绝</button><button v-if="detail.status==='published'" class="rd-button" :disabled="busy" @click="review('archived')">下架</button></template></div>
       </article>
     </template>
     <template v-else>
@@ -69,7 +69,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { ArrowLeft, Check, Download, ExternalLink, FileUp, Gamepad2, ImagePlus, Pencil, Plus, Save, Search, Send, Upload, Wrench, X } from 'lucide-vue-next'
+import { ArrowLeft, Check, Download, ExternalLink, FileUp, Gamepad2, ImagePlus, Pencil, Plus, Save, Search, Send, Undo2, Upload, Wrench, X } from 'lucide-vue-next'
 import PageState from './PageState.vue'
 import { catalogRequest, uploadCatalogFile, removeUnusedCatalogFiles } from '../lib/catalog-api.mjs'
 import { renderCatalogMarkdown } from '../lib/catalog-markdown.mjs'
@@ -112,6 +112,7 @@ async function load() {
   try{const data=await catalogRequest('?'+new URLSearchParams({scope:scope.value,kind:kind.value,q:query.value,offset:String(offset.value)}));if(current!==revision || disposed)return;items.value=data.items;hasMore.value=data.has_more}
   catch(e){if(current===revision)fatal.value=e.message}
   finally{if(current===revision)loading.value=false}
+  return current
 }
 function setFilter(key,value){if(key==='scope'){scope.value=value;const url=new URL(location.href);if(value==='review')url.searchParams.set('scope','review');else url.searchParams.delete('scope');history.replaceState(history.state,'',url);window.dispatchEvent(new CustomEvent('rd:admin-navigation'))}else kind.value=value;offset.value=0;load()}
 function search(){offset.value=0;load()}
@@ -137,11 +138,25 @@ async function upload(event,image){const file=event.target.files?.[0];event.targ
 async function removeFile(file){if(form.value.content.includes(file.url)){error.value='请先移除正文中的图片引用';return}await action(async()=>{if(file.newUpload)await removeUnusedCatalogFiles([file.path]);form.value.assets=form.value.assets.filter(f=>f.id!==file.id);if(form.value.cover_id===file.id)form.value.cover_id=null})}
 async function importMarkdown(event){const file=event.target.files?.[0];event.target.value='';if(!file)return;await action(async()=>{if(file.size>800000)throw new Error('Markdown 文件过大');if(form.value.content && !window.confirm('替换当前 Markdown 介绍？'))return;const content=await file.text();if(content.length>200000)throw new Error('Markdown 介绍过长');form.value.content=content;editorTab.value='source'})}
 async function download(target){await action(async()=>{const current=revision, result=await catalogRequest('/'+detail.value.id+'/download',{method:'POST',body:{target}});if(disposed || current!==revision)return;detail.value.downloads=result.downloads;window.location.assign(result.url)})}
+async function withdraw(){
+  if(busy.value || !detail.value || detail.value.author_id!==user.value?.id)return
+  if(!window.confirm('撤回为草稿后将停止公开展示和下载，介绍、附件与下载路径会保留。确定撤回？'))return
+  await action(async()=>{const current=revision,id=detail.value.id;await catalogRequest('/'+id+'/withdraw',{method:'POST',body:{revision:detail.value.revision}});const result=await catalogRequest('/'+id);if(disposed || current!==revision)return;detail.value=result;message.value='作品已撤回为草稿，可编辑后重新提交'})
+}
 async function review(status){await action(async()=>{const current=revision,id=detail.value.id;await catalogRequest('/'+id+'/review',{method:'POST',body:{status,note:reviewNote.value,revision:detail.value.revision}});const result=await catalogRequest('/'+id);if(disposed || current!==revision)return;detail.value=result;message.value='审核状态已更新'})}
 function protectEdits(event){if(editing.value){event.preventDefault();event.returnValue=''}}
 onMounted(()=>{
   window.addEventListener('beforeunload',protectEdits)
-  const initialize=async(session)=>{if(disposed)return;user.value=session?.user || null;++revision;detail.value=null;editing.value=false;form.value=empty();scope.value=user.value?.app_metadata?.role==='admin'&&new URLSearchParams(location.search).get('scope')==='review'?'review':'public';offset.value=0;await load();const id=location.hash.slice(1)||new URLSearchParams(location.search).get('id')||'';if(/^[a-zA-Z0-9-]{1,100}$/.test(id))await open(id)}
+  const initialize=async(session)=>{
+    if(disposed)return
+    user.value=session?.user || null;++revision;detail.value=null;editing.value=false;form.value=empty()
+    const params=new URLSearchParams(location.search)
+    scope.value=user.value?.app_metadata?.role==='admin'&&params.get('scope')==='review'?'review':user.value&&params.get('scope')==='mine'?'mine':'public'
+    offset.value=0;const current=await load();if(disposed || revision!==current)return
+    if(user.value && params.get('create')==='1'){create();return}
+    const id=location.hash.slice(1)||params.get('id')||''
+    if(/^[a-zA-Z0-9-]{1,100}$/.test(id)){await open(id);if(!disposed && detail.value?.id===id && detail.value.author_id===user.value?.id && params.get('edit')==='1')edit()}
+  }
   if(window.__api)subscription=window.__api.auth.onAuthStateChange((_event,session)=>initialize(session)).data.subscription
   else initialize(null)
 })

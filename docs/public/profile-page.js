@@ -36,11 +36,12 @@ function addAccountPanels() {
   var nav = document.querySelector('#profile-page .profile-tabs')
   var main = document.querySelector('#profile-page .profile-main')
   if (!nav || $('panel-mcp')) return
-  ;[['mcp', 'AI / MCP 接入'], ['security', '账号安全']].forEach(function(item) {
+  ;[['catalog', '我的游戏/工具'], ['mcp', 'AI / MCP 接入'], ['security', '账号安全']].forEach(function(item) {
     var button = document.createElement('button')
     button.id = 'tab-' + item[0]; button.type = 'button'; button.textContent = item[1]
     button.onclick = function() { setTab(item[0]) }
-    nav.appendChild(button)
+    if (item[0] === 'catalog') nav.insertBefore(button, $('tab-favorites'))
+    else nav.appendChild(button)
     var panel = document.createElement('section')
     panel.id = 'panel-' + item[0]; panel.className = 'panel'; panel.style.display = 'none'
     main.appendChild(panel)
@@ -57,7 +58,7 @@ async function waitSupabase() {
 
 function setTab(tab) {
   if (state.publicView) return
-  if (!['articles', 'favorites', 'recent', 'settings', 'mcp', 'security'].includes(tab)) tab = 'articles'
+  if (!['articles', 'catalog', 'favorites', 'recent', 'settings', 'mcp', 'security'].includes(tab)) tab = 'articles'
   state.tab = tab
   Array.prototype.forEach.call(document.querySelectorAll('.profile-tabs button'), function(button) { button.classList.remove('active') })
   Array.prototype.forEach.call(document.querySelectorAll('.panel'), function(panel) { panel.style.display = 'none' })

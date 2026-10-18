@@ -110,6 +110,18 @@ export function installCatalogRoutes(app, db, repository, config) {
     if (!result.changes) fail(409,'作品已更新，请重新加载后编辑')
     res.json({id:row.id,status:data.status})
   })
+  app.post('/api/catalog/:id/withdraw', (req,res) => {
+    const user=logged(req),row=item(req.params.id,user)
+    if(row.author_id!==user.id)fail(403,'只能撤回自己的作品')
+    if(!Number.isInteger(req.body?.revision) || req.body.revision<1)fail(400,'无效的作品版本')
+    if(!['published','pending'].includes(row.status))fail(409,'作品已不在发布或待审核状态，请刷新列表')
+    repository.transaction(()=>{
+      const result=db.prepare("UPDATE catalog_items SET status='draft',revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status IN ('published','pending')").run(new Date(now()).toISOString(),row.id,req.body.revision)
+      if(!result.changes)fail(409,'作品已更新，请刷新后再撤回')
+      adminAudit(db,user,'撤回自己的作品','catalog',row.id,row.title,now())
+    })
+    res.json({id:row.id,status:'draft',revision:row.revision+1})
+  })
   app.post('/api/catalog/:id/review', (req,res) => {
     admin(req)
     if (!Number.isInteger(req.body?.revision) || req.body.revision<1) fail(400,'无效的作品版本')

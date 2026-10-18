@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { afterEach, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ProfileMcpPanel from '../docs/.vitepress/theme/components/ProfileMcpPanel.vue'
+import ProfileCatalogPanel from '../docs/.vitepress/theme/components/ProfileCatalogPanel.vue'
 
 let wrapper
 afterEach(() => {
@@ -66,4 +67,13 @@ it('account security displays actual bound GitHub account without changing publi
   expect(document.querySelector('#panel-security').textContent).toContain('old-github')
   expect(document.querySelector('#panel-security').textContent).toContain('验证原 GitHub 账号')
   expect(document.querySelector('#profile-name').textContent).toBe('Me')
+})
+
+it('my games and tools is a private profile tab mounted only while selected',async()=>{
+  await open();wrapper=mount(ProfileCatalogPanel,{attachTo:document.body})
+  expect(document.querySelector('#tab-catalog').textContent).toBe('我的游戏/工具')
+  window.setProfileTab('catalog');await flushPromises()
+  expect(location.search).toBe('?tab=catalog');expect(document.querySelector('#panel-catalog h2').textContent).toBe('我的游戏/工具')
+  window.setProfileTab('articles');await flushPromises()
+  expect(document.querySelector('#panel-catalog .profile-catalog')).toBeNull()
 })
