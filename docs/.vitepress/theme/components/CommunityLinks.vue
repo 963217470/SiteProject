@@ -15,5 +15,8 @@ const items = [
 .community-links span { display: block; font-size: 12px; color: var(--vp-c-text-2); margin-top: 5px; }
 .community-links .community-arrow { flex: none; margin-left: auto; }
 .community-links a:hover strong { color: var(--vp-c-brand-1); }
+body #app .VPHome .community-links a { background: var(--vp-c-bg-soft); border-color: var(--rd-card-border); }
+body #app .VPHome .community-links a strong { color: var(--vp-c-text-1); }
+body #app .VPHome .community-links a:is(:hover, :focus-visible) strong { color: var(--vp-c-brand-1); }
 @media(max-width:640px) { .community-links { grid-template-columns: minmax(0,1fr); gap: 24px; width: calc(100% - 32px); padding: 24px 0; } }
 </style>
