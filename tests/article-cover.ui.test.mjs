@@ -13,6 +13,9 @@ it('keeps image layout rules scoped to article elements instead of changing the 
   const css=compileStyle({source,filename:'ArticleCard.vue',id:'data-v-test',scoped:true}).code
   expect(css).toContain('.rd-article.rd-article-discussion[data-v-test]')
   expect(css).toContain('object-fit:contain')
+  expect(css).toContain('grid-template-columns:minmax(0,38%) minmax(0,1fr)')
+  expect(css).toContain('min-height:260px')
+  expect(css).toContain('.rd-article-feed:not(.rd-article-grid)')
   expect(css).not.toMatch(/body #app\s*\{/)
 })
 

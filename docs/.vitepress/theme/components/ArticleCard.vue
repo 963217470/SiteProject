@@ -34,4 +34,11 @@ body #app .rd-article .rd-article-first-image img { display:block; width:100%; h
 body #app .rd-article-grid .rd-article.rd-article-discussion { grid-template-columns:minmax(0,1fr); }
 @media(max-width:600px) { body #app .rd-article.rd-article-discussion { grid-template-columns:100px minmax(0,1fr); gap:14px; padding:16px; } }
 @media(max-width:420px) { body #app .rd-article.rd-article-discussion { grid-template-columns:minmax(0,1fr); } body #app .rd-article .rd-article-first-image { max-height:220px; } }
+body #app .rd-article-feed:not(.rd-article-grid) .rd-article.rd-article-discussion { grid-template-columns:minmax(0,38%) minmax(0,1fr); align-items:stretch; }
+body #app .rd-article-feed:not(.rd-article-grid) .rd-article .rd-article-first-image { position:relative; aspect-ratio:auto; min-height:260px; max-height:none; }
+body #app .rd-article-feed:not(.rd-article-grid) .rd-article .rd-article-first-image img { position:absolute; inset:0; }
+@media(max-width:600px) {
+  body #app .rd-article-feed:not(.rd-article-grid) .rd-article.rd-article-discussion { grid-template-columns:minmax(0,1fr); }
+  body #app .rd-article-feed:not(.rd-article-grid) .rd-article .rd-article-first-image { aspect-ratio:4/3; min-height:0; }
+}
 </style>
