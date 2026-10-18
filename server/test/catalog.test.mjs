@@ -43,7 +43,10 @@ test('catalog is public only after review and cannot be written through generic 
   assert.equal((await f.call('/data/catalog_items','admin')).status,404)
   assert.equal((await f.call('/catalog',null,'POST',f.body)).status,401)
   assert.equal((await f.call('/catalog/'+id+'/review','admin','POST',{status:'published',revision:1})).status,200)
+  f.db.prepare("UPDATE profiles SET avatar_url='/images/custom-author.png' WHERE id='user'").run()
   assert.equal((await f.call('/catalog')).data.items.length,1)
+  assert.equal((await f.call('/catalog')).data.items[0].avatar_url,'/images/custom-author.png')
+  assert.equal((await f.call('/catalog/'+id)).data.avatar_url,'/images/custom-author.png')
 })
 test('ownership, optimistic concurrency and edit re-review are enforced',async t=>{
   const f=await fixture(t),id=await f.create()

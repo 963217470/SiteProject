@@ -19,6 +19,8 @@ function cardImage(a) { return '<img class="profile-article-image" src="' + esc(
 function bindCardImages(id) {
   $(id).querySelectorAll('.profile-article-image').forEach(function(image) { image.onerror = function() { this.onerror = null; this.src = '/images/hero-bg.jpg' } })
 }
+function articleTags(a) { var tags=a.tags; if(typeof tags==='string'){try{tags=JSON.parse(tags)}catch(e){tags=[]}} return Array.isArray(tags) ? tags.filter(function(tag){return typeof tag==='string'}).slice(0,3) : [] }
+function authorLine() { var href='/user/profile?id='+encodeURIComponent(state.uid);return '<div class="profile-feed-author"><a href="'+href+'"><img class="profile-feed-avatar" src="'+esc(state.profile.avatar || '/images/default-avatar.svg')+'" alt="'+esc(state.profile.username)+'"></a><a class="profile-feed-name" href="'+href+'">'+esc(state.profile.username || '社团成员')+'</a></div>' }
 function statusText(v) { return ({ draft: '草稿', pending: '待审核', published: '已发布', rejected: '已拒绝' })[v] || v || '未知' }
 function views(a) { return Number(a.views_count || a.view_count || a.read_count || 0) }
 function articleUrl(id) { return '/article?id=' + encodeURIComponent(id) }
@@ -156,8 +158,8 @@ async function loadProfile() {
 }
 
 async function loadArticles() {
-  var r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count, views_count, reject_reason').eq('author_id', state.uid).order('created_at', { ascending: false })
-  if (r.error) r = await state.sb.from('articles').select('id, title, summary, cover_url, status, visibility, created_at, likes_count, comments_count, reject_reason').eq('author_id', state.uid).order('created_at', { ascending: false })
+  var r = await state.sb.from('articles').select('id, title, summary, cover_url, first_image_url, tags, status, visibility, created_at, likes_count, comments_count, views_count, reject_reason').eq('author_id', state.uid).order('created_at', { ascending: false })
+  if (r.error) r = await state.sb.from('articles').select('id, title, summary, cover_url, first_image_url, tags, status, visibility, created_at, likes_count, comments_count, reject_reason').eq('author_id', state.uid).order('created_at', { ascending: false })
   if (r.error) throw new Error(r.error.message)
   state.articles = r.data || []
 }
@@ -269,9 +271,11 @@ function renderStats() {
 function renderArticles() {
   var count = function(status) { return state.articles.filter(function(a) { return a.status === status }).length }
   var rows = state.articles.map(function(a) {
-    return '<article class="article-row"><a class="article-title" href="' + articleUrl(a.id) + '">' + esc(a.title) + '</a><span class="status-pill status-' + esc(a.status) + '">' + statusText(a.status) + '</span><span>' + date(a.created_at) + '</span><span>浏览 ' + views(a) + '</span><span>点赞 ' + (a.likes_count || 0) + '</span><span>评论 ' + (a.comments_count || 0) + '</span><div class="row-actions"><a href="' + articleUrl(a.id) + '">查看</a><a href="' + editorUrl(a.id) + '">编辑</a></div></article>'
+    return '<article class="article-row profile-feed-card"><a class="profile-feed-cover" href="' + articleUrl(a.id) + '">' + cardImage(a) + '</a><div class="profile-feed-content">' + authorLine() + '<div class="profile-feed-meta"><time>' + date(a.created_at) + '</time><span class="status-pill status-' + esc(a.status) + '">' + statusText(a.status) + '</span><span>' + (a.visibility==='internal'?'内部':'公开') + '</span></div><h3 class="profile-feed-title"><a class="article-title" href="' + articleUrl(a.id) + '">' + esc(a.title) + '</a></h3><p class="profile-feed-summary">' + esc(a.summary || '暂无摘要') + '</p>' + (a.reject_reason ? '<p class="profile-feed-review">审核意见：' + esc(a.reject_reason) + '</p>' : '') + '<div class="profile-feed-footer"><div class="profile-feed-tags">' + articleTags(a).map(function(tag){return '<span>'+esc(tag)+'</span>'}).join('') + '</div><div class="profile-feed-counts"><span>浏览 ' + views(a) + '</span><span>点赞 ' + Number(a.likes_count || 0) + '</span><span>评论 ' + Number(a.comments_count || 0) + '</span></div></div><div class="row-actions profile-feed-actions"><a href="' + articleUrl(a.id) + '">查看</a><a href="' + editorUrl(a.id) + '">编辑</a></div></div></article>'
   }).join('')
   $('panel-articles').innerHTML = '<div class="panel-head"><div><h2>我的文章</h2><p>查看文章状态、浏览量、点赞量和评论量</p></div><a class="primary-link" href="/editor">新建文章</a></div><div class="status-grid"><div><strong>' + count('published') + '</strong><span>已发布</span></div><div><strong>' + count('pending') + '</strong><span>待审核</span></div><div><strong>' + count('draft') + '</strong><span>草稿</span></div><div><strong>' + count('rejected') + '</strong><span>已拒绝</span></div></div>' + (state.articles.length ? '<div class="article-table">' + rows + '</div>' : '<div class="empty-state">暂无文章</div>')
+  bindCardImages('panel-articles')
+  $('panel-articles').querySelectorAll('.profile-feed-avatar').forEach(function(image){image.onerror=function(){this.onerror=null;this.src='/images/default-avatar.svg'}})
 }
 
 function bindArticleActions() {

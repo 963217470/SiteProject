@@ -13,10 +13,10 @@
       <p v-else-if="loading" role="status">正在加载作品…</p>
       <div v-else-if="!rows.length && !error" class="profile-catalog-empty">暂无{{ kind==='game' ? '游戏' : kind==='tool' ? '工具' : '作品' }}</div>
       <div v-else class="profile-catalog-list">
-        <article v-for="row in rows" :key="row.id" class="profile-catalog-card">
-          <a :href="viewUrl(row)" class="profile-catalog-cover"><img v-if="row.cover_url && !failedImages[row.cover_url]" :src="row.cover_url" :alt="row.title" loading="lazy" @error="failedImages[row.cover_url]=true"><Gamepad2 v-else-if="row.kind==='game'" :size="36" /><Wrench v-else :size="36" /></a>
-          <div class="profile-catalog-content"><div class="profile-catalog-meta"><span>{{ row.kind==='game' ? '游戏' : '工具' }}</span><span class="profile-catalog-status" :data-status="row.status">{{ states[row.status] || row.status }}</span></div><h3><a :href="viewUrl(row)">{{ row.title }}</a></h3><p>{{ row.summary || '暂无简介' }}</p><small>{{ row.platform }} {{ row.version }} · 下载访问 {{ row.downloads || 0 }}</small><small>更新于 {{ date(row.updated_at) }}</small>
-            <div class="profile-catalog-actions"><a class="rd-button" :href="viewUrl(row)"><Eye :size="15" />查看</a><a class="rd-button" :href="editUrl(row)"><Pencil :size="15" />编辑</a><button v-if="canWithdraw(row)" class="rd-button" :disabled="busy || loading" @click="withdraw(row)"><Undo2 :size="15" />撤回</button></div>
+        <article v-for="row in rows" :key="row.id" class="profile-catalog-card profile-feed-card">
+          <a :href="viewUrl(row)" class="profile-catalog-cover profile-feed-cover"><img :src="row.cover_url && !failedImages[row.cover_url] ? row.cover_url : '/images/hero-bg.jpg'" :alt="row.title" loading="lazy" @error="coverError($event,row)"></a>
+          <div class="profile-catalog-content profile-feed-content"><div class="profile-feed-author"><a :href="authorUrl(row)"><img class="profile-feed-avatar" :src="row.avatar_url && !failedAvatars[row.avatar_url] ? row.avatar_url : '/images/default-avatar.svg'" :alt="row.username || '社团成员'" loading="lazy" @error="avatarError($event,row)"></a><a class="profile-feed-name" :href="authorUrl(row)">{{ row.username || '社团成员' }}</a></div><div class="profile-catalog-meta profile-feed-meta"><time>{{ date(row.created_at || row.updated_at) }}</time><span>{{ row.kind==='game' ? '游戏' : '工具' }}</span><span class="profile-catalog-status" :data-status="row.status">{{ states[row.status] || row.status }}</span></div><h3 class="profile-feed-title"><a :href="viewUrl(row)">{{ row.title }}</a></h3><p class="profile-feed-summary">{{ row.summary || '暂无简介' }}</p><div class="profile-feed-footer"><div class="profile-feed-tags"><span v-if="row.platform">{{ row.platform }}</span><span v-if="row.version">{{ row.version }}</span></div><small class="profile-feed-counts">下载访问 {{ row.downloads || 0 }}</small></div><small class="profile-feed-updated">更新于 {{ date(row.updated_at) }}</small>
+            <div class="profile-catalog-actions profile-feed-actions"><a class="rd-button" :href="viewUrl(row)"><Eye :size="15" />查看</a><a class="rd-button" :href="editUrl(row)"><Pencil :size="15" />编辑</a><button v-if="canWithdraw(row)" class="rd-button" :disabled="busy || loading" @click="withdraw(row)"><Undo2 :size="15" />撤回</button></div>
           </div>
         </article>
       </div>
@@ -27,10 +27,14 @@
 
 <script setup>
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
-import { Eye, Gamepad2, Pencil, Plus, Search, Undo2, Wrench } from 'lucide-vue-next'
+import { Eye, Pencil, Plus, Search, Undo2 } from 'lucide-vue-next'
 import { catalogRequest } from '../lib/catalog-api.mjs'
 
 const active=ref(false),uid=ref(''),rows=ref([]),kind=ref(''),query=ref(''),offset=ref(0),hasMore=ref(false),loading=ref(false),busy=ref(false),error=ref(''),message=ref(''),failedImages=reactive({})
+const failedAvatars=reactive({})
+const authorUrl=row=>'/user/profile?id='+encodeURIComponent(row.author_id || uid.value)
+function coverError(event,row){if(event.target.getAttribute('src')==='/images/hero-bg.jpg')return;if(row.cover_url)failedImages[row.cover_url]=true;event.target.src='/images/hero-bg.jpg'}
+function avatarError(event,row){if(event.target.getAttribute('src')==='/images/default-avatar.svg')return;if(row.avatar_url)failedAvatars[row.avatar_url]=true;event.target.src='/images/default-avatar.svg'}
 const states={draft:'草稿',pending:'待审核',published:'已发布',rejected:'未通过',archived:'已下架'}
 const viewUrl=row=>'/games-tools/?id='+encodeURIComponent(row.id)
 const editUrl=row=>viewUrl(row)+'&edit=1'

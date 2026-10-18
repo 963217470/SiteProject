@@ -12,7 +12,7 @@ export function installCatalogRoutes(app, db, repository, config) {
   const logged = req => { if (!req.user) fail(401, '请先登录'); return req.user }
   const admin = req => { if (logged(req).role !== 'admin') fail(403, '需要管理员权限') }
   function item(id, user) {
-    const row = db.prepare('SELECT i.*,p.username FROM catalog_items i JOIN profiles p ON p.id=i.author_id WHERE i.id=?').get(id)
+    const row = db.prepare('SELECT i.*,p.username,p.avatar_url FROM catalog_items i JOIN profiles p ON p.id=i.author_id WHERE i.id=?').get(id)
     if (!row || !(row.status === 'published' || user?.id === row.author_id || user?.role === 'admin')) fail(404, '作品不存在或暂未公开')
     return row
   }
@@ -76,7 +76,7 @@ export function installCatalogRoutes(app, db, repository, config) {
     else conditions.push("i.status='published'")
     if (kind) { conditions.push('i.kind=?'); args.push(kind) }
     if (query) { conditions.push("(i.title LIKE ? ESCAPE '\\' OR i.summary LIKE ? ESCAPE '\\')"); const escaped=query.replace(/[\\%_]/g,'\\$&');args.push('%'+escaped+'%','%'+escaped+'%') }
-    const rows = db.prepare('SELECT i.*,p.username FROM catalog_items i JOIN profiles p ON p.id=i.author_id WHERE '+conditions.join(' AND ')+' ORDER BY i.updated_at DESC,i.id LIMIT 25 OFFSET ?').all(...args,offset)
+    const rows = db.prepare('SELECT i.*,p.username,p.avatar_url FROM catalog_items i JOIN profiles p ON p.id=i.author_id WHERE '+conditions.join(' AND ')+' ORDER BY i.updated_at DESC,i.id LIMIT 25 OFFSET ?').all(...args,offset)
     res.json({items:rows.slice(0,24).map(row=>project(row)),has_more:rows.length>24})
   })
   app.get('/api/catalog/publishers', (req,res) => {

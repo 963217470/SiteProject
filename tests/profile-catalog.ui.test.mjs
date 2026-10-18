@@ -10,7 +10,7 @@ beforeEach(()=>{
   history.replaceState({},'','/user/profile?tab=catalog')
   document.body.innerHTML='<div id="profile-app" style="display:block"><div id="panel-catalog" style="display:block"></div></div>'
   window.__api={auth:{onAuthStateChange:cb=>{callback=cb;return {data:{subscription:{unsubscribe:vi.fn()}}}}}}
-  items=[{id:'mine',author_id:'author',title:'My game',kind:'game',status:'published',revision:3,summary:'Description',downloads:7,updated_at:'2026-10-18T01:00:00Z',cover_url:'/images/test.png'}]
+  items=[{id:'mine',author_id:'author',username:'Wind',avatar_url:'/custom-avatar.png',title:'My game',kind:'game',status:'published',revision:3,summary:'Description',downloads:7,updated_at:'2026-10-18T01:00:00Z',cover_url:'/images/test.png'}]
   catalogRequest.mockReset().mockImplementation(async(path,options)=>{
     if(options?.method==='POST'){items=[{...items[0],status:'draft',revision:4}];return {id:'mine',status:'draft'}}
     return {items,has_more:false}
@@ -23,7 +23,9 @@ it('loads only owned works and exposes view, editor, new work and status',async(
   expect(panel().textContent).toContain('已发布');expect(panel().textContent).toContain('下载访问 7')
   expect(panel().querySelector('a[href="/games-tools/?id=mine&edit=1"]')).not.toBeNull()
   expect(panel().querySelector('a[href="/games-tools/?create=1"]')).not.toBeNull()
-  const image=panel().querySelector('img');image.dispatchEvent(new Event('error'));await flushPromises();expect(panel().querySelector('img')).toBeNull()
+  const image=panel().querySelector('.profile-feed-cover img');image.dispatchEvent(new Event('error'));await flushPromises();expect(image.getAttribute('src')).toBe('/images/hero-bg.jpg')
+  expect(panel().querySelector('.profile-feed-name').textContent).toBe('Wind')
+  const avatar=panel().querySelector('.profile-feed-avatar');expect(avatar.getAttribute('src')).toBe('/custom-avatar.png');avatar.dispatchEvent(new Event('error'));await flushPromises();expect(avatar.getAttribute('src')).toBe('/images/default-avatar.svg')
 })
 it('withdrawal requires confirmation and sends the current revision before reloading the draft',async()=>{
   await open();const confirm=vi.fn(()=>false);vi.stubGlobal('confirm',confirm)

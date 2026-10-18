@@ -16,7 +16,7 @@ async function open() {
   vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'clearInterval'] })
   history.replaceState({}, '', '/user/profile?tab=articles')
   document.body.innerHTML = '<div id="profile-page"></div>'
-  let articles = [{ id: 'mine', title: 'My article', status: 'draft' }]
+  let articles = [{ id: 'mine', title: 'My article', status: 'draft', summary:'My summary', first_image_url:'/first-note.png', tags:['Godot'], views_count:3, likes_count:2, comments_count:1 }]
   const removed = vi.fn()
   vi.stubGlobal('fetch', vi.fn(async path => ({ ok: true, json: async () => path === '/api/account/github' ? { username: 'old-github', available: true, stage: 'idle' } : path === '/api/auth/session' ? { session: { user: { id: 'owner' } } } : path === '/api/mcp-tokens' ? [] : {} })))
   window.__supabase = {
@@ -76,4 +76,27 @@ it('my games and tools is a private profile tab mounted only while selected',asy
   expect(location.search).toBe('?tab=catalog');expect(document.querySelector('#panel-catalog h2').textContent).toBe('我的游戏/工具')
   window.setProfileTab('articles');await flushPromises()
   expect(document.querySelector('#panel-catalog .profile-catalog')).toBeNull()
+})
+
+it('owned articles use the same large-cover feed layout without losing management controls',async()=>{
+  await open()
+  const card=document.querySelector('.article-row.profile-feed-card')
+  expect(card.firstElementChild.className).toBe('profile-feed-cover')
+  expect(card.querySelector('.profile-feed-cover img').getAttribute('src')).toBe('/first-note.png')
+  expect(card.querySelector('.profile-feed-name').textContent).toBe('Me')
+  expect(card.querySelector('.profile-feed-summary').textContent).toBe('My summary')
+  expect(card.querySelector('.profile-feed-tags').textContent).toBe('Godot')
+  expect(card.querySelector('.profile-feed-counts').textContent).toContain('浏览 3')
+  expect(card.querySelector('.profile-feed-actions a[href="/editor?id=mine"]')).not.toBeNull()
+  expect(card.querySelector('.article-delete')).not.toBeNull()
+  const image=card.querySelector('.profile-feed-cover img');image.dispatchEvent(new Event('error'));expect(image.getAttribute('src')).toBe('/images/hero-bg.jpg')
+})
+
+it('shared profile feed styles use the article-page proportions, contain images and stack on phones',()=>{
+  const css=readFileSync('docs/.vitepress/theme/profile-feed.css','utf8')
+  expect(css).toContain('grid-template-columns:minmax(0,38%) minmax(0,1fr)')
+  expect(css).toContain('object-fit:contain')
+  expect(css).toContain('@media(max-width:700px)')
+  expect(css).toContain('prefers-reduced-motion:reduce')
+  expect(readFileSync('docs/public/profile-page.js','utf8')).toContain('cover_url, first_image_url, tags')
 })

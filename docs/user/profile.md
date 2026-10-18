@@ -12,6 +12,7 @@ sidebar: false
 <script setup>
 import ProfileMcpPanel from '../.vitepress/theme/components/ProfileMcpPanel.vue'
 import ProfileCatalogPanel from '../.vitepress/theme/components/ProfileCatalogPanel.vue'
+import '../.vitepress/theme/profile-feed.css'
 </script>
 
 <style>
