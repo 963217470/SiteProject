@@ -6,6 +6,8 @@ import { join } from 'node:path'
 import { randomUUID, createHmac } from 'node:crypto'
 import { openDatabase } from '../database.mjs'
 import { createApp } from '../app.mjs'
+import { Repository } from '../repository.mjs'
+import { publishDueTasks, startTaskScheduler } from '../task-scheduler.mjs'
 
 async function fixture(t) {
   const db=openDatabase(':memory:'), dataDir=mkdtempSync(join(tmpdir(),'rd-tasks-')), secret='task-test-secret-at-least-thirty-two-characters', cookies={}
@@ -46,6 +48,82 @@ test('tasks enforce authentication, admin-only creation and hidden drafts',async
   assert.equal((await f.call('/tasks/reviews')).status,403)
   assert.equal((await f.call('/data/experience_ledger')).status,404)
   assert.equal((await f.call('/tasks','admin','POST',{title:'bad',type:'publish',target:0,reward:10})).status,400)
+})
+
+test('scheduled tasks stay private until due, then assign and notify exactly once using publication baseline',async t=>{
+  const f=await fixture(t),publish_at=f.time()+60000,deadline=publish_at+86400000
+  const id=(await f.call('/tasks','admin','POST',{title:'Scheduled',type:'publish',target:1,reward:10,publish_at,deadline,audience:{kind:'users',ids:['member']}})).data.id
+  assert.equal((await f.call('/tasks')).data.items.length,0)
+  assert.equal((await f.call('/tasks/reminder')).data.count,0)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM task_recipients WHERE task_id=?').get(id).n,0)
+  f.article('published');f.advance(59)
+  assert.equal((await f.call('/tasks')).data.items.length,0)
+  f.advance(1)
+  await Promise.all(Array.from({length:8},()=>f.call('/tasks')))
+  assert.equal((await f.call('/tasks')).data.items[0].status,'active')
+  assert.equal((await f.call('/tasks','other')).data.items.length,0)
+  assert.equal((await f.call('/tasks/reminder')).data.count,1)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM notifications WHERE event_key=?').get('assigned-task:'+id).n,1)
+  assert.equal((await f.call('/tasks/'+id+'/claim','member','POST',{})).status,409)
+  f.article('published')
+  assert.equal((await f.call('/tasks/'+id+'/claim','member','POST',{})).status,200)
+  assert.equal(f.db.prepare('SELECT count(*) n FROM experience_ledger WHERE task_id=?').get(id).n,1)
+})
+
+test('scheduling validates future times and deadlines, enforces admin and CSRF, and guards stale edits',async t=>{
+  const f=await fixture(t),base={title:'Time validation',type:'proof',reward:10,deadline:f.time()+120000}
+  for(const publish_at of [f.time(),f.time()-1,'tomorrow',false,base.deadline,base.deadline+1,9e15])assert.equal((await f.call('/tasks','admin','POST',{...base,publish_at})).status,400)
+  const id=(await f.call('/tasks','admin','POST',base)).data.id,path='/tasks/'+id+'/schedule',input={publish_at:f.time()+60000,expected_publish_at:null}
+  assert.equal((await f.call(path,'member','PATCH',input)).status,403)
+  assert.equal((await f.call(path,'admin','PATCH',input,{'X-RD-CSRF':'0'})).status,403)
+  assert.equal((await f.call(path,'admin','PATCH',input)).status,200)
+  assert.equal((await f.call(path,'admin','PATCH',input)).status,409)
+  assert.equal((await f.call(path,'admin','PATCH',{publish_at:null,expected_publish_at:input.publish_at})).status,200)
+  f.advance(61)
+  assert.equal((await f.call('/tasks')).data.items.length,0)
+  assert.equal((await f.call(path,'admin','PATCH',{publish_at:f.time()+30000,expected_publish_at:null})).status,200)
+  assert.equal((await f.call('/tasks/'+id+'/status','admin','PATCH',{status:'active'})).status,200)
+  assert.equal(f.db.prepare('SELECT publish_at FROM tasks WHERE id=?').get(id).publish_at,null)
+  assert.equal((await f.call(path,'admin','PATCH',{publish_at:null,expected_publish_at:null})).status,409)
+})
+
+test('worker resolves identities at actual publication, handles restart catch-up and stops cleanly without browser requests',async t=>{
+  const f=await fixture(t),repository=new Repository(f.db),publish_at=f.time()+1000
+  f.db.prepare("INSERT INTO member_identity(user_id,discipline_id) VALUES('member','art'),('other','programming')").run()
+  const id=(await f.call('/tasks','admin','POST',{title:'Later artists',type:'proof',reward:10,publish_at,deadline:publish_at+60000,audience:{kind:'discipline',value:'art'}})).data.id
+  f.db.exec("UPDATE member_identity SET discipline_id='programming' WHERE user_id='member'; UPDATE member_identity SET discipline_id='art' WHERE user_id='other'")
+  let ticks=0
+  const stop=startTaskScheduler(()=>{ticks++;return publishDueTasks(repository,f.time())},10)
+  f.advance(2)
+  for(let i=0;i<100&&f.db.prepare('SELECT status FROM tasks WHERE id=?').get(id).status!=='active';i++)await new Promise(resolve=>setTimeout(resolve,10))
+  stop();const stoppedAt=ticks
+  await new Promise(resolve=>setTimeout(resolve,30));assert.equal(ticks,stoppedAt)
+  assert.equal(f.db.prepare('SELECT user_id FROM task_recipients WHERE task_id=?').get(id).user_id,'other')
+  assert.equal(publishDueTasks(repository,f.time()).published,0)
+  const next=(await f.call('/tasks','admin','POST',{title:'Restart catch-up',type:'read',target:1,reward:5,publish_at:f.time()+1000})).data.id
+  f.advance(2)
+  const stopRestart=startTaskScheduler(()=>publishDueTasks(repository,f.time()),1000);stopRestart()
+  assert.equal(f.db.prepare('SELECT status FROM tasks WHERE id=?').get(next).status,'active')
+})
+
+test('failed scheduled dispatch stays private, rolls back all recipients, notifies admins once and does not block other tasks',async t=>{
+  const f=await fixture(t),repository=new Repository(f.db),publish_at=f.time()+1000,deadline=publish_at+1000
+  const make=async extra=>(await f.call('/tasks','admin','POST',{title:'Scheduled failure',type:'proof',reward:5,publish_at,deadline:deadline+60000,...extra})).data.id
+  const empty=await make({audience:{kind:'office',value:'vice-president'}}),advanced=await make({reward:100,is_advanced:true,audience:{kind:'users',ids:['member']}}),expired=await make({deadline}),good=await make()
+  f.advance(3)
+  const result=publishDueTasks(repository,f.time())
+  assert.equal(result.published,1);assert.equal(result.failed,3);assert.equal(result.errors,0)
+  for(const id of [empty,advanced,expired]){const task=f.db.prepare('SELECT * FROM tasks WHERE id=?').get(id);assert.equal(task.status,'draft');assert.equal(task.publish_at,null);assert.ok(task.schedule_error);assert.equal(f.db.prepare('SELECT count(*) n FROM task_recipients WHERE task_id=?').get(id).n,0)}
+  assert.equal(f.db.prepare('SELECT status FROM tasks WHERE id=?').get(good).status,'active')
+  publishDueTasks(repository,f.time())
+  assert.equal(f.db.prepare("SELECT count(*) n FROM notifications WHERE event_key LIKE 'task-schedule-failed:%'").get().n,3)
+})
+
+test('revoking the scheduling administrator prevents automatic publication',async t=>{
+  const f=await fixture(t),id=(await f.call('/tasks','admin','POST',{title:'Revoked',type:'proof',reward:5,publish_at:f.time()+1000})).data.id
+  f.db.exec("UPDATE profiles SET role='admin' WHERE id='other'; UPDATE profiles SET role='user' WHERE id='admin'")
+  f.advance(2);assert.equal(publishDueTasks(new Repository(f.db),f.time()).failed,1)
+  assert.equal(f.db.prepare('SELECT status FROM tasks WHERE id=?').get(id).status,'draft')
 })
 test('administrator assignments auto-enroll only recipients, hide private tasks and notify once',async t=>{
   const f=await fixture(t)

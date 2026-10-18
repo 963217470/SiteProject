@@ -3,6 +3,7 @@ import {adminAudit} from './admin-audit.mjs'
 import { fail } from './repository.mjs'
 import { experience, levelFor } from './community.mjs'
 import { normalizeAudience, resolveAudience, assignTask, taskReminder } from './task-assignments.mjs'
+import { publishDueTasks, validatePublishTime } from './task-scheduler.mjs'
 
 const types = new Set(['publish', 'read', 'branch', 'gamejam', 'proof'])
 const offices = new Set(['president', 'vice-president', null])
@@ -65,6 +66,8 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
     }) }
   }
   app.use('/api/tasks', (req, _res, next) => req.user ? next() : next(Object.assign(new Error('请先登录'), { status: 401 })))
+  app.locals.publishDueTasks=()=>publishDueTasks(repository,now())
+  app.use('/api/tasks',(_req,_res,next)=>{try{app.locals.publishDueTasks();next()}catch(error){next(error)}})
   app.get('/api/tasks/reminder', (req, res) => res.json(taskReminder(db, req.user.id, now())))
   app.post('/api/tasks/audience/preview', (req, res) => {
     admin(req.user)
@@ -109,6 +112,7 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
     const audience = normalizeAudience(db, body.audience)
     if (audience && deadline === null) fail(400, '派发任务必须设置截止时间')
     if (deadline !== null && (!Number.isSafeInteger(deadline) || deadline <= now() || !Number.isFinite(new Date(deadline).getTime()))) fail(400, '截止时间无效')
+    const publishAt=validatePublishTime(body.publish_at??null,deadline,now())
     const requirements = {}
     for (const key of ['url', 'image', 'build']) { if (body.requirements?.[key] !== undefined && typeof body.requirements[key] !== 'boolean') fail(400, '证明要求无效'); requirements[key] = Boolean(body.requirements?.[key]) }
     if (body.type === 'gamejam') requirements.url = true
@@ -119,14 +123,28 @@ export function installTaskRoutes(app, db, repository, now = Date.now) {
     db.prepare("INSERT INTO tasks(id,title,description,type,target,reward,status,deadline,requirements,created_by,created_at) VALUES(?,?,?,?,?,?,'draft',?,?,?,?)").run(id, title, description, body.type, target, reward, deadline, JSON.stringify(requirements), req.user.id, now())
     db.prepare('UPDATE tasks SET is_advanced=? WHERE id=?').run(body.is_advanced ? 1 : 0, id)
     db.prepare('UPDATE tasks SET audience=? WHERE id=?').run(audience ? JSON.stringify(audience) : null, id)
+    if(publishAt!==null){db.prepare('UPDATE tasks SET publish_at=?,scheduled_by=? WHERE id=?').run(publishAt,req.user.id,id);adminAudit(db,req.user,'安排任务定时发布','task',id,String(publishAt),now())}
     adminAudit(db,req.user,'创建任务','task',id,title,now())
     })
-    res.status(201).json({ id })
+    res.status(201).json({ id,publish_at:publishAt })
+  })
+  app.patch('/api/tasks/:id/schedule',(req,res)=>{
+    admin(req.user)
+    repository.transaction(()=>{
+      const task=getTask(req.params.id,req.user),body=req.body||{}
+      if(task.status!=='draft')fail(409,'只有未发布的草稿可以安排定时发布')
+      if(!Object.hasOwn(body,'expected_publish_at')||body.expected_publish_at!==task.publish_at)fail(409,'定时设置已变化，请刷新任务后重试')
+      if(!Object.hasOwn(body,'publish_at')||Object.keys(body).some(k=>!['publish_at','expected_publish_at'].includes(k)))fail(400,'无效的定时设置')
+      const publishAt=validatePublishTime(body.publish_at,task.deadline,now())
+      db.prepare("UPDATE tasks SET publish_at=?,scheduled_by=?,schedule_error='' WHERE id=?").run(publishAt,publishAt===null?null:req.user.id,task.id)
+      adminAudit(db,req.user,publishAt===null?'取消任务定时发布':'安排任务定时发布','task',task.id,String(publishAt??''),now())
+    })
+    res.json({ok:true})
   })
   app.patch('/api/tasks/:id/status', (req, res) => {
     admin(req.user); const task = getTask(req.params.id, req.user), status = req.body?.status
     if (!['active', 'closed'].includes(status) || (status === 'active' && task.deadline !== null && task.deadline < now())) fail(400, '任务状态无效或已过期')
-    repository.transaction(()=>{if (status === 'active') assignTask(db,task,now());db.prepare('UPDATE tasks SET status=? WHERE id=?').run(status, task.id);adminAudit(db,req.user,'调整任务状态','task',task.id,status,now())}); res.json({ ok: true })
+    repository.transaction(()=>{if (status === 'active') assignTask(db,task,now());db.prepare("UPDATE tasks SET status=?,publish_at=NULL,scheduled_by=NULL,schedule_error='' WHERE id=?").run(status, task.id);adminAudit(db,req.user,'调整任务状态','task',task.id,status,now())}); res.json({ ok: true })
   })
   app.post('/api/tasks/:id/join', (req, res) => {
     repository.transaction(() => {

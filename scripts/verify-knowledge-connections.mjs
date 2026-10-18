@@ -4,7 +4,8 @@ import { DatabaseSync } from 'node:sqlite'
 const db=new DatabaseSync(process.argv[2],{readOnly:true})
 const before=process.argv[3]?new DatabaseSync(process.argv[3],{readOnly:true}):null
 try {
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version,11)
+  const schema=db.prepare('PRAGMA user_version').get().user_version
+  assert.ok(schema>=11&&schema<=12)
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok')
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[])
   const keys=new Set(['root',...db.prepare('SELECT id FROM knowledge_branches').all().map(n=>'b:'+n.id),...db.prepare('SELECT id FROM articles WHERE kb_enabled=1').all().map(n=>'a:'+n.id)])
@@ -20,5 +21,5 @@ try {
     const existing=new Set(edges.map(e=>JSON.stringify([e.source,e.target])))
     for(const row of legacy)if(row.parent!==row.child)assert.ok(existing.has(JSON.stringify([row.parent,row.child].sort())),'Legacy connection lost')
   }
-  console.log(JSON.stringify({schema:11,integrity:'ok',nodes:keys.size,connections:edges.length,backupVerified:Boolean(before)}))
+  console.log(JSON.stringify({schema,integrity:'ok',nodes:keys.size,connections:edges.length,backupVerified:Boolean(before)}))
 } finally { before?.close();db.close() }

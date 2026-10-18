@@ -1,6 +1,7 @@
 import { resolve, join } from 'node:path'
 import { openDatabase } from './database.mjs'
 import { createApp } from './app.mjs'
+import { startTaskScheduler } from './task-scheduler.mjs'
 
 const production = process.env.NODE_ENV === 'production'
 const siteUrl = new URL(process.env.SITE_URL || 'http://localhost:3100').origin
@@ -18,6 +19,7 @@ const app = createApp(db, {
   adminGithubIds: (process.env.ADMIN_GITHUB_IDS || '').split(',').map(value => value.trim()).filter(Boolean)
 })
 const server = app.listen(Number(process.env.PORT || 3100), process.env.HOST || '127.0.0.1', () => console.log('RD STUDIO API listening'))
-function shutdown() { server.close(() => { db.close(); process.exit(0) }) }
+const stopTaskScheduler=startTaskScheduler(app.locals.publishDueTasks)
+function shutdown() { stopTaskScheduler();server.close(() => { db.close(); process.exit(0) }) }
 process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)

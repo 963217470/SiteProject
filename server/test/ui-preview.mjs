@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDatabase } from '../database.mjs'
 import { createApp } from '../app.mjs'
+import { startTaskScheduler } from '../task-scheduler.mjs'
 const dataDir=mkdtempSync(join(tmpdir(),'rd-tasks-ui-')),db=openDatabase(join(dataDir,'site.sqlite')),secret=randomUUID()+randomUUID(),time=Date.now()
 const ids={member:'00000000-0000-4000-8000-000000001001',admin:'00000000-0000-4000-8000-000000001002'}
 for(const role of ['member','admin']){db.prepare('INSERT INTO users(id,github_id,github_username) VALUES(?,?,?)').run(ids[role],'ui-'+role,role);db.prepare('INSERT INTO profiles(id,username,role) VALUES(?,?,?)').run(ids[role],role==='admin'?'预览管理员':'预览社员',role)}
@@ -27,6 +28,7 @@ db.prepare("INSERT INTO files VALUES('catalog-cover','catalog','00000000-0000-40
 copyFileSync(new URL('../../docs/public/images/hero-bg.jpg',import.meta.url),join(dataDir,'uploads','catalog-cover'))
 for(const [id,kind,title] of [['demo-game','game','开发原型 · 游戏演示'],['demo-tool','tool','素材整理工具']])db.prepare("INSERT INTO catalog_items(id,author_id,kind,title,summary,content,platform,external_url,cover_id,assets,status,created_at,updated_at) VALUES(?,'00000000-0000-4000-8000-000000001001',?,?,? ,?,'Windows','https://pan.baidu.com/s/local-preview','catalog-cover','[\"catalog-cover\"]','published',?,?)").run(id,kind,title,'仅用于本地验证图文介绍、浏览和下载入口。','# '+title+'\n\n![预览](/api/files/catalog/00000000-0000-4000-8000-000000001001/screenshot.jpg)\n\n## 使用说明\n\n- 解压文件\n- 运行程序\n\n```js\nconsole.log("Hello")\n```\n\n$x^2 + y^2 = 1$',new Date(time).toISOString(),new Date(time).toISOString())
 const app=express()
+startTaskScheduler(backend.locals.publishDueTasks,1000)
 db.prepare("UPDATE articles SET tags='[\"Godot\",\"手搓\"]' WHERE id='00000000-0000-4000-8000-000000000001'").run()
 db.prepare("UPDATE articles SET tags='[\"视频转文\"]' WHERE id='00000000-0000-4000-8000-000000000002'").run()
 app.get('/api/__preview/:role',(req,res)=>{
