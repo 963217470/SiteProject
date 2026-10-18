@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+echo 'Retired deployment entry point. Use deploy-note-upload.sh with verified full backups.' >&2
+exit 1
 root=/opt/rd-studio
 old=$(readlink -f "$root/current")
 [[ -L "$root/current" && "$old" == "$root/releases/"* && -f "$old/server/app.mjs" ]]

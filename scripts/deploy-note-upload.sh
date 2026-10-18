@@ -9,6 +9,16 @@ package="/tmp/rd-$kind-backend.tar.gz"
 old=$(readlink -f "$root/current")
 [[ -L "$root/current" && "$old" == "$root/releases/"* && -f "$old/server/app.mjs" ]]
 [[ -f "$database" && -f "$package" ]]
+exec 9>/run/lock/rd-studio-maintenance.lock
+flock -w 120 9
+export RD_MAINTENANCE_LOCKED=1
+[[ -x /opt/rd-studio/ops/backup.sh ]] || { echo 'Install the verified backup tools before deployment'; exit 1; }
+/opt/rd-studio/ops/backup.sh
+before_version=$(/opt/rd-studio/node/bin/node --input-type=module - "$database" <<'JS'
+import { DatabaseSync } from 'node:sqlite'
+const db=new DatabaseSync(process.argv[2],{readOnly:true});console.log(db.prepare('PRAGMA user_version').get().user_version);db.close()
+JS
+)
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 release="$root/releases/rd-$kind-$stamp"
 backup="/var/backups/rd-studio/$kind-$stamp"
@@ -29,15 +39,20 @@ snapshot=0
 rollback(){
   if [[ "$stopped" == 1 ]]; then
     systemctl stop rd-studio
-    if [[ "$snapshot" == 1 ]]; then
-      [[ "$database" == /var/lib/rd-studio/site.sqlite ]]
-      rm -f -- "$database-wal" "$database-shm"
-      cp -p "$backup/site.sqlite" "$database"
+    # Never overwrite live data after a new release has accepted requests.
+    current_version=$(node --input-type=module - "$database" <<'JS'
+import { DatabaseSync } from 'node:sqlite'
+const db=new DatabaseSync(process.argv[2],{readOnly:true});console.log(db.prepare('PRAGMA user_version').get().user_version);db.close()
+JS
+)
+    if [[ "$current_version" != "$before_version" ]]; then
+      printf 'Schema changed: service left stopped; preserve live data and use a forward fix or reviewed compatibility rollback. Backup: %s\n' "$backup" >&2
+      return 1
     fi
     ln -s "$old" "$root/current.rollback-$stamp"
     mv -Tf "$root/current.rollback-$stamp" "$root/current"
     systemctl start rd-studio
-    printf 'Rolled back backend and database to pre-migration snapshot\n' >&2
+    printf 'Rolled back backend only; all current data retained\n' >&2
   fi
 }
 trap rollback ERR

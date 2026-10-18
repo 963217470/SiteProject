@@ -3,6 +3,7 @@ set -euo pipefail
 release="${1:?release ID required}"
 [[ "$release" =~ ^[a-zA-Z0-9-]+$ ]] || exit 1
 base=/opt/rd-studio
+[[ ! -f /var/lib/rd-studio/site.sqlite ]] || { echo 'Initial installer only: use the verified incremental deployment scripts for an existing site'; exit 1; }
 site=/www/wwwroot/rd-studio.club
 nginx_config=/www/server/panel/vhost/nginx/rd-studio.club.conf
 nginx_link=/etc/nginx/sites-enabled/rd-studio.club.conf

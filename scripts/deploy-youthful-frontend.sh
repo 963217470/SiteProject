@@ -8,6 +8,11 @@ backup="/var/backups/rd-studio/frontend-ui-$stamp"
 old=$(readlink -f "$root/current")
 [[ -L "$root/current" && "$old" == "$root/releases/"* && -f "$old/index.html" ]]
 [[ -f "$package" && ! -e "$release" ]]
+exec 9>/run/lock/rd-studio-maintenance.lock
+flock -w 120 9
+export RD_MAINTENANCE_LOCKED=1
+[[ -x /opt/rd-studio/ops/backup.sh ]] || { echo 'Install the verified backup tools before deployment'; exit 1; }
+/opt/rd-studio/ops/backup.sh
 mkdir -p "$backup" "$release"
 tar -czf "$backup/previous-frontend.tar.gz" -C "$old" .
 printf '%s\n' "$old" > "$backup/previous-path.txt"

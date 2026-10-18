@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { DatabaseSync } from 'node:sqlite'
-import { statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { verifyInventory } from './data-inventory.mjs'
 
 const root = resolve(process.argv[2] || '')
 assert(process.argv[2], 'Provide an isolated extracted snapshot directory')
@@ -31,3 +32,5 @@ try {
 } finally {
   database.close()
 }
+if (process.argv[3]) verifyInventory(join(root, 'var/lib/rd-studio'), JSON.parse(readFileSync(process.argv[3], 'utf8')))
+else assert(!existsSync(join(root, 'data-inventory.json')), 'Pass the inventory as the second argument')

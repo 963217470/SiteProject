@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily RD STUDIO backup at 04:00 Beijing time
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 Asia/Shanghai
+Persistent=true
+AccuracySec=1min
+Unit=rd-studio-backup.service
+
+[Install]
+WantedBy=timers.target

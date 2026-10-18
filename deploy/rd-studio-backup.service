@@ -1,0 +1,11 @@
+[Unit]
+Description=Verified RD STUDIO full backup
+After=rd-studio.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/rd-studio/ops/backup.sh
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=30min
