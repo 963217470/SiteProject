@@ -9,7 +9,7 @@ export function openDatabase(path) {
   db.function('rd_now', Date.now)
   db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;')
   const version = db.prepare('PRAGMA user_version').get().user_version
-  if (version > 13) { db.close(); throw new Error('Database version is newer than this server') }
+  if (version > 14) { db.close(); throw new Error('Database version is newer than this server') }
   db.exec('BEGIN IMMEDIATE')
   try {
     db.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'))
@@ -25,7 +25,8 @@ export function openDatabase(path) {
     if (version < 11) db.exec(readFileSync(new URL('./migrations/011-knowledge-connections.sql', import.meta.url), 'utf8'))
     if (version < 12) db.exec(readFileSync(new URL('./migrations/012-task-schedules.sql', import.meta.url), 'utf8'))
     if (version < 13) db.exec(readFileSync(new URL('./migrations/013-shop.sql', import.meta.url), 'utf8'))
-    db.exec('PRAGMA user_version=13; COMMIT')
+    if (version < 14) db.exec(readFileSync(new URL('./migrations/014-pause-currency.sql', import.meta.url), 'utf8'))
+    db.exec('PRAGMA user_version=14; COMMIT')
   } catch (error) { db.exec('ROLLBACK'); db.close(); throw error }
   return db
 }

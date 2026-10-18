@@ -48,7 +48,7 @@ test('shop is public but wallets and administration require the right identity',
 test('display-only mode rejects direct redemption requests without orders, deductions or inventory changes',async t=>{
   const f=await fixture(t,{}),product=await f.product();f.credit('author',20)
   const rules=(await f.call('/shop/products',null)).data.rules
-  assert.equal(rules.article_likes,10);assert.equal(rules.redemptions_enabled,false)
+  assert.equal(rules.earning_enabled,false);assert.equal(rules.article_reward,0);assert.equal(rules.streak_reward,0);assert.equal(rules.redemptions_enabled,false)
   assert.equal((await f.redeem(product)).status,409)
   assert.equal((await f.call('/shop/me')).data.balance,20)
   assert.equal((await f.call('/shop/products')).data.items[0].stock,2)
@@ -56,7 +56,7 @@ test('display-only mode rejects direct redemption requests without orders, deduc
   assert.equal(f.db.prepare("SELECT count(*) n FROM currency_ledger WHERE kind='redeem'").get().n,0)
 })
 
-test('article coins use real other-user likes, not counters or self likes; rewards survive unlike and cannot repeat',async t=>{
+test('article likes do not grant coins while earning is paused',async t=>{
   const f=await fixture(t),id=randomUUID()
   f.db.prepare("INSERT INTO articles(id,title,content,author_id,status) VALUES(?,?,?,'author','published')").run(id,'Article','Body')
   f.db.prepare('UPDATE articles SET likes_count=999 WHERE id=?').run(id)
@@ -69,10 +69,10 @@ test('article coins use real other-user likes, not counters or self likes; rewar
   await f.call('/data/article_likes','l1','POST',{article_id:id})
   assert.equal((await f.call('/shop/me')).data.balance,shopRules.article_reward)
   assert.equal((await f.call('/shop/me','other')).data.balance,0)
-  assert.equal(f.db.prepare("SELECT count(*) n FROM currency_ledger WHERE kind='article'").get().n,1)
+  assert.equal(f.db.prepare("SELECT count(*) n FROM currency_ledger WHERE kind='article'").get().n,0)
 })
 
-test('unpublished and internal notes do not earn article currency; publication unlocks one reward',async t=>{
+test('publication and visibility changes cannot grant currency while earning is paused',async t=>{
   const f=await fixture(t)
   for(const visibility of ['public','internal']){
     const id=randomUUID()
@@ -85,19 +85,19 @@ test('unpublished and internal notes do not earn article currency; publication u
   assert.equal((await f.call('/shop/me')).data.balance,shopRules.article_reward)
 })
 
-test('only day eight onward earns one coin, once per Beijing day, and a gap restarts the streak',async t=>{
+test('checkin streaks and EXP continue but no day grants coins while earning is paused',async t=>{
   const f=await fixture(t)
   for(let day=1;day<=9;day++){
     const result=await f.call('/community/checkin','author','POST',{})
-    assert.equal(result.data.currency_reward,day>7?1:0)
+    assert.equal(result.data.currency_reward,0);assert.equal(result.data.reward,day%7===0?10:5)
     assert.equal((await f.call('/community/checkin','author','POST',{})).data.currency_reward,0)
-    assert.equal((await f.call('/shop/me')).data.balance,Math.max(0,day-7))
+    assert.equal((await f.call('/shop/me')).data.balance,0)
     f.advance(1)
   }
   f.advance(1)
   assert.equal((await f.call('/community/checkin','author','POST',{})).data.streak,1)
-  assert.equal((await f.call('/shop/me')).data.balance,2)
-  assert.throws(()=>f.db.exec('DELETE FROM currency_ledger'),/immutable/)
+  assert.equal((await f.call('/shop/me')).data.balance,0)
+  f.credit('author',5);assert.throws(()=>f.db.exec('DELETE FROM currency_ledger'),/immutable/)
 })
 
 test('orders debit once, never overspend or oversell, and preserve their product snapshot',async t=>{

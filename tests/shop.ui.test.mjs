@@ -4,7 +4,7 @@ import ShopCenter from '../docs/.vitepress/theme/components/ShopCenter.vue'
 import { communityRequest } from '../docs/.vitepress/theme/lib/community-api.mjs'
 vi.mock('../docs/.vitepress/theme/lib/community-api.mjs',()=>({communityRequest:vi.fn()}))
 let wrapper,identity,products,orders,authCallback
-const rules={article_likes:10,article_reward:5,streak_reward:1,redemptions_enabled:true}
+const rules={article_likes:10,article_reward:0,streak_reward:0,earning_enabled:false,redemptions_enabled:true}
 beforeEach(()=>{
   history.replaceState({},'','/shop/')
   HTMLDialogElement.prototype.showModal=function(){this.open=true};HTMLDialogElement.prototype.close=function(){this.open=false}
@@ -27,14 +27,14 @@ it('shows test branding, real wallet, public products and independent coin rules
   await render();expect(wrapper.get('.shop-test').text()).toBe('测试')
   expect(wrapper.get('.shop-wallet').text()).toContain('10 币')
   expect(wrapper.get('.shop-product h2').text()).toBe('RD 贴纸')
-  expect(wrapper.get('.shop-rules').text()).toContain('第 8 天')
+  expect(wrapper.get('.shop-rules').text()).toContain('获取渠道暂未开放')
   expect(wrapper.get('.shop-cover img').attributes('src')).toBe('/images/rd-studio-logo.png')
   await wrapper.get('.shop-cover img').trigger('error');expect(wrapper.find('.shop-cover img').exists()).toBe(false)
 })
 it('display-only mode exposes products and ledger but has no active redemption control',async()=>{
   identity.rules={...rules,redemptions_enabled:false};await render()
   expect(wrapper.findAll('.shop-tabs button').map(button=>button.text())).toEqual(['商品','收支明细'])
-  expect(wrapper.get('.shop-rules').text()).toContain('10 个他人赞')
+  expect(wrapper.get('.shop-rules').text()).toContain('获取渠道暂未开放')
   await wrapper.get('.shop-cover').trigger('click');await flushPromises()
   const dialog=wrapper.get('dialog[aria-labelledby="shop-detail-title"]')
   expect(dialog.get('.shop-button').text()).toContain('兑换暂未开放')

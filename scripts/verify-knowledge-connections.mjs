@@ -5,7 +5,7 @@ const db=new DatabaseSync(process.argv[2],{readOnly:true})
 const before=process.argv[3]?new DatabaseSync(process.argv[3],{readOnly:true}):null
 try {
   const schema=db.prepare('PRAGMA user_version').get().user_version
-  assert.ok(schema>=11&&schema<=13)
+  assert.ok(schema>=11&&schema<=14)
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok')
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[])
   const keys=new Set(['root',...db.prepare('SELECT id FROM knowledge_branches').all().map(n=>'b:'+n.id),...db.prepare('SELECT id FROM articles WHERE kb_enabled=1').all().map(n=>'a:'+n.id)])

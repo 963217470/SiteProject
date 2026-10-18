@@ -100,7 +100,7 @@ export function installCommunityRoutes(app, db, repository, now = Date.now) {
       db.prepare('INSERT INTO checkins VALUES(?,?,?)').run(user, day, streak)
       dailyAward(db, user, 'checkin', 5, '每日签到', time)
       if (streak % 7 === 0) dailyAward(db, user, 'streak', 5, '连续签到 7 天', time)
-      return { streak, reward: streak % 7 === 0 ? 10 : 5, currency_reward: streak > 7 ? 1 : 0, already: false }
+      return { streak, reward: streak % 7 === 0 ? 10 : 5, currency_reward: 0, already: false }
     })
     res.json({...result,day:communityDay(time),server_time:time,reset_at:nextReset(time)})
   })

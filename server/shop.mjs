@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto'
 import { fail } from './repository.mjs'
 import { adminAudit } from './admin-audit.mjs'
 
-export const shopRules = Object.freeze({ name: '创作币', article_likes: 10, article_reward: 5, streak_start: 8, streak_reward: 1, test: true, redemptions_enabled: false })
+export const shopRules = Object.freeze({ name: '创作币', article_likes: 10, article_reward: 0, streak_start: 8, streak_reward: 0, earning_enabled: false, test: true, redemptions_enabled: false })
 export const currencyBalance = (db, user) => db.prepare('SELECT coalesce(sum(amount),0) amount FROM currency_ledger WHERE user_id=?').get(user).amount
 function ledger(db, user, amount, kind, key, reason, time) {
   return db.prepare('INSERT OR IGNORE INTO currency_ledger VALUES(?,?,?,?,?,?,?)').run(randomUUID(), user, amount, kind, key, reason, time).changes
 }
 export function flushCurrency(db, now = Date.now) {
+  if (!shopRules.earning_enabled) return
   for (const event of db.prepare('SELECT article_id FROM currency_article_events').all()) {
     const article = db.prepare("SELECT id,title,author_id FROM articles WHERE id=? AND status='published' AND visibility='public'").get(event.article_id)
     if (article && db.prepare('SELECT count(*) n FROM article_likes WHERE article_id=? AND user_id<>?').get(article.id, article.author_id).n >= shopRules.article_likes) {
