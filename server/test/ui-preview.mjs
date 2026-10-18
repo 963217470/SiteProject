@@ -32,6 +32,9 @@ const app=express()
 startTaskScheduler(backend.locals.publishDueTasks,1000)
 db.prepare("UPDATE articles SET tags='[\"Godot\",\"手搓\"]' WHERE id='00000000-0000-4000-8000-000000000001'").run()
 db.prepare("UPDATE articles SET tags='[\"视频转文\"]' WHERE id='00000000-0000-4000-8000-000000000002'").run()
+// Isolated sample inventory and balance; never packaged or seeded into production.
+for(const [id,title,category,price,stock] of [['sticker','RD 原创贴纸','社团周边',5,12],['notes','开发笔记模板','数字资源',8,null],['review','作品交流席位','社团权益',10,4]])db.prepare("INSERT INTO shop_products(id,title,description,category,cover_url,price,stock,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'published',?,?,?)").run(id,title,'仅用于本地预览商城与兑换流程。',category,'/images/rd-studio-logo.png',price,stock,ids.admin,time,time)
+db.prepare("INSERT INTO currency_ledger VALUES('preview-credit',?,30,'article','preview-only','本地预览余额',?)").run(ids.member,time)
 app.get('/api/__preview/:role',(req,res)=>{
  if(!['admin','member'].includes(req.params.role))return res.sendStatus(404)
  const sid=randomUUID();db.prepare('INSERT INTO sessions(sid,data,expires) VALUES(?,?,?)').run(sid,JSON.stringify({passport:{user:ids[req.params.role]},cookie:{originalMaxAge:3600000,expires:new Date(Date.now()+3600000),httpOnly:true,path:'/'}}),Date.now()+3600000)

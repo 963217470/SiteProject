@@ -22,7 +22,7 @@ function fixture(t) {
 
 test('full data inventory verifies schema, table counts and every byte, detecting same-size corruption',t=>{
   const f=fixture(t),snapshot=inventory(f.data)
-  assert.equal(snapshot.schema,12);assert.equal(snapshot.tables.files,1)
+  assert.equal(snapshot.schema,13);assert.equal(snapshot.tables.files,1)
   verifyInventory(f.data,snapshot)
   writeFileSync(join(f.data,'uploads/image'),'5678')
   assert.throws(()=>verifyInventory(f.data,snapshot),/differ/)

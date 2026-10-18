@@ -32,6 +32,7 @@ export default defineConfig({
       { text: '知识库', link: '/kb', activeMatch: '^/(?:kb|admin/kb)(?:/|$)' },
       { text: '思维导图', link: '/mindmap/', activeMatch: '^/mindmap(?:/|$)' },
       { text: '任务', link: '/tasks', activeMatch: '^/(?:tasks|admin/tasks)(?:/|$)' },
+      { text: '商城·测试', link: '/shop/', activeMatch: '^/(?:shop|admin/shop)(?:/|$)' },
       { text: '游戏/工具', link: '/games-tools/', activeMatch: '^/games-tools(?:/|$)' },
       { text: '内部', link: '/internal', activeMatch: '^/internal(?:/|$)' },
       { text: '关于', link: '/about', activeMatch: '^/about(?:/|$)' }

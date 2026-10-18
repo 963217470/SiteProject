@@ -10,11 +10,11 @@
 <script setup>
 import {onMounted,onUnmounted,ref,watch} from 'vue'
 import {useRoute} from 'vitepress'
-import {ArrowUpRight,FileText,FolderTree,Gamepad2,LayoutDashboard,ListChecks,MessageSquare,ShieldCheck,UserRound,UsersRound,ClipboardCheck} from 'lucide-vue-next'
+import {ArrowUpRight,FileText,FolderTree,Gamepad2,LayoutDashboard,ListChecks,MessageSquare,ShieldCheck,ShoppingBag,UserRound,UsersRound,ClipboardCheck} from 'lucide-vue-next'
 import {adminNavigation,adminSection} from '../lib/admin-navigation.mjs'
 const route=useRoute()
 const active=ref(adminSection(route.path))
-const icons={overview:LayoutDashboard,articles:FileText,comments:MessageSquare,catalog:Gamepad2,profiles:UserRound,knowledge:FolderTree,tasks:ListChecks,proofs:ClipboardCheck,people:UsersRound}
+const icons={overview:LayoutDashboard,articles:FileText,comments:MessageSquare,catalog:Gamepad2,profiles:UserRound,knowledge:FolderTree,tasks:ListChecks,shop:ShoppingBag,proofs:ClipboardCheck,people:UsersRound}
 function sync(){active.value=adminSection(location.href)}
 function navigate(event){const item=adminNavigation.find(n=>n.id===event.target.value);if(item)window.location.assign(item.href)}
 onMounted(()=>{sync();window.addEventListener('rd:admin-navigation',sync);window.addEventListener('popstate',sync)})

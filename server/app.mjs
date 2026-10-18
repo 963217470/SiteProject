@@ -26,6 +26,7 @@ import { installAdminDashboard } from './admin-dashboard.mjs'
 import { installActivityRoutes } from './activity.mjs'
 import { installMindmapRoutes } from './mindmaps.mjs'
 import { acceptBindingIdentity, installBindingRoutes } from './account-binding.mjs'
+import { flushCurrency, installShopRoutes } from './shop.mjs'
 
 const rasterTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'])
 const buckets = new Set(['avatars', 'resources', 'internal', 'task-evidence', 'catalog','notes'])
@@ -35,7 +36,7 @@ export function createApp(db, config) {
   const repository = new Repository(db)
   const now = config.now || Date.now
   db.function('rd_now', now)
-  repository.onCommit = () => flushCommunity(db, now)
+  repository.onCommit = () => { flushCommunity(db, now); flushCurrency(db, now) }
   const passport = new Passport()
   const uploadDir = join(config.dataDir, 'uploads')
   mkdirSync(uploadDir, { recursive: true, mode: 0o700 })
@@ -104,6 +105,7 @@ export function createApp(db, config) {
   installReadingRoutes(app, db, repository, config.now || Date.now)
   installTaskRoutes(app, db, repository, config.now || Date.now)
   installCatalogRoutes(app, db, repository, config)
+  installShopRoutes(app, db, repository, now, config.shopRedemptionsEnabled === true)
   app.get('/api/health', (_req, res) => { db.prepare('SELECT 1').get(); res.json({ ok: true, version: 1 }) })
   app.get('/api/auth/settings', (_req, res) => res.json({ github: Boolean(config.githubClientId && config.githubClientSecret) }))
   app.get('/api/auth/session', (req, res) => {

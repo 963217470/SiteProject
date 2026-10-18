@@ -16,15 +16,15 @@ it('normalizes every admin page and selects the right task subview',()=>{
   expect(adminSection('/games-tools/?scope=public')).toBe('')
   expect(adminSection('/articles/')).toBe('')
 })
-it('has the same nine destinations and exactly one current link with a mobile selector',async()=>{
+it('has the same management destinations and exactly one current link with a mobile selector',async()=>{
   history.replaceState({},'','/admin/profile-review')
   view=mount(AdminNavigation)
   await nextTick()
-  expect(view.findAll('.admin-nav-links a')).toHaveLength(9)
+  expect(view.findAll('.admin-nav-links a')).toHaveLength(adminNavigation.length)
   expect(view.findAll('[aria-current="page"]')).toHaveLength(1)
   expect(view.get('[aria-current="page"]').text()).toBe('个人信息审核')
   expect(view.get('select').element.value).toBe('profiles')
-  expect(view.findAll('option')).toHaveLength(9)
+  expect(view.findAll('option')).toHaveLength(adminNavigation.length)
   expect(view.findAll('.admin-nav-links a').every(a=>a.attributes('target')==='_self')).toBe(true)
 })
 it('updates the active destination when a task tab changes without reloading',async()=>{
