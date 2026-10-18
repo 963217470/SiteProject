@@ -36,6 +36,39 @@ it('safe markdown supports images formulas and blocks raw html and script urls',
   expect(html).toMatch(/<h1[^>]*>Title/);expect(html).toContain('<img');expect(html).toContain('katex');expect(html).toContain('language-js');expect(html).not.toContain('<script>');expect(html).not.toContain('href="javascript:')
 })
 
+it('authors add multiple paths with separate names and codes and remove rows before saving',async()=>{
+  wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',{user:{id:'author',app_metadata:{role:'user'}}});await flushPromises()
+  await wrapper.findAll('button').find(b=>b.text()==='发布作品').trigger('click')
+  await wrapper.get('input[maxlength="120"]').setValue('Multi game');await wrapper.get('.catalog-source').setValue('# Game')
+  await wrapper.get('[aria-label="路径名称 1"]').setValue('百度网盘');await wrapper.get('[aria-label="下载链接 1"]').setValue('https://pan.baidu.com/s/a');await wrapper.get('[aria-label="提取码 1"]').setValue('1234')
+  await wrapper.findAll('button').find(b=>b.text()==='添加路径').trigger('click')
+  await wrapper.get('[aria-label="路径名称 2"]').setValue('夸克网盘');await wrapper.get('[aria-label="下载链接 2"]').setValue('https://pan.quark.cn/s/b')
+  await wrapper.findAll('button').find(b=>b.text()==='添加路径').trigger('click');await wrapper.get('[aria-label="移除下载路径 3"]').trigger('click')
+  catalogRequest.mockImplementation(async(path,opts)=>opts?.method==='POST'?{id:'new',status:'pending'}:{id:'new',title:'Multi game',content:'# Game',assets:[],download_links:[],status:'pending'})
+  await wrapper.get('.catalog-editor').trigger('submit');await flushPromises()
+  expect(catalogRequest).toHaveBeenCalledWith('',expect.objectContaining({body:expect.objectContaining({download_links:[{label:'百度网盘',url:'https://pan.baidu.com/s/a',extraction_code:'1234'},{label:'夸克网盘',url:'https://pan.quark.cn/s/b',extraction_code:''}]})}))
+})
+
+it('shows every external path alongside its URL and extraction code in detail',async()=>{
+  history.replaceState(null,'','/games-tools/?id=multi')
+  catalogRequest.mockImplementation(async path=>path==='/multi'?{id:'multi',title:'Multi game',content:'# Game',assets:[],status:'published',download_links:[{id:'one',label:'百度网盘',url:'https://pan.baidu.com/s/a',extraction_code:'1234'},{id:'two',label:'夸克网盘',url:'https://pan.quark.cn/s/b',extraction_code:'5678'}]}:{items:[],has_more:false})
+  wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',null);await flushPromises()
+  expect(wrapper.findAll('.catalog-external-download')).toHaveLength(2)
+  expect(wrapper.get('.catalog-downloads').text()).toContain('1234');expect(wrapper.get('.catalog-downloads').text()).toContain('5678')
+  expect(wrapper.get('.catalog-downloads').text()).toContain('https://pan.quark.cn/s/b')
+})
+
+it('rejects partially entered paths and caps additions at ten',async()=>{
+  wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',{user:{id:'author',app_metadata:{role:'user'}}});await flushPromises()
+  await wrapper.findAll('button').find(b=>b.text()==='发布作品').trigger('click')
+  await wrapper.get('input[maxlength="120"]').setValue('Game');await wrapper.get('.catalog-source').setValue('# Game');await wrapper.get('[aria-label="路径名称 1"]').setValue('Missing URL')
+  await wrapper.get('.catalog-editor').trigger('submit');await flushPromises();expect(wrapper.get('[role=alert]').text()).toContain('请为每条下载路径填写链接')
+  expect(catalogRequest.mock.calls.some(([,options])=>options?.method==='POST')).toBe(false)
+  const add=wrapper.findAll('button').find(b=>b.text()==='添加路径')
+  for(let i=1;i<10;i++)await add.trigger('click')
+  expect(add.attributes('disabled')).toBeDefined();expect(wrapper.findAll('.catalog-link-fields')).toHaveLength(10)
+})
+
 it('admins can choose a publisher and the saved work belongs to that member',async()=>{
   catalogRequest.mockImplementation(async(path,options)=>path.startsWith('/publishers?')?{items:[{id:'member',username:'member-name',full_name:'社员甲'}],has_more:false}:options?.method==='POST'?{id:'delegated',status:'published'}:path==='/delegated'?{id:'delegated',title:'Member game',content:'# Game',assets:[],author_id:'member',username:'member-name',status:'published',kind:'game'}:{items:[],has_more:false})
   wrapper=mount(CatalogCenter);sessionCallback('INITIAL_SESSION',{user:{id:'admin',app_metadata:{role:'admin'}}});await flushPromises()

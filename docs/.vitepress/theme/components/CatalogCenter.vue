@@ -23,7 +23,15 @@
           <label>许可/使用范围<input v-model="form.license" maxlength="120" :disabled="busy"></label>
         </div>
         <label>简介<textarea v-model="form.summary" rows="2" maxlength="300" :disabled="busy"></textarea></label>
-        <div class="catalog-fields"><label>下载链接<input v-model="form.external_url" type="url" placeholder="https://pan.baidu.com/..." maxlength="2000" :disabled="busy"></label><label>提取码<input v-model="form.extraction_code" maxlength="100" :disabled="busy"></label></div>
+        <section class="catalog-link-editor" aria-label="下载路径">
+          <div class="catalog-editor-heading"><h3>下载路径</h3><button type="button" class="rd-button" :disabled="busy || form.download_links.length>=10" @click="addDownloadLink"><Plus :size="16" />添加路径</button></div>
+          <div v-for="(link,index) in form.download_links" :key="link._key" class="catalog-link-fields">
+            <label>路径名称<input v-model="link.label" :aria-label="'路径名称 '+(index+1)" maxlength="60" placeholder="百度网盘 / 夸克 / 官网" :disabled="busy"></label>
+            <label>下载链接<input v-model="link.url" :aria-label="'下载链接 '+(index+1)" type="url" placeholder="https://" maxlength="2000" :disabled="busy"></label>
+            <label>提取码<input v-model="link.extraction_code" :aria-label="'提取码 '+(index+1)" maxlength="100" :disabled="busy"></label>
+            <button type="button" class="rd-icon-button" :aria-label="'移除下载路径 '+(index+1)" title="移除下载路径" :disabled="busy" @click="form.download_links.splice(index,1)"><X :size="18" /></button>
+          </div>
+        </section>
         <div class="catalog-markdown-toolbar">
           <div class="rd-segments" aria-label="介绍视图"><button type="button" :aria-pressed="editorTab==='source'" @click="editorTab='source'">Markdown</button><button type="button" :aria-pressed="editorTab==='preview'" @click="editorTab='preview'">预览</button></div>
           <label class="rd-button catalog-file-button"><ImagePlus :size="16" />插入图片<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" :disabled="busy" @change="upload($event,true)"></label>
@@ -43,7 +51,7 @@
         <header><p class="catalog-meta">{{ detail.kind==='game' ? '游戏' : '工具' }} · {{ states[detail.status] }} · {{ detail.username }}</p><h2>{{ detail.title }}</h2><p>{{ detail.summary }}</p><div class="catalog-meta">{{ detail.version }} {{ detail.platform }} {{ detail.license }}</div></header>
         <img v-if="detail.cover_url" class="catalog-detail-cover" :src="detail.cover_url" :alt="detail.title">
         <div class="catalog-prose vp-doc rd-markdown" @copy="copyMarkdownSelection" v-html="renderCatalogMarkdown(detail.content)"></div>
-        <section class="catalog-downloads"><h3>下载</h3><p class="catalog-meta">下载访问 {{ detail.downloads }}</p><div v-if="detail.external_url" class="catalog-download-row"><button class="rd-button rd-button-primary" :disabled="busy || detail.status!=='published'" @click="download('external')"><ExternalLink :size="16" />外部下载</button><span>{{ host(detail.external_url) }}</span><span v-if="detail.extraction_code">提取码：{{ detail.extraction_code }}</span></div><div v-for="file in downloads" :key="file.id" class="catalog-download-row"><span>{{ file.name }} <small>{{ bytes(file.size) }}</small></span><button class="rd-button" :disabled="busy || detail.status!=='published'" @click="download(file.id)"><Download :size="16" />下载</button></div></section>
+        <section class="catalog-downloads"><h3>下载</h3><p class="catalog-meta">下载访问 {{ detail.downloads }}</p><div v-for="link in externalDownloads" :key="link.id" class="catalog-download-row catalog-external-download"><div class="catalog-download-info"><strong>{{ link.label }}</strong><span class="catalog-download-url">{{ link.url }}</span><span v-if="link.extraction_code">提取码：{{ link.extraction_code }}</span></div><button class="rd-button rd-button-primary" :disabled="busy || detail.status!=='published'" @click="download(link.id==='legacy'?'external':'external:'+link.id)"><ExternalLink :size="16" />{{ link.label || host(link.url) }}</button></div><div v-for="file in downloads" :key="file.id" class="catalog-download-row"><span>{{ file.name }} <small>{{ bytes(file.size) }}</small></span><button class="rd-button" :disabled="busy || detail.status!=='published'" @click="download(file.id)"><Download :size="16" />下载</button></div></section>
         <p v-if="detail.review_note" class="catalog-notice">审核意见：{{ detail.review_note }}</p>
         <div class="catalog-detail-actions"><button v-if="detail.author_id===user?.id" class="rd-button" :disabled="busy" @click="edit"><Pencil :size="16" />编辑</button><template v-if="user?.app_metadata?.role==='admin'"><label>审核意见<input v-model="reviewNote" maxlength="1000" :disabled="busy"></label><button v-if="detail.status==='pending'" class="rd-button rd-button-primary" :disabled="busy" @click="review('published')"><Check :size="16" />通过</button><button v-if="detail.status==='pending'" class="rd-button" :disabled="busy" @click="review('rejected')">拒绝</button><button v-if="detail.status==='published'" class="rd-button" :disabled="busy" @click="review('archived')">下架</button></template></div>
       </article>
@@ -71,7 +79,12 @@ import '../markdown.css'
 const kinds=[{id:'',label:'全部'},{id:'game',label:'游戏'},{id:'tool',label:'工具'}]
 const states={draft:'草稿',pending:'待审核',published:'已发布',rejected:'未通过',archived:'已下架'}
 const user=ref(null), items=ref([]), detail=ref(null), editing=ref(false), busy=ref(false), loading=ref(true), fatal=ref(''), error=ref(''), message=ref(''), kind=ref(''), scope=ref('public'), query=ref(''), offset=ref(0), hasMore=ref(false), editorTab=ref('source'), source=ref(null), reviewNote=ref('')
-const empty=()=>({kind:'game',title:'',summary:'',content:'',version:'',platform:'',license:'',external_url:'',extraction_code:'',cover_id:null,assets:[]})
+let linkSequence=0
+const newDownloadLink=(link={})=>({...link,label:link.label || '',url:link.url || '',extraction_code:link.extraction_code || '',_key:++linkSequence})
+const empty=()=>({kind:'game',title:'',summary:'',content:'',version:'',platform:'',license:'',download_links:[newDownloadLink()],cover_id:null,assets:[]})
+const linksFor=row=>Array.isArray(row?.download_links) ? row.download_links : row?.external_url ? [{id:'legacy',label:'外部下载',url:row.external_url,extraction_code:row.extraction_code || ''}] : []
+const externalDownloads=computed(()=>linksFor(detail.value))
+function addDownloadLink(){if(!busy.value && form.value.download_links.length<10)form.value.download_links.push(newDownloadLink())}
 const form=ref(empty()), preview=computed(()=>renderCatalogMarkdown(form.value.content)), downloads=computed(()=>detail.value?.assets.filter(f=>!f.mime.startsWith('image/')) || [])
 const isAdmin=computed(()=>user.value?.app_metadata?.role==='admin'),publishers=ref([]),publisherQuery=ref(''),publisherError=ref(''),publishersLoading=ref(false),publishersMore=ref(false),publisherOffset=ref(0),selectedPublisher=ref(null)
 const publisherOptions=computed(()=>{const rows=new Map([[user.value?.id,{id:user.value?.id,username:'当前账号'}]]);if(selectedPublisher.value)rows.set(selectedPublisher.value.id,selectedPublisher.value);for(const row of publishers.value)rows.set(row.id,row);return [...rows.values()]})
@@ -104,13 +117,15 @@ function setFilter(key,value){if(key==='scope'){scope.value=value;const url=new 
 function search(){offset.value=0;load()}
 function page(amount){offset.value+=amount;load()}
 function create(){form.value={...empty(),...(isAdmin.value?{author_id:user.value.id}:{})};editing.value=true;detail.value=null;error.value='';message.value='';editorTab.value='source';publishers.value=[];publisherQuery.value='';selectedPublisher.value=null;publishersMore.value=false;publisherError.value='';if(isAdmin.value)loadPublishers()}
-function edit(){form.value={...detail.value,assets:detail.value.assets.map(f=>({...f}))};editing.value=true;editorTab.value='source'}
+function edit(){form.value={...detail.value,download_links:linksFor(detail.value).map(newDownloadLink),assets:detail.value.assets.map(f=>({...f}))};editing.value=true;editorTab.value='source'}
 async function cancelEdit(){if(!window.confirm('放弃本次未保存的修改？'))return;await action(async()=>{await removeUnusedCatalogFiles(form.value.assets.filter(f=>f.newUpload).map(f=>f.path));editing.value=false;form.value=empty()})}
 function back(){detail.value=null;error.value='';if(typeof window!=='undefined')history.replaceState(null,'',location.pathname);load()}
 async function open(id){await action(async()=>{const current=revision, result=await catalogRequest('/'+encodeURIComponent(id));if(disposed || current!==revision)return;detail.value=result;reviewNote.value='';history.replaceState(null,'','#'+id)})}
 async function save(status){await action(async()=>{
   if(!form.value.title.trim() || !form.value.content.trim())throw new Error('请填写名称和 Markdown 介绍')
-  const current=revision, f=form.value, result=await catalogRequest(f.id?'/'+f.id:'',{method:f.id?'PUT':'POST',body:{...f,assets:f.assets.map(a=>a.id),status:status==='pending' && user.value?.app_metadata?.role==='admin'?'published':status}})
+  const links=form.value.download_links.filter(link=>link.url.trim() || link.label.trim() || link.extraction_code.trim()).map(({_key,...link})=>link)
+  if(links.some(link=>!link.url.trim()))throw new Error('请为每条下载路径填写链接，或移除未完成的路径')
+  const current=revision, f=form.value, result=await catalogRequest(f.id?'/'+f.id:'',{method:f.id?'PUT':'POST',body:{...f,download_links:links,assets:f.assets.map(a=>a.id),status:status==='pending' && user.value?.app_metadata?.role==='admin'?'published':status}})
   const saved=await catalogRequest('/'+result.id);if(disposed || current!==revision)return;detail.value=saved;editing.value=false;form.value=empty();history.replaceState(null,'','#'+result.id);message.value=result.status==='published'?'作品已发布':result.status==='draft'?'草稿已保存':'已提交审核'
 })}
 async function upload(event,image){const file=event.target.files?.[0];event.target.value='';if(!file)return;await action(async()=>{

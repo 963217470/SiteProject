@@ -84,6 +84,40 @@ test('download targets are constrained and repeated visits are deduplicated',asy
   assert.equal((await f.call('/catalog/'+id+'/download',null,'POST',{target:'external'})).data.downloads,3)
   assert.equal((await f.call('/catalog/'+id+'/download',null,'POST',{target:'external'},{'X-RD-CSRF':'0'})).status,403)
 })
+test('multiple download paths persist, count independently, share the legacy alias and reject removed targets',async t=>{
+  const f=await fixture(t),links=[{label:'百度网盘',url:'https://pan.baidu.com/s/multi',extraction_code:'abcd'},{label:'夸克网盘',url:'https://pan.quark.cn/s/multi',extraction_code:'efgh'}]
+  const id=await f.create('admin',{download_links:links})
+  const row=(await f.call('/catalog/'+id)).data
+  assert.equal(row.download_links.length,2);assert.equal(row.external_url,links[0].url)
+  assert.equal(row.download_links[1].extraction_code,'efgh')
+  const target='external:'+row.download_links[0].id,second='external:'+row.download_links[1].id
+  assert.equal((await f.call('/catalog/'+id+'/download',null,'POST',{target})).data.downloads,1)
+  assert.equal((await f.call('/catalog/'+id+'/download',null,'POST',{target:'external'})).data.downloads,1)
+  const result=await f.call('/catalog/'+id+'/download',null,'POST',{target:second})
+  assert.equal(result.data.url,links[1].url);assert.equal(result.data.downloads,2)
+  assert.equal((await f.call('/catalog/'+id,'admin','PUT',{...f.body,revision:1,download_links:[row.download_links[1]]})).status,200)
+  assert.equal((await f.call('/catalog/'+id+'/download',null,'POST',{target})).status,404)
+  assert.equal((await f.call('/catalog/'+id+'/download',null,'POST',{target:second})).data.downloads,2)
+})
+
+test('old single-link edits keep additional mirrors, and drafts allow explicitly empty paths',async t=>{
+  const f=await fixture(t),id=await f.create('admin',{download_links:[{url:'https://example.com/a'},{url:'https://example.com/b'}]})
+  assert.equal((await f.call('/catalog/'+id,'admin','PUT',{...f.body,revision:1,external_url:'https://example.com/changed'})).status,200)
+  const row=(await f.call('/catalog/'+id)).data
+  assert.deepEqual(row.download_links.map(link=>link.url),['https://example.com/changed','https://example.com/b'])
+  assert.equal((await f.call('/catalog/'+id,'admin','PUT',{...f.body,revision:2,status:'draft',download_links:[]})).status,200)
+  assert.deepEqual((await f.call('/catalog/'+id,'admin')).data.download_links,[])
+  assert.equal((await f.call('/catalog/'+id)).status,404)
+})
+
+test('every download path validates size, unique identity, safe HTTPS and duplicates',async t=>{
+  const f=await fixture(t)
+  for(const download_links of [null,{},[null],[{url:'http://example.com'}],[{url:'javascript:alert(1)'}],[{url:'https://u:p@example.com'}],[{url:'https://example.com',id:'foreign'}],[{url:'https://example.com',label:'x'.repeat(61)}],[{url:'https://example.com'},{url:'https://example.com/'}],Array.from({length:11},(_,i)=>({url:'https://example.com/'+i}))]){
+    assert.equal((await f.call('/catalog','admin','POST',{...f.body,download_links})).status,400)
+  }
+  assert.equal((await f.call('/catalog','user','POST',{...f.body,download_links:[{label:'网盘',url:'https://example.com/valid'}]})).data.status,'pending')
+})
+
 test('filters, pagination, and search escaping remain scoped',async t=>{
   const f=await fixture(t)
   for(let n=0;n<26;n++)await f.create('admin',{kind:'tool',title:'Tool '+n})

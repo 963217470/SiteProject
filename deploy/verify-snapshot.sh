@@ -30,6 +30,7 @@ try{
   const origin='http://127.0.0.1:'+server.address().port
   const paths=['/api/health','/api/data/articles?select=id,title&status=eq.published&visibility=eq.public&limit=3']
   if(db.prepare('PRAGMA user_version').get().user_version>=13)paths.push('/api/shop/products')
+  if(db.prepare('PRAGMA user_version').get().user_version>=15)paths.push('/api/catalog')
   for(const path of paths)assert.equal((await fetch(origin+path)).status,200)
   console.log('Isolated restored application boot and public API smoke checks passed')
 }finally{await new Promise(resolve=>server.close(resolve));db.close()}

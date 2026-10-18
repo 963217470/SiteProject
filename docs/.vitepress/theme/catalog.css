@@ -32,6 +32,15 @@
 .catalog-download-row > span, .catalog-file-row > span { overflow-wrap: anywhere; flex: 1; min-width: 100px; }
 .catalog-download-row small, .catalog-file-row small { color: var(--vp-c-text-2); white-space: nowrap; }
 .catalog-editor { display: grid; gap: 20px; }
+.catalog-link-editor { display: grid; gap: 12px; }
+.catalog-link-editor h3 { margin: 0; font-size: 18px; }
+.catalog-link-fields { display: grid; grid-template-columns: minmax(130px,1fr) minmax(180px,2fr) minmax(90px,.7fr) 40px; align-items: end; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--vp-c-divider); }
+.catalog-link-fields > label { min-width: 0; }
+.catalog-link-fields .rd-icon-button { width: 40px; height: 40px; margin-bottom: 2px; }
+.catalog-download-info { display: grid; gap: 6px; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.catalog-download-url { color: var(--vp-c-text-2); font-size: 14px; }
+.catalog-external-download .rd-button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 700px) { .catalog-link-fields { grid-template-columns: minmax(0,1fr) 40px; } .catalog-link-fields > label { grid-column: 1; } .catalog-link-fields > button { grid-column: 2; grid-row: 1; } }
 .catalog-editor-heading { justify-content: space-between; }
 .catalog-editor-heading h2 { font-size: 22px; font-weight: 600; }
 .catalog-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
